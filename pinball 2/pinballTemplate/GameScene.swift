@@ -54,6 +54,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     var ballInitialPosition: CGPoint = .zero
     var ballHasPassedFlippers = false
     
+    // Preload sounds to avoid freezing
+    let dingSound = SKAction.playSoundFileNamed("ding.wav", waitForCompletion: false)
+    let padSound = SKAction.playSoundFileNamed("pad.wav", waitForCompletion: false)
+    let errorSound = SKAction.playSoundFileNamed("error.wav", waitForCompletion: false)
+    let circle1Sound = SKAction.playSoundFileNamed("circle1.wav", waitForCompletion: false)
+    
     override var canBecomeFirstResponder: Bool { true }
     
     override func didMove(to view: SKView) {
@@ -286,7 +292,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 ball.physicsBody?.velocity = .zero
                 ball.physicsBody?.angularVelocity = 0
                 ballHasPassedFlippers = true
-                run(SKAction.playSoundFileNamed("error.wav", waitForCompletion: false))
+                run(errorSound)
                 addScore(-50)
             }
         }
@@ -302,8 +308,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
 
         if let ball = ball {
-            ball.physicsBody?.applyImpulse(CGVector(dx: 0, dy: max(280, currentLaunchPower)))
-            run(SKAction.playSoundFileNamed("ding.wav", waitForCompletion: false))
+            let dx = abs(ball.position.x - originalLauncherPosition.x)
+            let dy = ball.position.y - originalLauncherPosition.y
+            
+            // Allow launching if the ball is inside the launcher lane
+            if dx < 50 && dy > -100 && dy < 150 {
+                ball.physicsBody?.applyImpulse(CGVector(dx: 0, dy: max(280, currentLaunchPower)))
+                run(dingSound)
+            }
         }
 
         currentLaunchPower = 0
@@ -325,7 +337,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         flipper.removeAction(forKey: "flipperMove")
         let rotateAction = SKAction.rotate(toAngle: newAngle, duration: 0.07, shortestUnitArc: true)
         flipper.run(rotateAction, withKey: "flipperMove")
-        run(SKAction.playSoundFileNamed("pad.wav", waitForCompletion: false))
+        run(padSound)
     }
     
     func unflip(flipper: SKSpriteNode?, originalRotation: CGFloat) {
@@ -352,7 +364,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.flipper {
             if let ballBody = firstBody.node?.physicsBody {
                 ballBody.applyImpulse(CGVector(dx: 0, dy: 800))
-                run(SKAction.playSoundFileNamed("pad.wav", waitForCompletion: false))
+                run(padSound)
                 addScore(5)
             }
         }
@@ -364,7 +376,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                     let scaleUp = SKAction.scale(to: 1.2, duration: 0.1)
                     let scaleDown = SKAction.scale(to: 1.0, duration: 0.1)
                     starNode.run(SKAction.sequence([scaleUp, scaleDown]), withKey: "starHit")
-                    run(SKAction.playSoundFileNamed("ding.wav", waitForCompletion: false))
+                    run(dingSound)
                     addScore(100)
                 }
             }
@@ -372,7 +384,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
         // Ball hitting Obstacle
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.obstacle {
-            run(SKAction.playSoundFileNamed("circle1.wav", waitForCompletion: false))
+            run(circle1Sound)
             addScore(10)
         }
     }
