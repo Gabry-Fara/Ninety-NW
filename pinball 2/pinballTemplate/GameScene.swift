@@ -10,6 +10,9 @@ import SpriteKit
 import UIKit
 #endif
 
+// Score
+
+
 // Define Physics Categories
 struct PhysicsCategory {
     static let none: UInt32 = 0
@@ -29,6 +32,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     var leftFlipper: SKSpriteNode?
     var rightFlipper: SKSpriteNode?
     var launcher: SKSpriteNode?
+    
+    var score: Int = 0
+    var scoreLabel: SKLabelNode?
     
     var leftFlipperOriginalRotation: CGFloat = 0
     var rightFlipperOriginalRotation: CGFloat = 0
@@ -156,6 +162,25 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         print("Launcher found: \(launcher != nil)")
         print("Left Flipper found: \(leftFlipper != nil)")
         print("Right Flipper found: \(rightFlipper != nil)")
+        
+        // Setup Score Label
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = "Score: 0"
+        label.fontSize = 28
+        label.fontColor = .white
+        label.position = CGPoint(x: frame.midX, y: frame.maxY - 60)
+        label.zPosition = 20
+        addChild(label)
+        scoreLabel = label
+    }
+    
+    func addScore(_ points: Int) {
+        score += points
+        scoreLabel?.text = "Score: \(score)"
+        // Pulse animation
+        let scaleUp = SKAction.scale(to: 1.3, duration: 0.08)
+        let scaleDown = SKAction.scale(to: 1.0, duration: 0.08)
+        scoreLabel?.run(SKAction.sequence([scaleUp, scaleDown]))
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -262,6 +287,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 ball.physicsBody?.angularVelocity = 0
                 ballHasPassedFlippers = true
                 run(SKAction.playSoundFileNamed("error.wav", waitForCompletion: false))
+                addScore(-50)
             }
         }
     }
@@ -322,14 +348,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             secondBody = contact.bodyA
         }
         
-        // Ball hitting Flipper: enforce a strong minimum upward velocity when active
+        // Ball hitting Flipper
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.flipper {
             if let ballBody = firstBody.node?.physicsBody {
-                ballBody.applyImpulse(CGVector(dx: 0, dy: 800)) // Strong upward impulse
+                ballBody.applyImpulse(CGVector(dx: 0, dy: 800))
                 run(SKAction.playSoundFileNamed("pad.wav", waitForCompletion: false))
+                addScore(5)
             }
         }
-        
+
         // Ball hitting Star
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.star {
             if let starNode = secondBody.node {
@@ -338,13 +365,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                     let scaleDown = SKAction.scale(to: 1.0, duration: 0.1)
                     starNode.run(SKAction.sequence([scaleUp, scaleDown]), withKey: "starHit")
                     run(SKAction.playSoundFileNamed("ding.wav", waitForCompletion: false))
+                    addScore(100)
                 }
             }
         }
-        
+
         // Ball hitting Obstacle
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.obstacle {
             run(SKAction.playSoundFileNamed("circle1.wav", waitForCompletion: false))
+            addScore(10)
         }
     }
     
