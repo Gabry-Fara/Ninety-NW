@@ -74,7 +74,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 ball?.physicsBody = SKPhysicsBody(circleOfRadius: max(ballNode.size.width, ballNode.size.height) * 0.45)
             }
             ball?.physicsBody?.categoryBitMask = PhysicsCategory.ball
-            ball?.physicsBody?.contactTestBitMask = PhysicsCategory.star | PhysicsCategory.obstacle
+            ball?.physicsBody?.contactTestBitMask = PhysicsCategory.star | PhysicsCategory.obstacle | PhysicsCategory.flipper
             ball?.physicsBody?.collisionBitMask = PhysicsCategory.all
             ball?.physicsBody?.usesPreciseCollisionDetection = true
             ball?.physicsBody?.friction = 0.2
@@ -82,6 +82,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             ball?.physicsBody?.linearDamping = 0.1
             ball?.physicsBody?.angularDamping = 0.1
             ball?.zPosition = 10 // Ensure ball is on top
+            ballInitialPosition = ballNode.position
         }
         
         // Setup Launcher
@@ -321,7 +322,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             secondBody = contact.bodyA
         }
         
-        // Ball hitting Flipper: launch up
+        // Ball hitting Flipper: enforce a strong minimum upward velocity when active
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.flipper {
             if let ballBody = firstBody.node?.physicsBody {
                 ballBody.applyImpulse(CGVector(dx: 0, dy: 800)) // Strong upward impulse
@@ -383,3 +384,4 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         isTouchingLauncher = false
     }
 }
+
