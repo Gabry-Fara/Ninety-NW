@@ -392,7 +392,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
         // Ball hitting Obstacle
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.obstacle {
-            run(SKAction.playSoundFileNamed("circle1.wav", waitForCompletion: false))
+            run(circle1Sound)
             addScore(10)
         }
     }
