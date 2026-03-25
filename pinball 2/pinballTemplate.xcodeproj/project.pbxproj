@@ -71,13 +71,13 @@
 				FE703A012975666200F4BD0E /* ContentView.swift */,
 				FE703A0D2975667C00F4BD0E /* GameScene.swift */,
 				FE703A0F2975669100F4BD0E /* GameScene.sks */,
+				FE703A032975666300F4BD0E /* Assets.xcassets */,
 				FE703A13297567EC00F4BD0E /* circle0.wav */,
 				FE703A18297567EC00F4BD0E /* circle1.wav */,
 				FE703A14297567EC00F4BD0E /* circle2.wav */,
 				FE703A15297567EC00F4BD0E /* ding.wav */,
 				FE703A16297567EC00F4BD0E /* error.wav */,
 				FE703A17297567EC00F4BD0E /* pad.wav */,
-				FE703A032975666300F4BD0E /* Assets.xcassets */,
 				FE703A052975666300F4BD0E /* Preview Content */,
 			);
 			path = pinballTemplate;

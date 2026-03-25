@@ -33,6 +33,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     var rightFlipper: SKSpriteNode?
     var launcher: SKSpriteNode?
     
+    var hiddenStars: [SKNode] = []
+    
     var score: Int = 0
     var scoreLabel: SKLabelNode?
     
@@ -108,7 +110,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         enumerateChildNodes(withName: "//*") { node, _ in
             guard let pad = node as? SKSpriteNode else { return }
             let raw = pad.name?.lowercased() ?? ""
-            let looksLikeFlipper = raw.contains("pad") || raw.contains("flipper") || raw.contains("bar")
+            let looksLikeFlipper = raw.contains("pad") || raw.contains("flipper") || raw == "leftbar" || raw == "rightbar"
             guard looksLikeFlipper else { return }
 
             if pad.physicsBody == nil {
@@ -146,7 +148,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 if node.action(forKey: "ambientRotate") == nil {
                     node.run(rotateAction, withKey: "ambientRotate")
                 }
-            } else if raw.contains("bar") || raw.contains("oval") || raw.contains("wall") || raw.contains("obstacle") || raw.contains("border") {
+            } else if !raw.isEmpty && !raw.contains("star") && raw != "leftbar" && raw != "rightbar" && (raw.contains("bar") || raw.contains("oval") || raw.contains("wall") || raw.contains("obstacle") || raw.contains("border") || raw.contains("circle") || raw.contains("upper") || raw.contains("limit"))  {
                 if node.physicsBody == nil, let s = node as? SKSpriteNode {
                     node.physicsBody = SKPhysicsBody(rectangleOf: s.size)
                 }
@@ -221,6 +223,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
     }
+    
+   
+    
 
     override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         for press in presses {
@@ -288,6 +293,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 ballHasPassedFlippers = true
                 run(SKAction.playSoundFileNamed("error.wav", waitForCompletion: false))
                 addScore(-50)
+                resetStars()
             }
         }
     }
@@ -351,21 +357,35 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Ball hitting Flipper
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.flipper {
             if let ballBody = firstBody.node?.physicsBody {
-                ballBody.applyImpulse(CGVector(dx: 0, dy: 800))
-                run(SKAction.playSoundFileNamed("pad.wav", waitForCompletion: false))
-                addScore(5)
+                let isLeft = secondBody.node === leftFlipper
+                let isRight = secondBody.node === rightFlipper
+                if (isLeft && isLeftFlipperActive) || (isRight && isRightFlipperActive) {
+                    ballBody.applyImpulse(CGVector(dx: 0, dy: 800))
+                    run(SKAction.playSoundFileNamed("pad.wav", waitForCompletion: false))
+                    addScore(5)
+                }
             }
         }
 
         // Ball hitting Star
+        // Ball hitting Star
         if firstBody.categoryBitMask == PhysicsCategory.ball && secondBody.categoryBitMask == PhysicsCategory.star {
             if let starNode = secondBody.node {
                 if starNode.action(forKey: "starHit") == nil {
-                    let scaleUp = SKAction.scale(to: 1.2, duration: 0.1)
-                    let scaleDown = SKAction.scale(to: 1.0, duration: 0.1)
-                    starNode.run(SKAction.sequence([scaleUp, scaleDown]), withKey: "starHit")
                     run(SKAction.playSoundFileNamed("ding.wav", waitForCompletion: false))
                     addScore(100)
+                    // Animazione di scomparsa
+                    let scaleUp = SKAction.scale(to: 1.3, duration: 0.08)
+                    let fadeOut = SKAction.fadeOut(withDuration: 0.15)
+                    let scaleDown = SKAction.scale(to: 0.0, duration: 0.15)
+                    let group = SKAction.group([fadeOut, scaleDown])
+                    let hide = SKAction.run {
+                        starNode.isHidden = true
+                        starNode.physicsBody?.categoryBitMask = PhysicsCategory.none
+                        starNode.physicsBody?.contactTestBitMask = PhysicsCategory.none
+                        self.hiddenStars.append(starNode)
+                    }
+                    starNode.run(SKAction.sequence([scaleUp, group, hide]), withKey: "starHit")
                 }
             }
         }
@@ -395,6 +415,22 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         } else {
             unflip(flipper: rightFlipper, originalRotation: rightFlipperOriginalRotation)
         }
+    }
+    
+    func resetStars() {
+        for star in hiddenStars {
+            star.isHidden = false
+            star.alpha = 1.0
+            star.setScale(1.0)
+            star.physicsBody?.categoryBitMask = PhysicsCategory.star
+            star.physicsBody?.contactTestBitMask = PhysicsCategory.ball
+            // Piccola animazione di ricomparsa
+            star.setScale(0.0)
+            let scaleIn = SKAction.scale(to: 1.0, duration: 0.25)
+            scaleIn.timingMode = .easeOut
+            star.run(scaleIn)
+        }
+        hiddenStars.removeAll()
     }
 
     private func startCharging() {
