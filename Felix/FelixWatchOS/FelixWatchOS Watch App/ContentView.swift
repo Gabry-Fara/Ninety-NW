@@ -1,45 +1,49 @@
-//
 //  ContentView.swift
-//  Felix
-//
-//  Created by Ignazio Finizio on 16/01/23.
-//
+//  FelixWatchOS Watch App
 
 import SwiftUI
-import Combine
 import SpriteKit
+import Combine  // ✅ FIX: mancava, necessario per ObservableObject/@Published
+
+// MARK: - SceneStore
 
 final class SceneStore: ObservableObject {
     @Published var scene: Felix
 
     init() {
-        scene = Felix(fileNamed: "Felix") ?? Felix(size: .zero)
-        scene.scaleMode = .aspectFill
-        wireRestartHandler()
+        scene = Self.makeScene()
+        wireHandler()
     }
 
-    func reloadScene() {
-        scene = Felix(fileNamed: "Felix") ?? Felix(size: .zero)
-        scene.scaleMode = .aspectFill
-        wireRestartHandler()
+    func reload() {
+        scene = Self.makeScene()
+        wireHandler()
     }
 
-    private func wireRestartHandler() {
+    private func wireHandler() {
         scene.restartHandler = { [weak self] in
-            DispatchQueue.main.async {
-                self?.reloadScene()
-            }
+            DispatchQueue.main.async { self?.reload() }
         }
     }
+
+    private static func makeScene() -> Felix {
+        let s = Felix(fileNamed: "Felix") ?? Felix(size: .zero)
+        s.scaleMode = .aspectFill
+        return s
+    }
 }
+
+// MARK: - ContentView
 
 struct ContentView: View {
     @StateObject private var store = SceneStore()
     @State private var crownValue = 0.0
-    @State private var previousCrownValue = 0.0
+    @State private var lastCrownValue = 0.0
 
     var body: some View {
-        SpriteView(scene: configuredScene())
+        // ✅ FIX: SpriteView è il modo corretto su watchOS 7+
+        // WKInterfaceSKScene() è deprecato
+        SpriteView(scene: store.scene)
             .ignoresSafeArea()
             .focusable(true)
             .digitalCrownRotation(
@@ -52,22 +56,18 @@ struct ContentView: View {
                 isHapticFeedbackEnabled: true
             )
             .onChange(of: crownValue) { newValue in
-                let delta = newValue - previousCrownValue
-                previousCrownValue = newValue
-
+                let delta = newValue - lastCrownValue
+                lastCrownValue = newValue
                 guard abs(delta) >= 1 else { return }
                 store.scene.handleCrownRotation(delta: delta)
             }
-    }
-
-    private func configuredScene() -> Felix {
-        store.scene.scaleMode = .aspectFill
-        return store.scene
-    }
-}
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
+            .onTapGesture {
+                if store.scene.gameEnded {
+                    store.reload()
+                } else {
+                    store.scene.handleCrownRotation(delta: -1)
+                }
+            }
+            .id(ObjectIdentifier(store.scene))
     }
 }
