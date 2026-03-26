@@ -72,35 +72,42 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
     let scManager = scoreManager()
     
     
-    override func didMove(to view: SKView) {
+    override func sceneDidLoad() {
+        super.sceneDidLoad()
+        
+        // Configurazione fisica del mondo
         physicsWorld.contactDelegate = self
         
-        //BORDER
-        self.physicsBody = SKPhysicsBody (edgeLoopFrom: self.frame)
+        // BORDER: Crea un perimetro fisico basato sulla dimensione della scena
+        self.physicsBody = SKPhysicsBody(edgeLoopFrom: self.frame)
         
-        
-        //NODES
+        // --- NODES INITIALIZATION ---
+        // NOTA: Se uno di questi nomi non coincide esattamente con il file .sks, l'app crasherà (Fatal Error)
         ball = childNode(withName: "ball") as! SKSpriteNode
         leftPad = childNode(withName: "leftPad") as! SKSpriteNode
         rightPad = childNode(withName: "rightPad") as! SKSpriteNode
         launcher = childNode(withName: "launcher") as! SKSpriteNode
         score = childNode(withName: "score") as! SKLabelNode
+        
         circle0 = childNode(withName: "circle0") as! SKSpriteNode
         circleA = childNode(withName: "circleA") as! SKSpriteNode
+        
         circle1a = childNode(withName: "circle1a") as! SKSpriteNode
         circle1b = childNode(withName: "circle1b") as! SKSpriteNode
         circle1c = childNode(withName: "circle1c") as! SKSpriteNode
+        
         circle2a = childNode(withName: "circle2a") as! SKSpriteNode
         circle2b = childNode(withName: "circle2b") as! SKSpriteNode
         circle2c = childNode(withName: "circle2c") as! SKSpriteNode
         circle2d = childNode(withName: "circle2d") as! SKSpriteNode
+        
         star0 = childNode(withName: "star0") as! SKSpriteNode
         startMarker = childNode(withName: "startMarker") as! SKSpriteNode
         
-        
-        //PROPERTIES
+        // --- PROPERTIES ---
         circleA.physicsBody?.categoryBitMask = circleA_1Category
         
+        // Restituzione (Elasticità): determina quanto rimbalza la pallina
         leftPad.physicsBody?.restitution = 0.5
         rightPad.physicsBody?.restitution = 0.5
         circle0.physicsBody?.restitution = 2.5
@@ -112,35 +119,33 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
         circle2c.physicsBody?.restitution = 1.5
         circle2d.physicsBody?.restitution = 1.5
         
+        // --- ACTIONS SETUP ---
         
-        //ACTIONS
-        let blink0Action = SKAction.animate(with: ["StarBlueYellow","StarBlueOrange","StarBlueRed","StarBlueYellow"], timePerFrame: 0.1)
-        circle0Blink = SKAction.group([SKAction.repeat(blink0Action,count: 1), SKAction.playSoundFileNamed("circle0", waitForCompletion: true)])
+        // Animazioni e suoni per i bumper (Circles)
+        let blink0Action = SKAction.animate(with: ["StarBlueYellow", "StarBlueOrange", "StarBlueRed", "StarBlueYellow"], timePerFrame: 0.1)
+        circle0Blink = SKAction.group([blink0Action, SKAction.playSoundFileNamed("circle0", waitForCompletion: false)])
         
-        let blink1Action = SKAction.animate(with: ["StarBlueOrange","StarBlueRed","StarBlueYellow","StarBluePurple","StarBlueOrange"], timePerFrame: 0.1)
-        circle1Blink = SKAction.group([SKAction.repeat(blink1Action,count: 1), SKAction.playSoundFileNamed("circle1", waitForCompletion: true)])
+        let blink1Action = SKAction.animate(with: ["StarBlueOrange", "StarBlueRed", "StarBlueYellow", "StarBluePurple", "StarBlueOrange"], timePerFrame: 0.1)
+        circle1Blink = SKAction.group([blink1Action, SKAction.playSoundFileNamed("circle1", waitForCompletion: false)])
         
+        let blink2Action = SKAction.animate(with: ["StarBlueCyan", "StarBlueOrange", "StarBlueWhite", "StarBluePurple", "StarBlueCyan"], timePerFrame: 0.1)
+        circle2Blink = SKAction.group([blink2Action, SKAction.playSoundFileNamed("circle2", waitForCompletion: false)])
         
-        let blink2Action = SKAction.animate(with: ["StarBlueCyan","StarBlueOrange","StarBlueWhite","StarBluePurple","StarBlueCyan"], timePerFrame: 0.1)
-        circle2Blink = SKAction.group([SKAction.repeat(blink2Action,count: 1), SKAction.playSoundFileNamed("circle2", waitForCompletion: true)])
+        // Calcolo rotazione flipper in radianti
+        // Formula: $\theta_{rad} = \theta_{deg} \cdot \frac{\pi}{180}$
+        let leftDownAction = SKAction.rotate(toAngle: CGFloat(-35 * Double.pi / 180), duration: 0.1)
+        leftDownLoop = leftDownAction
         
-        let leftDownAction = SKAction.rotate(toAngle: -35 * Double.pi/180, duration: 0.1)
-        leftDownLoop = SKAction.repeat(leftDownAction, count: 1)
-        let rightDownAction = SKAction.rotate(toAngle: 215 * Double.pi/180, duration: 0.1)
-        rightDownLoop = SKAction.repeat(rightDownAction,count: 1)
+        let rightDownAction = SKAction.rotate(toAngle: CGFloat(215 * Double.pi / 180), duration: 0.1)
+        rightDownLoop = rightDownAction
         
-        let launchAction = SKAction.animate(with: ["launcher","launcher1","launcher"], timePerFrame: 0.2)
-        launchBallAction = SKAction.group([SKAction.repeat(launchAction,count: 1), SKAction.playSoundFileNamed("circle0", waitForCompletion: true)])
+        // Launcher e suoni generali
+        let launchAnim = SKAction.animate(with: ["launcher", "launcher1", "launcher"], timePerFrame: 0.2)
+        launchBallAction = SKAction.group([launchAnim, SKAction.playSoundFileNamed("circle0", waitForCompletion: false)])
         
-        let loseAction = SKAction.playSoundFileNamed("error", waitForCompletion: true)
-        loseSound = SKAction.repeat(loseAction,count: 1)
-        
-        let padAction = SKAction.playSoundFileNamed("pad", waitForCompletion: true)
-        padSound = SKAction.repeat(padAction,count: 1)
-        
-        let dingAction = SKAction.playSoundFileNamed("ding", waitForCompletion: true)
-        dingSound = SKAction.repeat(dingAction,count: 1)
-        
+        loseSound = SKAction.playSoundFileNamed("error", waitForCompletion: false)
+        padSound = SKAction.playSoundFileNamed("pad", waitForCompletion: false)
+        dingSound = SKAction.playSoundFileNamed("ding", waitForCompletion: false)
     }
     
     
