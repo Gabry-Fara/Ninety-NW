@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'FelixWatchOS' in project 'FelixWatchOS'
+➜ Explicit dependency on target 'FelixWatchOS Watch App' in project 'FelixWatchOS'
+Target 'FelixWatchOS Watch App' in project 'FelixWatchOS' (no dependencies)

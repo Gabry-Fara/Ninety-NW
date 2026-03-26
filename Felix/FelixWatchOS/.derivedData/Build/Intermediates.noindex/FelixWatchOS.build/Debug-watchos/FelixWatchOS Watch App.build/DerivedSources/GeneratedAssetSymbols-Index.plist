@@ -1,0 +1,753 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>colors</key>
+	<array/>
+	<key>images</key>
+	<array>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset1</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 1.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset10</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 10.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset10</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset11</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 11.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset11</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset12</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 12.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset12</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset13</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 13.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset13</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset14</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 14.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset14</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset15</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 15.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset15</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset2</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 2.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset3</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 3.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset3</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset4</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 4.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset4</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset5</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 5.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset5</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset6</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 6.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset6</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset7</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 7.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset7</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset8</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 8.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset8</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAsset9</string>
+			<key>relativePath</key>
+			<string>./enviroment/Asset 9.imageset</string>
+			<key>swiftSymbol</key>
+			<string>asset9</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAutumnBush</string>
+			<key>relativePath</key>
+			<string>./enviroment/Autumn Bush.imageset</string>
+			<key>swiftSymbol</key>
+			<string>autumnBush</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAutumnTree</string>
+			<key>relativePath</key>
+			<string>./enviroment/Autumn Tree.imageset</string>
+			<key>swiftSymbol</key>
+			<string>autumnTree</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameBush</string>
+			<key>relativePath</key>
+			<string>./enviroment/Bush.imageset</string>
+			<key>swiftSymbol</key>
+			<string>bush</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameCoin</string>
+			<key>relativePath</key>
+			<string>./coin/Coin.imageset</string>
+			<key>swiftSymbol</key>
+			<string>coin</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFall1</string>
+			<key>relativePath</key>
+			<string>./felix/Fall (1).imageset</string>
+			<key>swiftSymbol</key>
+			<string>fall1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFall2</string>
+			<key>relativePath</key>
+			<string>./felix/Fall (2).imageset</string>
+			<key>swiftSymbol</key>
+			<string>fall2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFall3</string>
+			<key>relativePath</key>
+			<string>./felix/Fall (3).imageset</string>
+			<key>swiftSymbol</key>
+			<string>fall3</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFall4</string>
+			<key>relativePath</key>
+			<string>./felix/Fall (4).imageset</string>
+			<key>swiftSymbol</key>
+			<string>fall4</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFall5</string>
+			<key>relativePath</key>
+			<string>./felix/Fall (5).imageset</string>
+			<key>swiftSymbol</key>
+			<string>fall5</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFall6</string>
+			<key>relativePath</key>
+			<string>./felix/Fall (6).imageset</string>
+			<key>swiftSymbol</key>
+			<string>fall6</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFall7</string>
+			<key>relativePath</key>
+			<string>./felix/Fall (7).imageset</string>
+			<key>swiftSymbol</key>
+			<string>fall7</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFall8</string>
+			<key>relativePath</key>
+			<string>./felix/Fall (8).imageset</string>
+			<key>swiftSymbol</key>
+			<string>fall8</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFlower1</string>
+			<key>relativePath</key>
+			<string>./enviroment/Flower-1.imageset</string>
+			<key>swiftSymbol</key>
+			<string>flower1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFlower2</string>
+			<key>relativePath</key>
+			<string>./enviroment/Flower-2.imageset</string>
+			<key>swiftSymbol</key>
+			<string>flower2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameFlower3</string>
+			<key>relativePath</key>
+			<string>./enviroment/Flower-3.imageset</string>
+			<key>swiftSymbol</key>
+			<string>flower3</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameGrass</string>
+			<key>relativePath</key>
+			<string>./platform/Grass.imageset</string>
+			<key>swiftSymbol</key>
+			<string>grass</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameGrassCliffLeft</string>
+			<key>relativePath</key>
+			<string>./platform/GrassCliffLeft.imageset</string>
+			<key>swiftSymbol</key>
+			<string>grassCliffLeft</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameGrassCliffMid</string>
+			<key>relativePath</key>
+			<string>./platform/GrassCliffMid.imageset</string>
+			<key>swiftSymbol</key>
+			<string>grassCliffMid</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameGrassCliffRight</string>
+			<key>relativePath</key>
+			<string>./platform/GrassCliffRight.imageset</string>
+			<key>swiftSymbol</key>
+			<string>grassCliffRight</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameHurt1</string>
+			<key>relativePath</key>
+			<string>./felix/Hurt (1).imageset</string>
+			<key>swiftSymbol</key>
+			<string>hurt1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameHurt2</string>
+			<key>relativePath</key>
+			<string>./felix/Hurt (2).imageset</string>
+			<key>swiftSymbol</key>
+			<string>hurt2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameHurt3</string>
+			<key>relativePath</key>
+			<string>./felix/Hurt (3).imageset</string>
+			<key>swiftSymbol</key>
+			<string>hurt3</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameJump1</string>
+			<key>relativePath</key>
+			<string>./felix/Jump (1).imageset</string>
+			<key>swiftSymbol</key>
+			<string>jump1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameJump2</string>
+			<key>relativePath</key>
+			<string>./felix/Jump (2).imageset</string>
+			<key>swiftSymbol</key>
+			<string>jump2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameJump3</string>
+			<key>relativePath</key>
+			<string>./felix/Jump (3).imageset</string>
+			<key>swiftSymbol</key>
+			<string>jump3</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameJump4</string>
+			<key>relativePath</key>
+			<string>./felix/Jump (4).imageset</string>
+			<key>swiftSymbol</key>
+			<string>jump4</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameJump5</string>
+			<key>relativePath</key>
+			<string>./felix/Jump (5).imageset</string>
+			<key>swiftSymbol</key>
+			<string>jump5</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameJump6</string>
+			<key>relativePath</key>
+			<string>./felix/Jump (6).imageset</string>
+			<key>swiftSymbol</key>
+			<string>jump6</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameJump7</string>
+			<key>relativePath</key>
+			<string>./felix/Jump (7).imageset</string>
+			<key>swiftSymbol</key>
+			<string>jump7</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameJump8</string>
+			<key>relativePath</key>
+			<string>./felix/Jump (8).imageset</string>
+			<key>swiftSymbol</key>
+			<string>jump8</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNamePlatform1</string>
+			<key>relativePath</key>
+			<string>./platform/Platform1.imageset</string>
+			<key>swiftSymbol</key>
+			<string>platform1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNamePlatform2</string>
+			<key>relativePath</key>
+			<string>./platform/Platform2.imageset</string>
+			<key>swiftSymbol</key>
+			<string>platform2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameRun1</string>
+			<key>relativePath</key>
+			<string>./felix/Run (1).imageset</string>
+			<key>swiftSymbol</key>
+			<string>run1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameRun2</string>
+			<key>relativePath</key>
+			<string>./felix/Run (2).imageset</string>
+			<key>swiftSymbol</key>
+			<string>run2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameRun3</string>
+			<key>relativePath</key>
+			<string>./felix/Run (3).imageset</string>
+			<key>swiftSymbol</key>
+			<string>run3</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameRun4</string>
+			<key>relativePath</key>
+			<string>./felix/Run (4).imageset</string>
+			<key>swiftSymbol</key>
+			<string>run4</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameRun5</string>
+			<key>relativePath</key>
+			<string>./felix/Run (5).imageset</string>
+			<key>swiftSymbol</key>
+			<string>run5</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameRun6</string>
+			<key>relativePath</key>
+			<string>./felix/Run (6).imageset</string>
+			<key>swiftSymbol</key>
+			<string>run6</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameRun7</string>
+			<key>relativePath</key>
+			<string>./felix/Run (7).imageset</string>
+			<key>swiftSymbol</key>
+			<string>run7</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameRun8</string>
+			<key>relativePath</key>
+			<string>./felix/Run (8).imageset</string>
+			<key>swiftSymbol</key>
+			<string>run8</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameTree</string>
+			<key>relativePath</key>
+			<string>./enviroment/Tree.imageset</string>
+			<key>swiftSymbol</key>
+			<string>tree</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameWinterTree</string>
+			<key>relativePath</key>
+			<string>./enviroment/Winter Tree.imageset</string>
+			<key>swiftSymbol</key>
+			<string>winterTree</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameBackground</string>
+			<key>relativePath</key>
+			<string>./enviroment/background.imageset</string>
+			<key>swiftSymbol</key>
+			<string>background</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage1</string>
+			<key>relativePath</key>
+			<string>./coin/image 1.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage10</string>
+			<key>relativePath</key>
+			<string>./coin/image 10.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image10</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage11</string>
+			<key>relativePath</key>
+			<string>./coin/image 11.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image11</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage12</string>
+			<key>relativePath</key>
+			<string>./coin/image 12.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image12</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage13</string>
+			<key>relativePath</key>
+			<string>./coin/image 13.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image13</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage14</string>
+			<key>relativePath</key>
+			<string>./coin/image 14.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image14</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage15</string>
+			<key>relativePath</key>
+			<string>./coin/image 15.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image15</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage16</string>
+			<key>relativePath</key>
+			<string>./coin/image 16.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image16</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage2</string>
+			<key>relativePath</key>
+			<string>./coin/image 2.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage3</string>
+			<key>relativePath</key>
+			<string>./coin/image 3.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image3</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage4</string>
+			<key>relativePath</key>
+			<string>./coin/image 4.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image4</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage5</string>
+			<key>relativePath</key>
+			<string>./coin/image 5.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image5</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage6</string>
+			<key>relativePath</key>
+			<string>./coin/image 6.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image6</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage7</string>
+			<key>relativePath</key>
+			<string>./coin/image 7.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image7</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage8</string>
+			<key>relativePath</key>
+			<string>./coin/image 8.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image8</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameImage9</string>
+			<key>relativePath</key>
+			<string>./coin/image 9.imageset</string>
+			<key>swiftSymbol</key>
+			<string>image9</string>
+		</dict>
+	</array>
+	<key>symbols</key>
+	<array/>
+</dict>
+</plist>

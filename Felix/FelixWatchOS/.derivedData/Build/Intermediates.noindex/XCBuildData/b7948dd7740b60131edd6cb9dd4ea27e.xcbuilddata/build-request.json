@@ -1,0 +1,73 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildOnly"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "112fb692a1ea7c6975c39f71090b6f155fc0a9b5642d83d8863921d1e9c16293"
+    },
+    {
+      "guid" : "112fb692a1ea7c6975c39f71090b6f15de1a4801fb607cc09032944d64141c44"
+    }
+  ],
+  "containerPath" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "undefined_arch",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : true,
+      "platform" : "watchos",
+      "sdk" : "watchos26.2",
+      "sdkVariant" : "watchos",
+      "supportedArchitectures" : [
+        "armv4t",
+        "armv5",
+        "armv6",
+        "armv7",
+        "armv7f",
+        "armv7s",
+        "armv7k",
+        "arm64",
+        "arm64e"
+      ],
+      "targetArchitecture" : "undefined_arch"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex",
+      "buildProductsPath" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Products",
+      "derivedDataPath" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData",
+      "indexDataStoreFolderPath" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+          "CODE_SIGNING_ALLOWED" : "NO"
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ACTION" : "build",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES",
+          "ONLY_ACTIVE_ARCH" : "YES"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "launch",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

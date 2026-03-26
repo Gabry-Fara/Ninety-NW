@@ -1,0 +1,1 @@
+@rpath/FelixWatchOS Watch App.debug.dylib

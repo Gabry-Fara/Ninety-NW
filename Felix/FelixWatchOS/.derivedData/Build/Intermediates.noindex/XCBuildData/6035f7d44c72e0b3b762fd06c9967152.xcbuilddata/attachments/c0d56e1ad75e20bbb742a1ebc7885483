@@ -1,0 +1,59 @@
+{
+  "" : {
+    "diagnostics" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixWatchOS Watch App-primary.dia",
+    "emit-module-dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixWatchOS Watch App-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixWatchOS Watch App-primary-emit-module.dia",
+    "pch" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixWatchOS Watch App-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixWatchOS Watch App-primary.swiftdeps"
+  },
+  "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/ContentView.swift" : {
+    "const-values" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/Felix.swift" : {
+    "const-values" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/Felix.swiftconstvalues",
+    "dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/Felix.d",
+    "diagnostics" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/Felix.dia",
+    "index-unit-output-path" : "/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/Felix.o",
+    "llvm-bc" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/Felix.bc",
+    "object" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/Felix.o",
+    "swift-dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/Felix.swiftdeps",
+    "swiftmodule" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/Felix~partial.swiftmodule"
+  },
+  "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/FelixApp.swift" : {
+    "const-values" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixApp.swiftconstvalues",
+    "dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixApp.d",
+    "diagnostics" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixApp.dia",
+    "index-unit-output-path" : "/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixApp.o",
+    "llvm-bc" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixApp.bc",
+    "object" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixApp.o",
+    "swift-dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixApp.swiftdeps",
+    "swiftmodule" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/FelixApp~partial.swiftmodule"
+  },
+  "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/FelixWatchOS Watch App/GameScene.swift" : {
+    "const-values" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GameScene.swiftconstvalues",
+    "dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GameScene.d",
+    "diagnostics" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GameScene.dia",
+    "index-unit-output-path" : "/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GameScene.o",
+    "llvm-bc" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GameScene.bc",
+    "object" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GameScene.o",
+    "swift-dependencies" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GameScene.swiftdeps",
+    "swiftmodule" : "/Users/afppal15/Documents/GitHub/Ninety/Felix/FelixWatchOS/.derivedData/Build/Intermediates.noindex/FelixWatchOS.build/Debug-watchos/FelixWatchOS Watch App.build/Objects-normal/arm64/GameScene~partial.swiftmodule"
+  }
+}
