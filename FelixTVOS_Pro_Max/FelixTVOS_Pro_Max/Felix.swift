@@ -32,22 +32,20 @@ class Felix: SKScene, SKPhysicsContactDelegate {
     var currentImpulse: Int = 0
     var startingTime: TimeInterval = 0
     
-    // ✅ FIX: variabile mancante aggiunta qui
     var gesturesInstalled = false
 
     override func didMove(to view: SKView) {
         super.didMove(to: view)
         
-        // ✅ FIX: didMove non più annidato, guard corretto
         guard !gesturesInstalled else { return }
         gesturesInstalled = true
 
-        // ✅ tvOS: Swipe su (telecomando Siri)
+        // tvOS: Swipe su (telecomando Siri)
         let swipeUp = UISwipeGestureRecognizer(target: self, action: #selector(swipedUp))
         swipeUp.direction = .up
         view.addGestureRecognizer(swipeUp)
 
-        // ✅ tvOS: Tap centrale (tasto "select" del telecomando)
+        //  Tap centrale (tasto "select" del telecomando)
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
         tap.allowedPressTypes = [NSNumber(value: UIPress.PressType.select.rawValue)]
         view.addGestureRecognizer(tap)
@@ -68,7 +66,7 @@ class Felix: SKScene, SKPhysicsContactDelegate {
         }
     }
 
-    // ✅ tvOS: swipe su dal telecomando → salto
+    // swipe su dal telecomando → salto
     @objc func swipedUp() {
         guard !gameEnded else { return }
         felix.physicsBody?.applyImpulse(CGVector(dx: 0, dy: currentImpulse))
@@ -78,7 +76,7 @@ class Felix: SKScene, SKPhysicsContactDelegate {
         felix.run(actionFelix)
     }
 
-    // ✅ tvOS: tap "select" → riavvia se game over
+    //  riavvia se game over
     @objc func tapped() {
         if gameEnded {
             let newScene = Felix(fileNamed: "Felix") // ✅ FIX: era GameScene, classe corretta è Felix
@@ -87,7 +85,7 @@ class Felix: SKScene, SKPhysicsContactDelegate {
         }
     }
 
-    // ✅ touchesBegan mantenuto per compatibilità con simulatore, ma su tvOS reale
+    //    touchesBegan mantenuto per compatibilità con simulatore, ma su tvOS reale
     //    il flusso passa dai gesture recognizer sopra.
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
