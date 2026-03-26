@@ -33,7 +33,9 @@ struct ContentView: View {
                     isContinuous: true,
                     isHapticFeedbackEnabled: true
                 )
-            // Sostituisci il vecchio blocco con questo:
+            
+            
+            
             .onChange(of: scrollAmount) { oldValue, newValue in
                 crownSelection = Int(newValue)
                 scroll = newValue
