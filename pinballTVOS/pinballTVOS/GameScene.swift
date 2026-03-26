@@ -268,8 +268,51 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
         node.physicsBody!.velocity = CGVector(dx: 0, dy: 0)
     }
     
-    
 
+    func movePads(action: String) {
+        if startMode {
+            launcher.run(launchBallAction, completion: {
+                self.ball.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 500))
+            })
+            startMode = false
+        } else {
+            if action == "up" {
+                if !leftUp {
+                    leftPad.physicsBody?.applyAngularImpulse(7)
+                    leftUp = true
+                    leftPad.run(padSound)
+                }
+                if !rightUp {
+                    rightPad.physicsBody?.applyAngularImpulse(7)
+                    rightUp = true
+                    rightPad.run(padSound)
+                }
+            } else if action == "down" {
+                if leftUp {
+                    leftPad.run(rightDownLoop, completion: { self.rightUp = false })
+                }
+                if rightUp {
+                    rightPad.run(leftDownLoop, completion: { self.leftUp = false })
+                }
+            } else if action == "left" {
+                if !leftUp {
+                    leftPad.physicsBody?.applyAngularImpulse(7)
+                    leftUp = true
+                    leftPad.run(padSound)
+                } else {
+                    leftPad.run(leftDownLoop, completion: { self.leftUp = false })
+                }
+            } else if action == "right" {
+                if !rightUp {
+                    rightPad.physicsBody?.applyAngularImpulse(7)
+                    rightUp = true
+                    rightPad.run(padSound)
+                } else {
+                    rightPad.run(rightDownLoop, completion: { self.rightUp = false })
+                }
+            }
+        }
+    }
     
     
     
