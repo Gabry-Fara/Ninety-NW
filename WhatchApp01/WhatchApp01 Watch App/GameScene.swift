@@ -62,6 +62,9 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
     var loseSound = SKAction()
     var padSound = SKAction()
     var dingSound = SKAction()
+    var lastTime: TimeInterval = 0
+    var lastScroll = 0.0
+
     
     
     
@@ -263,17 +266,49 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
     
     
     override func update(_ currentTime: TimeInterval) {
-        if fabs(Double((ball.physicsBody?.velocity.dx)!)) > maxBallVelocity {
-            ball.physicsBody?.velocity.dx = CGFloat(Int((ball.physicsBody?.velocity.dx)!) < 0 ? -maxBallVelocity : maxBallVelocity)
+        // Inizializzazione del tempo al primo frame
+        if lastTime == 0 {
+            lastTime = currentTime
         }
-        
-        if fabs(Double((ball.physicsBody?.velocity.dy)!)) > maxBallVelocity {
-            ball.physicsBody?.velocity.dy = CGFloat(Int((ball.physicsBody?.velocity.dy)!) < 0 ? -maxBallVelocity : maxBallVelocity)
+
+        // Controlla il movimento ogni 0.1 secondi per evitare scatti (throttling)
+        if currentTime - lastTime > 0.1 {
+            let deltaScroll = scroll - lastScroll
+            lastScroll = scroll
+            lastTime = currentTime
+
+            if startMode {
+                // Se siamo all'inizio e la corona viene ruotata, lancia la pallina
+                if deltaScroll != 0 {
+                    launcher.run(launchBallAction, completion: {
+                        self.ball.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 500))
+                    })
+                    startMode = false
+                }
+            } else {
+                // Logica dei flipper (pad)
+                if deltaScroll < 0 {
+                    // Ruotando in un senso, i flipper salgono
+                    if !leftUp {
+                        leftPad.physicsBody?.applyAngularImpulse(7)
+                        leftUp = true
+                        leftPad.run(padSound)
+                        
+                        rightPad.physicsBody?.applyAngularImpulse(7)
+                        rightUp = true
+                        rightPad.run(padSound)
+                    }
+                } else if deltaScroll > 0 {
+                    // Ruotando nell'altro senso, i flipper scendono
+                    if leftUp {
+                        rightPad.run(rightDownLoop, completion: { self.rightUp = false })
+                        leftPad.run(leftDownLoop, completion: { self.leftUp = false })
+                    }
+                }
+            }
         }
-        
-        
-        
     }
+
 }
 
 
