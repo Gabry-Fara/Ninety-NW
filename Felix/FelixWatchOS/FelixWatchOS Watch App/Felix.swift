@@ -40,6 +40,7 @@ class Felix: SKScene, SKPhysicsContactDelegate {
         scoreLabel.text = "0"
         messageLabel = camera!.childNode(withName: "message") as! SKLabelNode
         messageLabel.text = ""
+        camera?.position = felix.position
         currentImpulse = defaultImpulse
         enumerateChildNodes(withName: "coin") { node, _ in
             node.run(SKAction(named: "coin")!)
@@ -48,7 +49,7 @@ class Felix: SKScene, SKPhysicsContactDelegate {
 
     func handleCrownRotation(delta: Double) {
         if gameEnded { restartHandler?(); return }
-        if delta < 0 { jump() } else if delta > 0 { advance() }
+        if delta != 0 { jump() }
     }
 
     private func jump() {
@@ -63,11 +64,6 @@ class Felix: SKScene, SKPhysicsContactDelegate {
         felix.position.x += stepDistance
         felix.removeAllActions()
         if let run = SKAction(named: "run") { felix.run(run) }
-        updateCameraPosition()
-    }
-
-    private func updateCameraPosition() {
-        camera?.position = CGPoint(x: felix.position.x, y: felix.position.y)
     }
 
     func didBegin(_ contact: SKPhysicsContact) {
@@ -110,7 +106,6 @@ class Felix: SKScene, SKPhysicsContactDelegate {
     }
 
     override func update(_ currentTime: TimeInterval) {
-        updateCameraPosition()
         if startingTime == 0 {
             startingTime = currentTime
         } else if currentTime >= startingTime + 3 {

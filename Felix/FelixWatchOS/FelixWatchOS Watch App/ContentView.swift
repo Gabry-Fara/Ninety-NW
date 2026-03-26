@@ -64,8 +64,6 @@ struct ContentView: View {
             .onTapGesture {
                 if store.scene.gameEnded {
                     store.reload()
-                } else {
-                    store.scene.handleCrownRotation(delta: -1)
                 }
             }
             .id(ObjectIdentifier(store.scene))
