@@ -269,6 +269,9 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
     }
     
     
+
+    
+    
     
     override func update(_ currentTime: TimeInterval) {
         // Inizializzazione del tempo al primo frame
