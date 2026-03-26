@@ -1,0 +1,307 @@
+//
+//  GameScene.swift
+//  iPinball
+//
+//  Created by Ignazio Finizio on 16/01/22.
+//
+
+import SpriteKit
+
+
+class GameScene: SKScene,SKPhysicsContactDelegate {
+    
+    
+    //CONSTANTS
+    let circleA_1Category: UInt32 = 0
+    let ballCategory: UInt32 = 1
+    let leftpad_rightpadCategory: UInt32 = 2
+    let borderCategory: UInt32 = 4
+    let upperStopCategory: UInt32 = 8
+    let lowerStopCategory: UInt32 = 16
+    let circle0Category: UInt32 = 32
+    let circle1Category: UInt32 = 64
+    let circle2Category: UInt32 = 128
+    let star0_star5Category: UInt32 = 256
+    let circleA_2Category: UInt32 = 512
+    let launcherCategory: UInt32 = 1024
+    let barCategory: UInt32 = 2048
+    let outLimitCategory: UInt32 = 4096
+    
+    let maxBallVelocity = 2000.0
+    
+    
+    
+    
+    //VARS
+    var startMode = true
+    var leftUp = false
+    var rightUp = false
+    
+    var ball = SKSpriteNode()
+    var leftPad = SKSpriteNode()
+    var rightPad = SKSpriteNode()
+    var launcher = SKSpriteNode()
+    var score = SKLabelNode()
+    var circle0 = SKSpriteNode()
+    var circleA = SKSpriteNode()
+    var circle1a = SKSpriteNode()
+    var circle1b = SKSpriteNode()
+    var circle1c = SKSpriteNode()
+    var circle2a = SKSpriteNode()
+    var circle2b = SKSpriteNode()
+    var circle2c = SKSpriteNode()
+    var circle2d = SKSpriteNode()
+    var star0 = SKSpriteNode()
+    var startMarker = SKSpriteNode()
+    var leftDownLoop = SKAction()
+    var rightDownLoop = SKAction()
+    var circle0Blink = SKAction()
+    var circle1Blink = SKAction()
+    var circle2Blink = SKAction()
+    var launchBallAction = SKAction()
+    var loseSound = SKAction()
+    var padSound = SKAction()
+    var dingSound = SKAction()
+    
+    
+    
+    //SCORE MANAGER
+    let scManager = scoreManager()
+    
+    
+    override func didMove(to view: SKView) {
+        physicsWorld.contactDelegate = self
+        
+        //BORDER
+        self.physicsBody = SKPhysicsBody (edgeLoopFrom: self.frame)
+        
+        
+        //NODES
+        ball = childNode(withName: "ball") as! SKSpriteNode
+        leftPad = childNode(withName: "leftPad") as! SKSpriteNode
+        rightPad = childNode(withName: "rightPad") as! SKSpriteNode
+        launcher = childNode(withName: "launcher") as! SKSpriteNode
+        score = childNode(withName: "score") as! SKLabelNode
+        circle0 = childNode(withName: "circle0") as! SKSpriteNode
+        circleA = childNode(withName: "circleA") as! SKSpriteNode
+        circle1a = childNode(withName: "circle1a") as! SKSpriteNode
+        circle1b = childNode(withName: "circle1b") as! SKSpriteNode
+        circle1c = childNode(withName: "circle1c") as! SKSpriteNode
+        circle2a = childNode(withName: "circle2a") as! SKSpriteNode
+        circle2b = childNode(withName: "circle2b") as! SKSpriteNode
+        circle2c = childNode(withName: "circle2c") as! SKSpriteNode
+        circle2d = childNode(withName: "circle2d") as! SKSpriteNode
+        star0 = childNode(withName: "star0") as! SKSpriteNode
+        startMarker = childNode(withName: "startMarker") as! SKSpriteNode
+        
+        
+        //PROPERTIES
+        circleA.physicsBody?.categoryBitMask = circleA_1Category
+        
+        leftPad.physicsBody?.restitution = 0.5
+        rightPad.physicsBody?.restitution = 0.5
+        circle0.physicsBody?.restitution = 2.5
+        circle1a.physicsBody?.restitution = 2.0
+        circle1b.physicsBody?.restitution = 2.0
+        circle1c.physicsBody?.restitution = 2.0
+        circle2a.physicsBody?.restitution = 1.5
+        circle2b.physicsBody?.restitution = 1.5
+        circle2c.physicsBody?.restitution = 1.5
+        circle2d.physicsBody?.restitution = 1.5
+        
+        
+        //ACTIONS
+        let blink0Action = SKAction.animate(with: ["StarBlueYellow","StarBlueOrange","StarBlueRed","StarBlueYellow"], timePerFrame: 0.1)
+        circle0Blink = SKAction.group([SKAction.repeat(blink0Action,count: 1), SKAction.playSoundFileNamed("circle0", waitForCompletion: true)])
+        
+        let blink1Action = SKAction.animate(with: ["StarBlueOrange","StarBlueRed","StarBlueYellow","StarBluePurple","StarBlueOrange"], timePerFrame: 0.1)
+        circle1Blink = SKAction.group([SKAction.repeat(blink1Action,count: 1), SKAction.playSoundFileNamed("circle1", waitForCompletion: true)])
+        
+        
+        let blink2Action = SKAction.animate(with: ["StarBlueCyan","StarBlueOrange","StarBlueWhite","StarBluePurple","StarBlueCyan"], timePerFrame: 0.1)
+        circle2Blink = SKAction.group([SKAction.repeat(blink2Action,count: 1), SKAction.playSoundFileNamed("circle2", waitForCompletion: true)])
+        
+        let leftDownAction = SKAction.rotate(toAngle: -35 * Double.pi/180, duration: 0.1)
+        leftDownLoop = SKAction.repeat(leftDownAction, count: 1)
+        let rightDownAction = SKAction.rotate(toAngle: 215 * Double.pi/180, duration: 0.1)
+        rightDownLoop = SKAction.repeat(rightDownAction,count: 1)
+        
+        let launchAction = SKAction.animate(with: ["launcher","launcher1","launcher"], timePerFrame: 0.2)
+        launchBallAction = SKAction.group([SKAction.repeat(launchAction,count: 1), SKAction.playSoundFileNamed("circle0", waitForCompletion: true)])
+        
+        let loseAction = SKAction.playSoundFileNamed("error", waitForCompletion: true)
+        loseSound = SKAction.repeat(loseAction,count: 1)
+        
+        let padAction = SKAction.playSoundFileNamed("pad", waitForCompletion: true)
+        padSound = SKAction.repeat(padAction,count: 1)
+        
+        let dingAction = SKAction.playSoundFileNamed("ding", waitForCompletion: true)
+        dingSound = SKAction.repeat(dingAction,count: 1)
+        
+    }
+    
+    
+    /*override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        let touch = touches.first
+        let touchLocation = touch!.location(in: self)
+        
+        if startMode {
+            if touchLocation.x < 0 {
+                launcher.run(launchBallAction, completion: {self.ball.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 500))})
+                startMode = false
+            }
+        }else {
+            if touchLocation.x < 0 {
+                if !leftUp {
+                    leftPad.physicsBody?.applyAngularImpulse(7)
+                    leftUp = true
+                    leftPad.run(padSound)
+                }
+                
+            }else if touchLocation.x > 0 {
+                if !rightUp {
+                    rightPad.physicsBody?.applyAngularImpulse(7)
+                    rightUp = true
+                    rightPad.run(padSound)
+                }
+            }
+        }
+    }
+    
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        let touch = touches.first
+        let touchLocation = touch!.location(in: self)
+        
+        if touchLocation.x < 0 {
+            if leftUp {
+                leftPad.run(leftDownLoop, completion: {self.leftUp = false})
+            }
+        }else if touchLocation.x > 0 {
+            if rightUp {
+                rightPad.run(rightDownLoop, completion: {self.rightUp = false})
+            }
+        }
+    }*/
+    
+    func didBegin(_ contact: SKPhysicsContact) {
+        let sum = (contact.bodyA.node?.physicsBody?.categoryBitMask)! + (contact.bodyB.node?.physicsBody?.categoryBitMask)!
+        switch sum {
+        case upperStopCategory + leftpad_rightpadCategory: //8 + 2
+            if (contact.bodyA.node?.name == "leftPad"){
+                leftUp = true
+                padStop(node: contact.bodyA.node!)
+            } else if (contact.bodyB.node?.name == "leftPad"){
+                leftUp = true
+                padStop(node: contact.bodyB.node!)
+            } else if (contact.bodyA.node?.name == "rightPad"){
+                rightUp = true
+                padStop(node: contact.bodyA.node!)
+            } else if (contact.bodyB.node?.name == "rightPad"){
+                rightUp = true
+                padStop(node: contact.bodyB.node!)
+            }
+        case outLimitCategory + ballCategory: //4096 + 1
+            ball.run(loseSound)
+            ball.run(SKAction.move(to: startMarker.position, duration: 0))
+            startMode = true
+            star0.isHidden = false
+            circleA.physicsBody?.categoryBitMask = circleA_1Category  //0
+            
+        case circle0Category + ballCategory: //32 + 1
+            scManager.incScore(points: 10)
+            circle0.run(circle0Blink)
+            
+        case circle1Category + ballCategory: //64 + 1
+            let node = (contact.bodyA.node?.physicsBody?.categoryBitMask == circle1Category) ? contact.bodyA.node : contact.bodyB.node
+            scManager.incScore(points: 20)
+            node!.run(circle1Blink)
+            
+        case circle2Category + ballCategory:  //128 + 1
+            let node = (contact.bodyA.node?.physicsBody?.categoryBitMask == circle2Category) ? contact.bodyA.node : contact.bodyB.node
+            scManager.incScore(points: 30)
+            node!.run(circle2Blink)
+            
+        case star0_star5Category + ballCategory: //256 + 1
+            let node = (contact.bodyA.node?.physicsBody?.categoryBitMask == star0_star5Category) ? contact.bodyA.node : contact.bodyB.node
+            if node?.name != "star0" {
+                node?.isHidden = true
+                scManager.incScore(points: 100)
+                ball.run(dingSound)
+            }
+        case circleA_2Category + ballCategory:   //512 + 1
+            scManager.incScore(points: 40)
+            circleA.run(circle0Blink)
+            
+        default:
+            print("no action")
+        }
+        score.text = String(scManager.getScore())
+    }
+    
+    
+    func didEnd(_ contact: SKPhysicsContact) {
+        let sum = (contact.bodyA.node?.physicsBody?.categoryBitMask)! + (contact.bodyB.node?.physicsBody?.categoryBitMask)!
+        if sum == star0_star5Category + ballCategory {  //256 + 1
+            let node = (contact.bodyA.node?.physicsBody?.categoryBitMask == star0_star5Category) ? contact.bodyA.node : contact.bodyB.node
+            if node?.name == "star0" {
+                node?.isHidden = true
+                if (circleA.physicsBody?.categoryBitMask != circleA_2Category){
+                    circleA.physicsBody?.categoryBitMask = circleA_2Category
+                }
+            }
+        }
+    }
+    
+    
+    
+    func padStop(node:  SKNode){
+        node.physicsBody!.angularVelocity = 0
+        node.physicsBody!.velocity = CGVector(dx: 0, dy: 0)
+    }
+    
+    
+    
+    override func update(_ currentTime: TimeInterval) {
+        if fabs(Double((ball.physicsBody?.velocity.dx)!)) > maxBallVelocity {
+            ball.physicsBody?.velocity.dx = CGFloat(Int((ball.physicsBody?.velocity.dx)!) < 0 ? -maxBallVelocity : maxBallVelocity)
+        }
+        
+        if fabs(Double((ball.physicsBody?.velocity.dy)!)) > maxBallVelocity {
+            ball.physicsBody?.velocity.dy = CGFloat(Int((ball.physicsBody?.velocity.dy)!) < 0 ? -maxBallVelocity : maxBallVelocity)
+        }
+        
+        
+        
+    }
+}
+
+
+extension SKAction {
+    static func animate(with: [String], timePerFrame: Double)->SKAction{
+        var textureArray =  [SKTexture]()
+        for im in with {
+            textureArray.append(SKTexture(imageNamed: im))
+        }
+        
+        let action = SKAction.animate(with: textureArray, timePerFrame: timePerFrame)
+        return action
+    }
+}
+
+
+class scoreManager{
+    var score = 0
+    
+    func resetScore(){
+        score = 0
+    }
+    
+    func incScore(points: Int){
+        score += points
+    }
+    
+    func getScore()->Int {
+        return score
+    }
+}
