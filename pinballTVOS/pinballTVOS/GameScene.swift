@@ -1,17 +1,17 @@
 //
 //  GameScene.swift
-//  iPinball
+//  iPinballTV
 //
 //  Created by Ignazio Finizio on 16/01/22.
 //
 
 import SpriteKit
+import UIKit
 
-
-class GameScene: SKScene,SKPhysicsContactDelegate {
+class GameScene: SKScene, SKPhysicsContactDelegate {
     
+    // MARK: - constants
     
-    //CONSTANTS
     let circleA_1Category: UInt32 = 0
     let ballCategory: UInt32 = 1
     let leftpad_rightpadCategory: UInt32 = 2
@@ -29,13 +29,12 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
     
     let maxBallVelocity = 2000.0
     
+    // MARK: - vars
     
-    
-    
-    //VARS
     var startMode = true
     var leftUp = false
     var rightUp = false
+    var gesturesInstalled = false
     
     var ball = SKSpriteNode()
     var leftPad = SKSpriteNode()
@@ -62,27 +61,22 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
     var loseSound = SKAction()
     var padSound = SKAction()
     var dingSound = SKAction()
-    var lastTime: TimeInterval = 0
-    var lastScroll = 0.0
-
     
+    // MARK: - score manager
     
-    
-    //SCORE MANAGER
     let scManager = scoreManager()
     
+    // MARK: - lifecycle
     
     override func sceneDidLoad() {
         super.sceneDidLoad()
         
-        // Configurazione fisica del mondo
         physicsWorld.contactDelegate = self
         
-        // BORDER: Crea un perimetro fisico basato sulla dimensione della scena
+        // bordo fisico scena
         self.physicsBody = SKPhysicsBody(edgeLoopFrom: self.frame)
         
-        // --- NODES INITIALIZATION ---
-        // NOTA: Se uno di questi nomi non coincide esattamente con il file .sks, l'app crasherà (Fatal Error)
+        // nodes
         ball = childNode(withName: "ball") as! SKSpriteNode
         leftPad = childNode(withName: "leftPad") as! SKSpriteNode
         rightPad = childNode(withName: "rightPad") as! SKSpriteNode
@@ -104,10 +98,9 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
         star0 = childNode(withName: "star0") as! SKSpriteNode
         startMarker = childNode(withName: "startMarker") as! SKSpriteNode
         
-        // --- PROPERTIES ---
+        // properties
         circleA.physicsBody?.categoryBitMask = circleA_1Category
         
-        // Restituzione (Elasticità): determina quanto rimbalza la pallina
         leftPad.physicsBody?.restitution = 0.5
         rightPad.physicsBody?.restitution = 0.5
         circle0.physicsBody?.restitution = 2.5
@@ -119,229 +112,298 @@ class GameScene: SKScene,SKPhysicsContactDelegate {
         circle2c.physicsBody?.restitution = 1.5
         circle2d.physicsBody?.restitution = 1.5
         
-        // --- ACTIONS SETUP ---
+        // actions
+        let blink0Action = SKAction.animate(
+            with: ["StarBlueYellow", "StarBlueOrange", "StarBlueRed", "StarBlueYellow"],
+            timePerFrame: 0.1
+        )
+        circle0Blink = SKAction.group([
+            blink0Action,
+            SKAction.playSoundFileNamed("circle0", waitForCompletion: false)
+        ])
         
-        // Animazioni e suoni per i bumper (Circles)
-        let blink0Action = SKAction.animate(with: ["StarBlueYellow", "StarBlueOrange", "StarBlueRed", "StarBlueYellow"], timePerFrame: 0.1)
-        circle0Blink = SKAction.group([blink0Action, SKAction.playSoundFileNamed("circle0", waitForCompletion: false)])
+        let blink1Action = SKAction.animate(
+            with: ["StarBlueOrange", "StarBlueRed", "StarBlueYellow", "StarBluePurple", "StarBlueOrange"],
+            timePerFrame: 0.1
+        )
+        circle1Blink = SKAction.group([
+            blink1Action,
+            SKAction.playSoundFileNamed("circle1", waitForCompletion: false)
+        ])
         
-        let blink1Action = SKAction.animate(with: ["StarBlueOrange", "StarBlueRed", "StarBlueYellow", "StarBluePurple", "StarBlueOrange"], timePerFrame: 0.1)
-        circle1Blink = SKAction.group([blink1Action, SKAction.playSoundFileNamed("circle1", waitForCompletion: false)])
+        let blink2Action = SKAction.animate(
+            with: ["StarBlueCyan", "StarBlueOrange", "StarBlueWhite", "StarBluePurple", "StarBlueCyan"],
+            timePerFrame: 0.1
+        )
+        circle2Blink = SKAction.group([
+            blink2Action,
+            SKAction.playSoundFileNamed("circle2", waitForCompletion: false)
+        ])
         
-        let blink2Action = SKAction.animate(with: ["StarBlueCyan", "StarBlueOrange", "StarBlueWhite", "StarBluePurple", "StarBlueCyan"], timePerFrame: 0.1)
-        circle2Blink = SKAction.group([blink2Action, SKAction.playSoundFileNamed("circle2", waitForCompletion: false)])
-        
-        // Calcolo rotazione flipper in radianti
-        // Formula: $\theta_{rad} = \theta_{deg} \cdot \frac{\pi}{180}$
         let leftDownAction = SKAction.rotate(toAngle: CGFloat(-35 * Double.pi / 180), duration: 0.1)
         leftDownLoop = leftDownAction
         
         let rightDownAction = SKAction.rotate(toAngle: CGFloat(215 * Double.pi / 180), duration: 0.1)
         rightDownLoop = rightDownAction
         
-        // Launcher e suoni generali
         let launchAnim = SKAction.animate(with: ["launcher", "launcher1", "launcher"], timePerFrame: 0.2)
-        launchBallAction = SKAction.group([launchAnim, SKAction.playSoundFileNamed("circle0", waitForCompletion: false)])
+        launchBallAction = SKAction.group([
+            launchAnim,
+            SKAction.playSoundFileNamed("circle0", waitForCompletion: false)
+        ])
         
         loseSound = SKAction.playSoundFileNamed("error", waitForCompletion: false)
         padSound = SKAction.playSoundFileNamed("pad", waitForCompletion: false)
         dingSound = SKAction.playSoundFileNamed("ding", waitForCompletion: false)
+        
+        score.text = String(scManager.getScore())
     }
     
-    
-    /*override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        let touch = touches.first
-        let touchLocation = touch!.location(in: self)
+    override func didMove(to view: SKView) {
+        super.didMove(to: view)
         
+        guard !gesturesInstalled else { return }
+        gesturesInstalled = true
+        
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(swipedRight))
+        swipeRight.direction = .right
+        view.addGestureRecognizer(swipeRight)
+        
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(swipedLeft))
+        swipeLeft.direction = .left
+        view.addGestureRecognizer(swipeLeft)
+        
+        let swipeUp = UISwipeGestureRecognizer(target: self, action: #selector(swipedUp))
+        swipeUp.direction = .up
+        view.addGestureRecognizer(swipeUp)
+        
+        let swipeDown = UISwipeGestureRecognizer(target: self, action: #selector(swipedDown))
+        swipeDown.direction = .down
+        view.addGestureRecognizer(swipeDown)
+        
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+        view.addGestureRecognizer(tap)
+    }
+    
+    // MARK: - apple tv remote controls
+    
+    @objc func swipedUp() {
         if startMode {
-            if touchLocation.x < 0 {
-                launcher.run(launchBallAction, completion: {self.ball.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 500))})
-                startMode = false
+            launchBall()
+        } else {
+            raiseBothPads()
+        }
+    }
+    
+    @objc func swipedDown() {
+        lowerBothPads()
+    }
+    
+    @objc func swipedLeft() {
+        triggerLeftPad()
+    }
+    
+    @objc func swipedRight() {
+        triggerRightPad()
+    }
+    
+    @objc func tapped() {
+        if startMode {
+            launchBall()
+        } else {
+            raiseBothPads()
+        }
+    }
+    
+    // MARK: - game controls
+    
+    func launchBall() {
+        guard startMode else { return }
+        
+        launcher.run(launchBallAction) { [weak self] in
+            self?.ball.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 500))
+        }
+        startMode = false
+    }
+    
+    func raiseBothPads() {
+        if !leftUp {
+            leftPad.physicsBody?.applyAngularImpulse(7)
+            leftUp = true
+            leftPad.run(padSound)
+        }
+        
+        if !rightUp {
+            rightPad.physicsBody?.applyAngularImpulse(7)
+            rightUp = true
+            rightPad.run(padSound)
+        }
+    }
+    
+    func lowerBothPads() {
+        if leftUp {
+            leftPad.run(leftDownLoop) { [weak self] in
+                self?.leftUp = false
             }
-        }else {
-            if touchLocation.x < 0 {
-                if !leftUp {
-                    leftPad.physicsBody?.applyAngularImpulse(7)
-                    leftUp = true
-                    leftPad.run(padSound)
-                }
-                
-            }else if touchLocation.x > 0 {
-                if !rightUp {
-                    rightPad.physicsBody?.applyAngularImpulse(7)
-                    rightUp = true
-                    rightPad.run(padSound)
-                }
+        }
+        
+        if rightUp {
+            rightPad.run(rightDownLoop) { [weak self] in
+                self?.rightUp = false
             }
         }
     }
     
-    
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        let touch = touches.first
-        let touchLocation = touch!.location(in: self)
+    func triggerLeftPad() {
+        if startMode { return }
         
-        if touchLocation.x < 0 {
-            if leftUp {
-                leftPad.run(leftDownLoop, completion: {self.leftUp = false})
-            }
-        }else if touchLocation.x > 0 {
-            if rightUp {
-                rightPad.run(rightDownLoop, completion: {self.rightUp = false})
+        if !leftUp {
+            leftPad.physicsBody?.applyAngularImpulse(7)
+            leftUp = true
+            leftPad.run(padSound)
+        } else {
+            leftPad.run(leftDownLoop) { [weak self] in
+                self?.leftUp = false
             }
         }
-    }*/
+    }
+    
+    func triggerRightPad() {
+        if startMode { return }
+        
+        if !rightUp {
+            rightPad.physicsBody?.applyAngularImpulse(7)
+            rightUp = true
+            rightPad.run(padSound)
+        } else {
+            rightPad.run(rightDownLoop) { [weak self] in
+                self?.rightUp = false
+            }
+        }
+    }
+    
+    // MARK: - physics contacts
     
     func didBegin(_ contact: SKPhysicsContact) {
         let sum = (contact.bodyA.node?.physicsBody?.categoryBitMask)! + (contact.bodyB.node?.physicsBody?.categoryBitMask)!
+        
         switch sum {
-        case upperStopCategory + leftpad_rightpadCategory: //8 + 2
-            if (contact.bodyA.node?.name == "leftPad"){
+        case upperStopCategory + leftpad_rightpadCategory:
+            if contact.bodyA.node?.name == "leftPad" {
                 leftUp = true
                 padStop(node: contact.bodyA.node!)
-            } else if (contact.bodyB.node?.name == "leftPad"){
+            } else if contact.bodyB.node?.name == "leftPad" {
                 leftUp = true
                 padStop(node: contact.bodyB.node!)
-            } else if (contact.bodyA.node?.name == "rightPad"){
+            } else if contact.bodyA.node?.name == "rightPad" {
                 rightUp = true
                 padStop(node: contact.bodyA.node!)
-            } else if (contact.bodyB.node?.name == "rightPad"){
+            } else if contact.bodyB.node?.name == "rightPad" {
                 rightUp = true
                 padStop(node: contact.bodyB.node!)
             }
-        case outLimitCategory + ballCategory: //4096 + 1
+            
+        case outLimitCategory + ballCategory:
             ball.run(loseSound)
             ball.run(SKAction.move(to: startMarker.position, duration: 0))
             startMode = true
+            leftUp = false
+            rightUp = false
             star0.isHidden = false
-            circleA.physicsBody?.categoryBitMask = circleA_1Category  //0
+            circleA.physicsBody?.categoryBitMask = circleA_1Category
             
-        case circle0Category + ballCategory: //32 + 1
+        case circle0Category + ballCategory:
             scManager.incScore(points: 10)
             circle0.run(circle0Blink)
             
-        case circle1Category + ballCategory: //64 + 1
+        case circle1Category + ballCategory:
             let node = (contact.bodyA.node?.physicsBody?.categoryBitMask == circle1Category) ? contact.bodyA.node : contact.bodyB.node
             scManager.incScore(points: 20)
-            node!.run(circle1Blink)
+            node?.run(circle1Blink)
             
-        case circle2Category + ballCategory:  //128 + 1
+        case circle2Category + ballCategory:
             let node = (contact.bodyA.node?.physicsBody?.categoryBitMask == circle2Category) ? contact.bodyA.node : contact.bodyB.node
             scManager.incScore(points: 30)
-            node!.run(circle2Blink)
+            node?.run(circle2Blink)
             
-        case star0_star5Category + ballCategory: //256 + 1
+        case star0_star5Category + ballCategory:
             let node = (contact.bodyA.node?.physicsBody?.categoryBitMask == star0_star5Category) ? contact.bodyA.node : contact.bodyB.node
             if node?.name != "star0" {
                 node?.isHidden = true
                 scManager.incScore(points: 100)
                 ball.run(dingSound)
             }
-        case circleA_2Category + ballCategory:   //512 + 1
+            
+        case circleA_2Category + ballCategory:
             scManager.incScore(points: 40)
             circleA.run(circle0Blink)
             
         default:
             print("no action")
         }
+        
         score.text = String(scManager.getScore())
     }
     
-    
     func didEnd(_ contact: SKPhysicsContact) {
         let sum = (contact.bodyA.node?.physicsBody?.categoryBitMask)! + (contact.bodyB.node?.physicsBody?.categoryBitMask)!
-        if sum == star0_star5Category + ballCategory {  //256 + 1
+        
+        if sum == star0_star5Category + ballCategory {
             let node = (contact.bodyA.node?.physicsBody?.categoryBitMask == star0_star5Category) ? contact.bodyA.node : contact.bodyB.node
             if node?.name == "star0" {
                 node?.isHidden = true
-                if (circleA.physicsBody?.categoryBitMask != circleA_2Category){
+                if circleA.physicsBody?.categoryBitMask != circleA_2Category {
                     circleA.physicsBody?.categoryBitMask = circleA_2Category
                 }
             }
         }
     }
     
-    
-    
-    func padStop(node:  SKNode){
-        node.physicsBody!.angularVelocity = 0
-        node.physicsBody!.velocity = CGVector(dx: 0, dy: 0)
+    func padStop(node: SKNode) {
+        node.physicsBody?.angularVelocity = 0
+        node.physicsBody?.velocity = CGVector(dx: 0, dy: 0)
     }
     
-    
+    // MARK: - frame update
     
     override func update(_ currentTime: TimeInterval) {
-        // Inizializzazione del tempo al primo frame
-        if lastTime == 0 {
-            lastTime = currentTime
-        }
-
-        // Controlla il movimento ogni 0.1 secondi per evitare scatti (throttling)
-        if currentTime - lastTime > 0.1 {
-            let deltaScroll = scroll - lastScroll
-            lastScroll = scroll
-            lastTime = currentTime
-
-            if startMode {
-                // Se siamo all'inizio e la corona viene ruotata, lancia la pallina
-                if deltaScroll != 0 {
-                    launcher.run(launchBallAction, completion: {
-                        self.ball.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 500))
-                    })
-                    startMode = false
-                }
-            } else {
-                // Logica dei flipper (pad)
-                if deltaScroll < 0 {
-                    // Ruotando in un senso, i flipper salgono
-                    if !leftUp {
-                        leftPad.physicsBody?.applyAngularImpulse(7)
-                        leftUp = true
-                        leftPad.run(padSound)
-                        
-                        rightPad.physicsBody?.applyAngularImpulse(7)
-                        rightUp = true
-                        rightPad.run(padSound)
-                    }
-                } else if deltaScroll > 0 {
-                    // Ruotando nell'altro senso, i flipper scendono
-                    if leftUp {
-                        rightPad.run(rightDownLoop, completion: { self.rightUp = false })
-                        leftPad.run(leftDownLoop, completion: { self.leftUp = false })
-                    }
-                }
-            }
+        guard let body = ball.physicsBody else { return }
+        
+        let dx = body.velocity.dx
+        let dy = body.velocity.dy
+        let speed = sqrt(dx * dx + dy * dy)
+        
+        if speed > maxBallVelocity {
+            let factor = maxBallVelocity / speed
+            body.velocity = CGVector(dx: dx * factor, dy: dy * factor)
         }
     }
-
 }
 
-
 extension SKAction {
-    static func animate(with: [String], timePerFrame: Double)->SKAction{
-        var textureArray =  [SKTexture]()
+    static func animate(with: [String], timePerFrame: Double) -> SKAction {
+        var textureArray = [SKTexture]()
+        
         for im in with {
             textureArray.append(SKTexture(imageNamed: im))
         }
         
-        let action = SKAction.animate(with: textureArray, timePerFrame: timePerFrame)
-        return action
+        return SKAction.animate(with: textureArray, timePerFrame: timePerFrame)
     }
 }
 
-
-class scoreManager{
+class scoreManager {
     var score = 0
     
-    func resetScore(){
+    func resetScore() {
         score = 0
     }
     
-    func incScore(points: Int){
+    func incScore(points: Int) {
         score += points
     }
     
-    func getScore()->Int {
+    func getScore() -> Int {
         return score
     }
 }
