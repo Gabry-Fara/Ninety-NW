@@ -15,7 +15,6 @@ public var crownSelection = 0
 public var moved = false
 
 
-
 struct ContentView: View {
     @State public var scrollAmount = 0.0
     
