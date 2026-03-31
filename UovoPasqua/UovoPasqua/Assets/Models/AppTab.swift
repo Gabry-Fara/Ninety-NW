@@ -1,18 +1,14 @@
 import Foundation
 
-// main navigation tabs
+// tab di navigazione principali
 enum AppTab: String, CaseIterable, Hashable {
-    case home    = "Home"
-    case catalog = "Catalog"
-    case search  = "Search"
-    case library = "Library"
+    case home  = "Home"
+    case style = "Stile"
 
     var symbolName: String {
         switch self {
-        case .home:    return "house.fill"
-        case .catalog: return "square.grid.2x2.fill"
-        case .search:  return "magnifyingglass"
-        case .library: return "bookmark.fill"
+        case .home:  return "house.fill"
+        case .style: return "paintpalette.fill"
         }
     }
 }

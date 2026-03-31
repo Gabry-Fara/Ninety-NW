@@ -19,8 +19,10 @@ private let mockGames: [GameSession] = [
 
 struct HomeView: View {
     @FocusState private var createFocused: Bool
+    @State private var navigateToNewGame = false
 
     var body: some View {
+        NavigationStack {
         VStack(alignment: .leading, spacing: 0) {
             // hero: crea nuova partita
             createPanel
@@ -33,6 +35,10 @@ struct HomeView: View {
                 .padding(.bottom, AppTheme.spacingXL)
         }
         .background(Color(white: 0.06).ignoresSafeArea())
+        .navigationDestination(isPresented: $navigateToNewGame) {
+            NewGameView()
+        }
+        } // NavigationStack
     }
 
     // MARK: create panel
@@ -56,7 +62,7 @@ struct HomeView: View {
                         symbolName: "plus",
                         style: .primary
                     ) {
-                        // navigazione da implementare
+                        navigateToNewGame = true
                     }
                     .focused($createFocused)
 
@@ -148,7 +154,7 @@ private struct GameCardView: View {
             }
             .padding(AppTheme.spacingSM)
         }
-        .frame(width: AppTheme.cardWidth, height: AppTheme.cardHeight * 0.65)
+        .frame(width: 420, height: 220)
         .scaleEffect(isFocused ? AppTheme.focusScaleCard : 1)
         .shadow(color: isFocused ? .white.opacity(0.12) : .clear, radius: 16)
         .animation(.easeOut(duration: AppTheme.focusAnimDuration), value: isFocused)
