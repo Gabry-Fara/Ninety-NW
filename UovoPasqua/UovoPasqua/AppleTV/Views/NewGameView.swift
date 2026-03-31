@@ -9,7 +9,6 @@ enum GameMode: Hashable {
 struct NewGameView: View {
     @State private var selectedMode: GameMode?    = nil
     @State private var selectedStyle: GameStyle    = SampleDataProvider.gameStyles[0]
-    @State private var tournamentPlayers: Int      = 4
     @State private var showConnectedIPhones = false
 
     @FocusState private var focusedMode: GameMode?
@@ -48,20 +47,13 @@ struct NewGameView: View {
                     modeCard(
                         mode: .torneo,
                         title: "Torneo",
-                        subtitle: "\(tournamentPlayers) giocatori",
+                        subtitle: "partita a eliminazione",
                         detail: "Eliminazione diretta",
                         symbol: "trophy.fill",
                         colorToken: "amber"
                     )
                 }
                 .padding(.horizontal, AppTheme.spacingXL)
-
-                // selettore numero giocatori — solo per torneo
-                if selectedMode == .torneo {
-                    playerPicker
-                        .padding(.horizontal, AppTheme.spacingXL)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
 
                 // sezione stile
                 styleSection
@@ -103,16 +95,12 @@ struct NewGameView: View {
             guard selectedMode != nil else { return }
             focusedAction = .create
         }
-        .onChange(of: tournamentPlayers) { _, _ in
-            guard selectedMode == .torneo else { return }
-            focusedAction = .create
-        }
         .navigationDestination(isPresented: $showConnectedIPhones) {
             if let mode = selectedMode {
                 ConnectedIPhonesView(
                     selectedMode: mode,
                     selectedStyle: selectedStyle,
-                    playerCount: mode == .duello ? 2 : tournamentPlayers
+                    availableDeviceCount: SampleDataProvider.sampleConnectedPhones.count
                 )
             }
         }
@@ -182,59 +170,13 @@ struct NewGameView: View {
         }
         .buttonStyle(.plain)
         .focused($focusedMode, equals: mode)
-        .scaleEffect(focusedMode == mode ? AppTheme.focusScaleCard : 1)
-        .shadow(
-            color: focusedMode == mode ? AppTheme.placeholderColor(colorToken).opacity(0.4) : .clear,
-            radius: 24
+        .tvFocusEffect(
+            isFocused: focusedMode == mode,
+            scale: AppTheme.focusScaleCard,
+            shadowColor: AppTheme.placeholderColor(colorToken).opacity(0.4),
+            shadowRadius: 24,
+            shadowYOffset: 0
         )
-        .animation(.easeOut(duration: AppTheme.focusAnimDuration), value: focusedMode == mode)
-    }
-
-    // MARK: player picker
-
-    private var playerPicker: some View {
-        HStack(spacing: AppTheme.spacingMD) {
-            Text("Giocatori:")
-                .font(.headline)
-                .foregroundStyle(.white.opacity(0.7))
-
-            HStack(spacing: AppTheme.spacingSM) {
-                Button {
-                    if tournamentPlayers > 4 { tournamentPlayers -= 1 }
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(tournamentPlayers > 4 ? .white : .white.opacity(0.25))
-                }
-                .buttonStyle(.plain)
-                .disabled(tournamentPlayers <= 4)
-
-                Text("\(tournamentPlayers)")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-                    .frame(minWidth: 48)
-                    .monospacedDigit()
-
-                Button {
-                    if tournamentPlayers < 8 { tournamentPlayers += 1 }
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(tournamentPlayers < 8 ? .white : .white.opacity(0.25))
-                }
-                .buttonStyle(.plain)
-                .disabled(tournamentPlayers >= 8)
-            }
-            .padding(.horizontal, AppTheme.spacingMD)
-            .padding(.vertical, AppTheme.spacingXS)
-            .background(Color.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD))
-
-            Text("min 4 · max 8")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.35))
-        }
     }
 
     // MARK: style section
@@ -345,9 +287,13 @@ private struct StyleOptionCardView: View {
                     lineWidth: isSelected ? 2 : 1
                 )
         )
-        .scaleEffect(emphasis ? AppTheme.focusScaleCard : 1)
-        .shadow(color: emphasis ? AppTheme.placeholderColor(style.accentToken).opacity(0.38) : .clear, radius: 18, y: 8)
-        .animation(.easeOut(duration: AppTheme.focusAnimDuration), value: emphasis)
+        .tvFocusEffect(
+            isFocused: emphasis,
+            scale: AppTheme.focusScaleCard,
+            shadowColor: AppTheme.placeholderColor(style.accentToken).opacity(0.38),
+            shadowRadius: 18,
+            shadowYOffset: 8
+        )
     }
 }
 

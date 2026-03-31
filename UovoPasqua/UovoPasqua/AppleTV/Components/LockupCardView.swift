@@ -75,10 +75,13 @@ struct LockupCardView: View {
         }
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius))
-        .scaleEffect(isFocused ? AppTheme.focusScaleCard : 1)
-        .shadow(color: isFocused ? .white.opacity(0.15) : .black.opacity(0.4),
-                radius: isFocused ? 20 : 8, y: isFocused ? 8 : 4)
-        .animation(.easeOut(duration: AppTheme.focusAnimDuration), value: isFocused)
+        .tvFocusEffect(
+            isFocused: isFocused,
+            scale: AppTheme.focusScaleCard,
+            shadowColor: .white.opacity(0.15),
+            shadowRadius: 20,
+            shadowYOffset: 8
+        )
     }
 }
 

@@ -62,15 +62,7 @@ struct GamePlayView: View {
             }
             .padding(.horizontal, 26)
             .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLG)
-                    .fill(.ultraThinMaterial)
-                    .opacity(0.92)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLG)
-                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                    )
-            )
+            .tvGlassPanel()
 
             Spacer(minLength: 0)
         }

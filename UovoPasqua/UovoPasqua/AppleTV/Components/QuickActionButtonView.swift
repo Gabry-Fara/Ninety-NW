@@ -31,9 +31,12 @@ struct QuickActionButtonView: View {
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD)
                     .strokeBorder(strokeColor, lineWidth: isFocused ? 2 : 0)
             )
-            .scaleEffect(isFocused ? AppTheme.focusScaleButton : 1)
-            .shadow(color: isFocused ? .white.opacity(0.2) : .clear, radius: 12)
-            .animation(.easeOut(duration: AppTheme.focusAnimDuration), value: isFocused)
+            .tvFocusEffect(
+                isFocused: isFocused,
+                scale: AppTheme.focusScaleButton,
+                shadowColor: .white.opacity(0.2),
+                shadowRadius: 12
+            )
         }
         .buttonStyle(.plain)
     }

@@ -3,7 +3,7 @@ import SwiftUI
 struct ConnectedIPhonesView: View {
     let selectedMode: GameMode
     let selectedStyle: GameStyle?
-    let playerCount: Int
+    let availableDeviceCount: Int
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedPhoneID: String?
@@ -28,13 +28,41 @@ struct ConnectedIPhonesView: View {
         }
     }
 
+    private var maximumTournamentPlayers: Int {
+        let maxAllowed = min(availableDeviceCount, 8)
+        return maxAllowed - (maxAllowed % 2)
+    }
+
+    private var isTournamentMode: Bool {
+        selectedMode == .torneo
+    }
+
+    private var minimumRequiredPlayers: Int {
+        isTournamentMode ? 4 : 2
+    }
+
     private var canStartMatch: Bool {
-        selectedPhones.count == 2
+        if isTournamentMode {
+            return selectedPhones.count >= minimumRequiredPlayers
+                && selectedPhones.count.isMultiple(of: 2)
+                && selectedPhones.count <= maximumTournamentPlayers
+        }
+        return selectedPhones.count == 2
+    }
+
+    private var selectionHint: String {
+        if isTournamentMode {
+            return "seleziona almeno 4 iPhone, in numero pari."
+        }
+        return "seleziona due iPhone per il duello."
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.spacingLG) {
             topBar
+            if isTournamentMode {
+                tournamentRuleBanner
+            }
             summaryCard
             deviceGrid
             footerBar
@@ -49,7 +77,14 @@ struct ConnectedIPhonesView: View {
             focusedAction = nil
         }
         .onChange(of: selectedPhoneIDs.count) { _, newValue in
-            if newValue == 2 {
+            if isTournamentMode {
+                if newValue >= minimumRequiredPlayers && newValue.isMultiple(of: 2) {
+                    focusedPhoneID = nil
+                    focusedAction = .create
+                } else {
+                    focusedAction = nil
+                }
+            } else if newValue == 2 {
                 focusedPhoneID = nil
                 focusedAction = .create
             } else {
@@ -57,7 +92,7 @@ struct ConnectedIPhonesView: View {
             }
         }
         .navigationDestination(isPresented: $showGameScreen) {
-            if selectedPhones.count == 2 {
+            if canStartMatch {
                 GamePlayView(
                     selectedMode: selectedMode,
                     selectedStyle: selectedStyle,
@@ -75,7 +110,7 @@ struct ConnectedIPhonesView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
 
-                Text("seleziona due dispositivi per avviare la partita.")
+                Text(selectionHint)
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.6))
                     .frame(maxWidth: 760, alignment: .leading)
@@ -106,7 +141,7 @@ struct ConnectedIPhonesView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
 
-                Text(selectedMode == .duello ? "match veloce 1 contro 1." : "setup torneo con due partecipanti selezionati.")
+                Text(selectedMode == .duello ? "match veloce 1 contro 1." : "scelta libera dei device, ma sempre con numero pari.")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.75))
             }
@@ -121,13 +156,17 @@ struct ConnectedIPhonesView: View {
                 HStack(spacing: AppTheme.spacingSM) {
                     Image(systemName: canStartMatch ? "checkmark.circle.fill" : "circle.dashed")
                         .foregroundStyle(canStartMatch ? .green : .white.opacity(0.7))
-                    Text("\(selectedPhones.count)/2 giocatori")
+                    Text(isTournamentMode ? "\(selectedPhones.count) selezionati" : "\(selectedPhones.count)/2 giocatori")
                         .font(.title3)
                         .fontWeight(.semibold)
                         .foregroundStyle(.white)
                 }
 
-                Text(canStartMatch ? "pronto per iniziare la partita." : "seleziona esattamente due iPhone.")
+                Text(
+                    canStartMatch
+                    ? "pronto per iniziare la partita."
+                    : (isTournamentMode ? "servono almeno 4 iPhone, in numero pari." : "seleziona esattamente due iPhone.")
+                )
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.65))
             }
@@ -151,21 +190,14 @@ struct ConnectedIPhonesView: View {
                         .foregroundStyle(.white)
                 }
 
-                Text("dispositivi disponibili: \(playerCount).")
+                Text("dispositivi disponibili: \(availableDeviceCount).")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.65))
             }
+
         }
         .padding(AppTheme.spacingMD)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLG)
-                .fill(.ultraThinMaterial)
-                .opacity(0.92)
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLG)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                )
-        )
+        .tvGlassPanel()
     }
 
     private var deviceGrid: some View {
@@ -206,7 +238,7 @@ struct ConnectedIPhonesView: View {
 
     private var footerBar: some View {
         HStack(spacing: AppTheme.spacingMD) {
-            Label("seleziona due card per continuare", systemImage: "hand.point.right.fill")
+            Label(isTournamentMode ? "tappa i device: minimo 4, numero pari" : "seleziona due card per continuare", systemImage: "hand.point.right.fill")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.55))
 
@@ -225,25 +257,52 @@ struct ConnectedIPhonesView: View {
         }
     }
 
+    private var tournamentRuleBanner: some View {
+        HStack(alignment: .center, spacing: AppTheme.spacingMD) {
+            Image(systemName: "sparkles")
+                .font(.title2)
+                .foregroundStyle(.white.opacity(0.85))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("setup torneo")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+
+                Text("tocca i device direttamente. puoi creare solo con almeno 4 selezionati e un numero pari.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+
+            Spacer(minLength: 0)
+
+            Text("\(selectedPhones.count) selezionati")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+        }
+        .padding(AppTheme.spacingMD)
+        .tvGlassPanel()
+    }
+
     private func toggleSelection(for phone: ConnectedPhone) {
         if let index = selectedPhoneIDs.firstIndex(of: phone.id) {
             selectedPhoneIDs.remove(at: index)
             return
         }
 
-        if selectedPhoneIDs.count < 2 {
-            selectedPhoneIDs.append(phone.id)
-            if selectedPhoneIDs.count == 2 {
-                focusedPhoneID = nil
-                focusedAction = .create
+        if isTournamentMode {
+            if selectedPhoneIDs.count < maximumTournamentPlayers {
+                selectedPhoneIDs.append(phone.id)
             }
-            return
+        } else if selectedPhoneIDs.count < 2 {
+            selectedPhoneIDs.append(phone.id)
         }
 
-        selectedPhoneIDs.removeLast()
-        selectedPhoneIDs.append(phone.id)
-        focusedPhoneID = nil
-        focusedAction = .create
+        if canStartMatch {
+            focusedPhoneID = nil
+            focusedAction = .create
+        }
     }
 
     @ViewBuilder
@@ -326,13 +385,13 @@ private struct ConnectedPhoneCardView: View {
                     lineWidth: emphasis ? 2 : 1
                 )
         )
-        .scaleEffect(emphasis ? 1.03 : 1)
-        .shadow(
-            color: emphasis ? AppTheme.placeholderColor(phone.accentTop).opacity(0.32) : .clear,
-            radius: emphasis ? 16 : 0,
-            y: emphasis ? 8 : 0
+        .tvFocusEffect(
+            isFocused: emphasis,
+            scale: 1.03,
+            shadowColor: AppTheme.placeholderColor(phone.accentTop).opacity(0.32),
+            shadowRadius: 16,
+            shadowYOffset: 8
         )
-        .animation(.easeOut(duration: AppTheme.focusAnimDuration), value: emphasis)
     }
 }
 
@@ -341,7 +400,7 @@ private struct ConnectedPhoneCardView: View {
         ConnectedIPhonesView(
             selectedMode: .duello,
             selectedStyle: nil,
-            playerCount: 6
+            availableDeviceCount: 6
         )
     }
 }
