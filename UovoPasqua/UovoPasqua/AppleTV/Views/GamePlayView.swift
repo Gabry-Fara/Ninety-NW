@@ -1,18 +1,32 @@
 import SwiftUI
+import MultipeerConnectivity
 
 struct GamePlayView: View {
     let selectedMode: GameMode
     let selectedStyle: GameStyle?
     let players: [ConnectedPhone]
 
+    @EnvironmentObject var server: MultipeerServer
     @Environment(\.dismiss) private var dismiss
 
     private var gameStyle: GameStyle {
         selectedStyle ?? SampleDataProvider.gameStyles[0]
     }
+    
+    // Reverse lookup from the wrapper struct back to the network device object
+    private func getMCPeerID(for phone: ConnectedPhone) -> MCPeerID? {
+        return server.connectedPeers.first { "\($0.displayName)-\($0.hashValue)" == phone.id }
+    }
 
-    @State private var leftScore = 0
-    @State private var rightScore = 0
+    private var leftScore: Int {
+        guard players.count > 0, let p1 = getMCPeerID(for: players[0]) else { return 0 }
+        return server.playerScores[p1] ?? 0
+    }
+    
+    private var rightScore: Int {
+        guard players.count > 1, let p2 = getMCPeerID(for: players[1]) else { return 0 }
+        return server.playerScores[p2] ?? 0
+    }
 
     var body: some View {
         VStack(spacing: AppTheme.spacingLG) {
@@ -24,6 +38,10 @@ struct GamePlayView: View {
                 playerHand(isLeading: false)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            GameLogView(logs: server.matchLogs)
+                .frame(maxHeight: 250)
+            
             Spacer(minLength: 0)
         }
         .padding(.horizontal, AppTheme.spacingXL)
@@ -122,6 +140,43 @@ struct GamePlayView: View {
     }
 }
 
+struct GameLogView: View {
+    let logs: [String]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Activity Log")
+                .font(.headline)
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal)
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(logs.enumerated()), id: \.offset) { index, log in
+                        Text(log)
+                            .font(.body)
+                            .foregroundStyle(.white.opacity(index == 0 ? 1.0 : 0.7))
+                            .lineLimit(2)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.white.opacity(index == 0 ? 0.2 : 0.05))
+                            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD))
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+        .padding(.vertical)
+        .background(Color.black.opacity(0.4))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLG))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLG)
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
 #Preview {
     NavigationStack {
         GamePlayView(
@@ -129,5 +184,6 @@ struct GamePlayView: View {
             selectedStyle: SampleDataProvider.gameStyles[0],
             players: Array(SampleDataProvider.sampleConnectedPhones.prefix(2))
         )
+        .environmentObject(MultipeerServer())
     }
 }
