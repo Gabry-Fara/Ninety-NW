@@ -6,7 +6,7 @@ struct UovoPasquaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            HomeView()
                 .environment(appState)
         }
     }

@@ -17,11 +17,6 @@
 			path = UovoPasqua;
 			sourceTree = "<group>";
 		};
-		D2DF42AD2F7C07F6001FE628 /* MultiPeer */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MultiPeer;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -40,7 +35,6 @@
 			children = (
 				1BCECD882F7BF6D40076E693 /* UovoPasqua */,
 				1BCECD872F7BF6D40076E693 /* Products */,
-				D2DF42AD2F7C07F6001FE628 /* MultiPeer */,
 			);
 			sourceTree = "<group>";
 		};
@@ -76,7 +70,6 @@
 			);
 			fileSystemSynchronizedGroups = (
 				1BCECD882F7BF6D40076E693 /* UovoPasqua */,
-				D2DF42AD2F7C07F6001FE628 /* MultiPeer */,
 			);
 			name = UovoPasqua;
 			packageProductDependencies = (
