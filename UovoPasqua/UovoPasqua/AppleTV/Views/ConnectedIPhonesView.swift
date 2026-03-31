@@ -1,10 +1,12 @@
 import SwiftUI
+import MultipeerConnectivity
 
 struct ConnectedIPhonesView: View {
     let selectedMode: GameMode
     let selectedStyle: GameStyle?
     let availableDeviceCount: Int
 
+    @EnvironmentObject var server: MultipeerServer
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedPhoneID: String?
     @FocusState private var focusedAction: ActionButton?
@@ -22,9 +24,22 @@ struct ConnectedIPhonesView: View {
         GridItem(.fixed(290), spacing: AppTheme.spacingLG)
     ]
 
+    private var availablePhones: [ConnectedPhone] {
+        server.connectedPeers.enumerated().map { index, peer in
+            let colors = [("indigo", "blue"), ("amber", "orange"), ("rose", "pink"), ("emerald", "teal"), ("purple", "indigo")]
+            let color = colors[index % colors.count]
+            return ConnectedPhone(
+                id: "\(peer.displayName)-\(peer.hashValue)",
+                ownerName: peer.displayName,
+                accentTop: color.0,
+                accentBottom: color.1
+            )
+        }
+    }
+
     private var selectedPhones: [ConnectedPhone] {
         selectedPhoneIDs.compactMap { id in
-            SampleDataProvider.sampleConnectedPhones.first(where: { $0.id == id })
+            availablePhones.first(where: { $0.id == id })
         }
     }
 
@@ -73,7 +88,7 @@ struct ConnectedIPhonesView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(backgroundLayer.ignoresSafeArea())
         .onAppear {
-            focusedPhoneID = SampleDataProvider.sampleConnectedPhones.first?.id
+            focusedPhoneID = availablePhones.first?.id
             focusedAction = nil
         }
         .onChange(of: selectedPhoneIDs.count) { _, newValue in
@@ -220,7 +235,7 @@ struct ConnectedIPhonesView: View {
             }
 
             LazyVGrid(columns: columns, spacing: AppTheme.spacingLG) {
-                ForEach(SampleDataProvider.sampleConnectedPhones) { phone in
+                ForEach(availablePhones) { phone in
                     Button {
                         toggleSelection(for: phone)
                     } label: {
@@ -250,6 +265,14 @@ struct ConnectedIPhonesView: View {
                 style: canStartMatch ? .primary : .secondary
             ) {
                 guard canStartMatch else { return }
+                
+                // Fire off network notification to the two chosen devices!
+                if selectedPhones.count == 2,
+                   let p1 = getMCPeerID(for: selectedPhones[0]),
+                   let p2 = getMCPeerID(for: selectedPhones[1]) {
+                    server.startMatch(player1: p1, player2: p2)
+                }
+                
                 showGameScreen = true
             }
             .disabled(!canStartMatch)
@@ -303,6 +326,11 @@ struct ConnectedIPhonesView: View {
             focusedPhoneID = nil
             focusedAction = .create
         }
+    }
+    
+    // Reverse lookup from the wrapper struct back to the network device object
+    private func getMCPeerID(for phone: ConnectedPhone) -> MCPeerID? {
+        return server.connectedPeers.first { "\($0.displayName)-\($0.hashValue)" == phone.id }
     }
 
     @ViewBuilder
@@ -402,5 +430,6 @@ private struct ConnectedPhoneCardView: View {
             selectedStyle: nil,
             availableDeviceCount: 6
         )
+        .environmentObject(MultipeerServer())
     }
 }

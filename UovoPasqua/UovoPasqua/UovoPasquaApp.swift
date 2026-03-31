@@ -2,12 +2,15 @@ import SwiftUI
 
 @main
 struct UovoPasquaApp: App {
-    @State private var appState = AppState()
+    @StateObject private var multipeerServer = MultipeerServer()
 
     var body: some Scene {
         WindowGroup {
             HomeView()
-                .environment(appState)
+                .environmentObject(multipeerServer)
+                .onAppear {
+                    multipeerServer.startAdvertising()
+                }
         }
     }
 }

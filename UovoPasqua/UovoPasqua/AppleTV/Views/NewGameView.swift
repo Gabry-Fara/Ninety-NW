@@ -1,4 +1,5 @@
 import SwiftUI
+import MultipeerConnectivity
 
 // modalità di gioco selezionabile
 enum GameMode: Hashable {
@@ -7,6 +8,8 @@ enum GameMode: Hashable {
 }
 
 struct NewGameView: View {
+    @EnvironmentObject var server: MultipeerServer
+    
     @State private var selectedMode: GameMode?    = nil
     @State private var selectedStyle: GameStyle    = SampleDataProvider.gameStyles[0]
     @State private var showConnectedIPhones = false
@@ -28,6 +31,11 @@ struct NewGameView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
+                    
+                    Text("Host name: **\(server.myPeerID.displayName)**")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.placeholderColor("indigo"))
+                    
                     Text("Scegli il formato e poi uno dei tre stili visivi.")
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.5))
@@ -57,6 +65,9 @@ struct NewGameView: View {
 
                 // sezione stile
                 styleSection
+
+                // sezione rete / giocatori
+                networkSection
 
                 // bottoni azione
                 HStack(spacing: AppTheme.spacingSM) {
@@ -315,9 +326,129 @@ private extension NewGameView {
             .ignoresSafeArea()
         }
     }
+    
+    // MARK: network section
+    
+    var networkSection: some View {
+        VStack(alignment: .leading, spacing: AppTheme.spacingLG) {
+            HStack {
+                Text("Giocatori nel Lobby")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                
+                Text("· \(server.connectedPeers.count) connessi")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.35))
+            }
+            .padding(.horizontal, AppTheme.spacingXL)
+
+            if server.pendingPeers.isEmpty && server.connectedPeers.isEmpty {
+                Text("In attesa di connessioni iPhone sulla stessa rete...")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.5))
+                    .padding(.horizontal, AppTheme.spacingXL)
+            }
+
+            if !server.pendingPeers.isEmpty {
+                VStack(spacing: AppTheme.spacingSM) {
+                    ForEach(server.pendingPeers, id: \.self) { peer in
+                        pendingPeerCard(peer)
+                    }
+                }
+                .padding(.horizontal, AppTheme.spacingXL)
+            }
+
+            if !server.connectedPeers.isEmpty {
+                VStack(spacing: AppTheme.spacingSM) {
+                    ForEach(server.connectedPeers, id: \.self) { peer in
+                        connectedPeerCard(peer)
+                    }
+                }
+                .padding(.horizontal, AppTheme.spacingXL)
+            }
+        }
+    }
+    
+    func pendingPeerCard(_ peer: MCPeerID) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.spacingMD) {
+            HStack(spacing: AppTheme.spacingSM) {
+                Image(systemName: "iphone.badge.play")
+                    .font(.title2)
+                    .foregroundStyle(AppTheme.placeholderColor("amber"))
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(peer.displayName)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    Text("Vuole partecipare alla partita")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+            }
+            
+            HStack(spacing: AppTheme.spacingSM) {
+                Button {
+                    server.acceptPeer(peer)
+                } label: {
+                    Image(systemName: "checkmark")
+                        .font(.body.weight(.bold))
+                        .padding(8)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                
+                Button {
+                    server.declinePeer(peer)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.bold))
+                        .padding(8)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+            }
+        }
+        .padding(AppTheme.spacingMD)
+        .background(Color.white.opacity(0.07))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD)
+                .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+        )
+    }
+    
+    func connectedPeerCard(_ peer: MCPeerID) -> some View {
+        HStack {
+            Image(systemName: "iphone")
+                .font(.title2)
+                .foregroundStyle(.green)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(peer.displayName)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Text("Connesso al lobby")
+                    .font(.caption)
+                    .foregroundStyle(.green.opacity(0.8))
+            }
+            Spacer()
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.title2)
+        }
+        .padding(AppTheme.spacingMD)
+        .background(Color.white.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
 }
 
 #Preview {
     NewGameView()
         .environment(AppState())
+        .environmentObject(MultipeerServer())
 }
