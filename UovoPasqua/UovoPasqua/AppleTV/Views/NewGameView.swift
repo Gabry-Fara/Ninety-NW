@@ -34,6 +34,12 @@ struct NewGameView: View {
     @State private var showConnectedIPhones = false
 
     @FocusState private var focusedMode: GameMode?
+    @FocusState private var focusedAction: ActionButton?
+
+    private enum ActionButton: Hashable {
+        case create
+        case cancel
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -93,6 +99,7 @@ struct NewGameView: View {
                         showConnectedIPhones = true
                     }
                     .disabled(selectedMode == nil)
+                    .focused($focusedAction, equals: .create)
 
                     QuickActionButtonView(
                         label: "Annulla",
@@ -101,6 +108,7 @@ struct NewGameView: View {
                     ) {
                         dismiss()
                     }
+                    .focused($focusedAction, equals: .cancel)
                 }
                 .padding(.horizontal, AppTheme.spacingXL)
                 .padding(.bottom, AppTheme.spacingXL)
@@ -109,7 +117,28 @@ struct NewGameView: View {
         }
         .background(Color(white: 0.06).ignoresSafeArea())
         .animation(.easeOut(duration: 0.22), value: selectedMode)
-        .onAppear { focusedMode = .duello }
+        .onAppear {
+            focusedMode = .duello
+            focusedAction = nil
+        }
+        .onChange(of: selectedMode) { _, newValue in
+            if newValue != nil {
+                focusedMode = nil
+                focusedAction = .create
+            } else {
+                focusedAction = nil
+            }
+        }
+        .onChange(of: selectedStyle) { _, newValue in
+            guard selectedMode != nil else { return }
+            if newValue != nil || selectedMode == .duello {
+                focusedAction = .create
+            }
+        }
+        .onChange(of: tournamentPlayers) { _, _ in
+            guard selectedMode == .torneo else { return }
+            focusedAction = .create
+        }
         .navigationDestination(isPresented: $showConnectedIPhones) {
             if let mode = selectedMode {
                 ConnectedIPhonesView(

@@ -7,8 +7,14 @@ struct ConnectedIPhonesView: View {
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedPhoneID: String?
+    @FocusState private var focusedAction: ActionButton?
     @State private var selectedPhoneIDs: [String] = []
     @State private var showGameScreen = false
+
+    private enum ActionButton: Hashable {
+        case create
+        case back
+    }
 
     private let columns = [
         GridItem(.fixed(290), spacing: AppTheme.spacingLG),
@@ -40,6 +46,15 @@ struct ConnectedIPhonesView: View {
         .background(backgroundLayer.ignoresSafeArea())
         .onAppear {
             focusedPhoneID = SampleDataProvider.mockConnectedPhones.first?.id
+            focusedAction = nil
+        }
+        .onChange(of: selectedPhoneIDs.count) { _, newValue in
+            if newValue == 2 {
+                focusedPhoneID = nil
+                focusedAction = .create
+            } else {
+                focusedAction = nil
+            }
         }
         .navigationDestination(isPresented: $showGameScreen) {
             if selectedPhones.count == 2 {
@@ -75,6 +90,7 @@ struct ConnectedIPhonesView: View {
             ) {
                 dismiss()
             }
+            .focused($focusedAction, equals: .back)
         }
     }
 
@@ -205,6 +221,7 @@ struct ConnectedIPhonesView: View {
                 showGameScreen = true
             }
             .disabled(!canStartMatch)
+            .focused($focusedAction, equals: .create)
         }
     }
 
@@ -216,11 +233,17 @@ struct ConnectedIPhonesView: View {
 
         if selectedPhoneIDs.count < 2 {
             selectedPhoneIDs.append(phone.id)
+            if selectedPhoneIDs.count == 2 {
+                focusedPhoneID = nil
+                focusedAction = .create
+            }
             return
         }
 
         selectedPhoneIDs.removeLast()
         selectedPhoneIDs.append(phone.id)
+        focusedPhoneID = nil
+        focusedAction = .create
     }
 
     @ViewBuilder
