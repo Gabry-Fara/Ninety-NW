@@ -60,7 +60,7 @@ struct ConnectedIPhonesView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
 
-                Text("seleziona due dispositivi mock per avviare la partita.")
+                Text("seleziona due dispositivi per avviare la partita.")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.6))
                     .frame(maxWidth: 760, alignment: .leading)
@@ -135,7 +135,7 @@ struct ConnectedIPhonesView: View {
                         .foregroundStyle(.white)
                 }
 
-                Text("iPhone mock disponibili: \(playerCount).")
+                Text("dispositivi disponibili: \(playerCount).")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.65))
             }
@@ -178,7 +178,7 @@ struct ConnectedIPhonesView: View {
                     } label: {
                         ConnectedPhoneCardView(
                             phone: phone,
-                            selectionIndex: selectedPhones.firstIndex(of: phone).map { $0 + 1 }
+                            isSelected: selectedPhones.contains(phone)
                         )
                     }
                     .buttonStyle(.plain)
@@ -251,15 +251,14 @@ struct ConnectedIPhonesView: View {
 
 private struct ConnectedPhoneCardView: View {
     let phone: ConnectedPhone
-    let selectionIndex: Int?
+    let isSelected: Bool
 
     @Environment(\.isFocused) private var isFocused
 
-    private var isSelected: Bool { selectionIndex != nil }
     private var emphasis: Bool { isFocused || isSelected }
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack {
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD)
                 .fill(
                     LinearGradient(
@@ -282,72 +281,25 @@ private struct ConnectedPhoneCardView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD))
 
-            VStack(alignment: .leading, spacing: AppTheme.spacingSM) {
-                HStack(alignment: .top) {
-                    Image(systemName: "iphone.gen2")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.92))
+            VStack(spacing: AppTheme.spacingSM) {
+                Image(systemName: "iphone.gen2")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.92))
 
-                    Spacer(minLength: 0)
-
-                    VStack(alignment: .trailing, spacing: 5) {
-                        Label(phone.batteryLabel, systemImage: "battery.100")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.78))
-
-                        Label("\(phone.signalStrength)/4", systemImage: "wifi")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.78))
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(phone.deviceName)
-                        .font(.subheadline)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-
-                    Text(phone.modelName)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.72))
-                        .lineLimit(1)
-
-                    Text(phone.ownerName)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.55))
-                }
-
-                HStack(spacing: AppTheme.spacingXS) {
-                    Image(systemName: phone.state.badgeSymbol)
-                        .font(.caption2)
-                    Text(phone.stateLabel)
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Text(phone.lastSeenLabel)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.55))
-                }
-                .foregroundStyle(.white)
-                .padding(.top, 2)
-            }
-            .padding(AppTheme.spacingMD)
-
-            if let selectionIndex {
-                Text("\(selectionIndex)")
-                    .font(.caption)
+                Text(phone.ownerName)
+                    .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.white)
-                    .clipShape(Capsule())
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(AppTheme.spacingSM)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                }
             }
         }
-        .frame(height: 160)
+        .frame(height: 128)
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD)
                 .strokeBorder(
