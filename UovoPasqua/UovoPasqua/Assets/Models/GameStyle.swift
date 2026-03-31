@@ -10,4 +10,21 @@ struct GameStyle: Identifiable, Hashable {
     let accentToken: String
     let backgroundToken: String
     let symbolName: String
+
+    func assetName(for role: GameStyleArtworkRole) -> String {
+        switch role {
+        case .preview:
+            return previewAssetName
+        case .background:
+            return backgroundAssetName
+        case .gameplay:
+            return gameplayAssetName
+        }
+    }
+}
+
+enum GameStyleArtworkRole {
+    case preview
+    case background
+    case gameplay
 }

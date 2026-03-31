@@ -252,9 +252,11 @@ private struct StyleOptionCardView: View {
                     )
                 )
 
-            Image(style.previewAssetName)
-                .resizable()
-                .scaledToFill()
+            TVAssetImageView(
+                assetName: style.assetName(for: .preview),
+                fallbackTopToken: style.backgroundToken,
+                fallbackBottomToken: style.accentToken
+            )
                 .opacity(0.75)
                 .blur(radius: 0.2)
                 .clipped()

@@ -26,9 +26,11 @@ struct GameStyleArtworkView: View {
                 endPoint: .bottomTrailing
             )
 
-            Image(mode == .preview ? style.previewAssetName : style.backgroundAssetName)
-                .resizable()
-                .scaledToFill()
+            TVAssetImageView(
+                assetName: style.assetName(for: mode == .preview ? .preview : .background),
+                fallbackTopToken: style.backgroundToken,
+                fallbackBottomToken: style.accentToken
+            )
                 .opacity(mode == .preview ? 0.92 : 0.72)
                 .blur(radius: blurRadius + (mode == .preview ? 0.3 : 3.5))
                 .scaleEffect(mode == .preview ? 1.02 : 1.08)

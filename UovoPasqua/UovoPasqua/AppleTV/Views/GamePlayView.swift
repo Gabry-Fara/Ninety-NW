@@ -87,12 +87,15 @@ struct GamePlayView: View {
     }
 
     private func playerHand(isLeading: Bool) -> some View {
-        let artworkName = gameStyle.gameplayAssetName
+        let artworkName = gameStyle.assetName(for: .gameplay)
 
         return ZStack(alignment: isLeading ? .leading : .trailing) {
-            Image(artworkName)
-                .resizable()
-                .scaledToFit()
+            TVAssetImageView(
+                assetName: artworkName,
+                fallbackTopToken: gameStyle.backgroundToken,
+                fallbackBottomToken: gameStyle.accentToken,
+                contentMode: .fit
+            )
                 .frame(maxHeight: 330)
                 .scaleEffect(x: isLeading ? 1 : -1, y: 1)
                 .shadow(color: .black.opacity(0.32), radius: 18, y: 10)
