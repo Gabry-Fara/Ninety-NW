@@ -8,12 +8,18 @@
 
 /* Begin PBXFileReference section */
 		1BCECD862F7BF6D40076E693 /* UovoPasqua.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UovoPasqua.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2DF42BA2F7C081A001FE628 /* LocalChat.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = LocalChat.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		1BCECD882F7BF6D40076E693 /* UovoPasqua */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = UovoPasqua;
+			sourceTree = "<group>";
+		};
+		D2DF42AD2F7C07F6001FE628 /* MultiPeer */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MultiPeer;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -34,6 +40,7 @@
 			children = (
 				1BCECD882F7BF6D40076E693 /* UovoPasqua */,
 				1BCECD872F7BF6D40076E693 /* Products */,
+				D2DF42AD2F7C07F6001FE628 /* MultiPeer */,
 			);
 			sourceTree = "<group>";
 		};
@@ -41,6 +48,13 @@
 			isa = PBXGroup;
 			children = (
 				1BCECD862F7BF6D40076E693 /* UovoPasqua.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D2DF42BC2F7C081A001FE628 /* Products */ = {
+			isa = PBXGroup;
+			children = (
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -62,6 +76,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				1BCECD882F7BF6D40076E693 /* UovoPasqua */,
+				D2DF42AD2F7C07F6001FE628 /* MultiPeer */,
 			);
 			name = UovoPasqua;
 			packageProductDependencies = (
@@ -97,6 +112,12 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 1BCECD872F7BF6D40076E693 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = D2DF42BC2F7C081A001FE628 /* Products */;
+					ProjectRef = D2DF42BA2F7C081A001FE628 /* LocalChat.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				1BCECD852F7BF6D40076E693 /* UovoPasqua */,
