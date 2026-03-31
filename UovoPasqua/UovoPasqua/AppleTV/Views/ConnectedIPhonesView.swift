@@ -24,7 +24,7 @@ struct ConnectedIPhonesView: View {
 
     private var selectedPhones: [ConnectedPhone] {
         selectedPhoneIDs.compactMap { id in
-            SampleDataProvider.mockConnectedPhones.first(where: { $0.id == id })
+            SampleDataProvider.sampleConnectedPhones.first(where: { $0.id == id })
         }
     }
 
@@ -45,7 +45,7 @@ struct ConnectedIPhonesView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(backgroundLayer.ignoresSafeArea())
         .onAppear {
-            focusedPhoneID = SampleDataProvider.mockConnectedPhones.first?.id
+            focusedPhoneID = SampleDataProvider.sampleConnectedPhones.first?.id
             focusedAction = nil
         }
         .onChange(of: selectedPhoneIDs.count) { _, newValue in
@@ -140,7 +140,7 @@ struct ConnectedIPhonesView: View {
                     .foregroundStyle(.white.opacity(0.65))
 
                 if let selectedStyle {
-                    Label(selectedStyle.name, systemImage: selectedStyle.symbol)
+                    Label(selectedStyle.name, systemImage: selectedStyle.symbolName)
                         .font(.title3)
                         .fontWeight(.semibold)
                         .foregroundStyle(.white)
@@ -188,7 +188,7 @@ struct ConnectedIPhonesView: View {
             }
 
             LazyVGrid(columns: columns, spacing: AppTheme.spacingLG) {
-                ForEach(SampleDataProvider.mockConnectedPhones) { phone in
+                ForEach(SampleDataProvider.sampleConnectedPhones) { phone in
                     Button {
                         toggleSelection(for: phone)
                     } label: {
@@ -248,26 +248,32 @@ struct ConnectedIPhonesView: View {
 
     @ViewBuilder
     private var backgroundLayer: some View {
+        let style = selectedStyle ?? SampleDataProvider.gameStyles[0]
+
         ZStack {
+            GameStyleArtworkView(style: style, mode: .backdrop, blurRadius: 10)
+                .ignoresSafeArea()
+
             LinearGradient(
                 colors: [
-                    AppTheme.placeholderColor("midnight"),
-                    AppTheme.placeholderColor("slate"),
-                    .black
+                    .black.opacity(0.30),
+                    .black.opacity(0.72)
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                startPoint: .top,
+                endPoint: .bottom
             )
+            .ignoresSafeArea()
 
             RadialGradient(
                 colors: [
-                    Color.white.opacity(0.10),
+                    Color.white.opacity(0.08),
                     .clear
                 ],
                 center: .topTrailing,
                 startRadius: 40,
                 endRadius: 600
             )
+            .ignoresSafeArea()
         }
     }
 }
@@ -304,22 +310,12 @@ private struct ConnectedPhoneCardView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD))
 
-            VStack(spacing: AppTheme.spacingSM) {
-                Image(systemName: "iphone.gen2")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.92))
-
+            VStack(spacing: 0) {
                 Text(phone.ownerName)
                     .font(.title3)
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
                     .lineLimit(1)
-
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.white)
-                }
             }
         }
         .frame(height: 128)

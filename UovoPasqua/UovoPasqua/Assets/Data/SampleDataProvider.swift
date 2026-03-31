@@ -1,7 +1,43 @@
 import Foundation
 
-// all mock content — replace bodies with real API calls later
 enum SampleDataProvider {
+
+    // MARK: game styles
+    static let gameStyles: [GameStyle] = [
+        GameStyle(
+            id: "cyber",
+            name: "Cyber",
+            tagline: "neon, contrasti e interfacce luminose.",
+            previewAssetName: "Gemini_Generated_Image_34o2pu34o2pu34o2",
+            backgroundAssetName: "Gemini_Generated_Image_c85lrmc85lrmc85l",
+            gameplayAssetName: "Gemini_Generated_Image_34o2pu34o2pu34o2 senza sfondo",
+            accentToken: "violet",
+            backgroundToken: "midnight",
+            symbolName: "sparkles"
+        ),
+        GameStyle(
+            id: "oceano",
+            name: "Oceano",
+            tagline: "profondità fredde e movimenti fluidi.",
+            previewAssetName: "Gemini_Generated_Image_h2ijnth2ijnth2ij",
+            backgroundAssetName: "Gemini_Generated_Image_g9xv7kg9xv7kg9xv",
+            gameplayAssetName: "Gemini_Generated_Image_h2ijnth2ijnth2ij senza sfondo",
+            accentToken: "ocean",
+            backgroundToken: "teal",
+            symbolName: "water.waves"
+        ),
+        GameStyle(
+            id: "vulcano",
+            name: "Vulcano",
+            tagline: "calore, energia e colori più intensi.",
+            previewAssetName: "Gemini_Generated_Image_pifw0rpifw0rpifw",
+            backgroundAssetName: "Gemini_Generated_Image_akushbakushbakus",
+            gameplayAssetName: "Gemini_Generated_Image_pifw0rpifw0rpifw senza sfondo",
+            accentToken: "crimson",
+            backgroundToken: "amber",
+            symbolName: "flame.fill"
+        )
+    ]
 
     // MARK: categories
     static let categories: [Category] = [
@@ -60,7 +96,6 @@ enum SampleDataProvider {
     }
 
     static var categoriesShelf: ShelfSection {
-        // using mock MediaItems that represent categories visually — CatalogView receives real Category
         ShelfSection(id: "categories", title: "Browse Categories", subtitle: "Find your next favourite",
                      items: [])   // home renders categories separately via their own view
     }
@@ -86,79 +121,43 @@ enum SampleDataProvider {
         ["Action", "Documentary", "Sci-Fi", "Drama", "Thriller", "Comedy", "New Releases"]
     }
 
-    // MARK: connected devices mock
-    static let mockConnectedPhones: [ConnectedPhone] = [
+    // MARK: connected devices
+    static let sampleConnectedPhones: [ConnectedPhone] = [
         ConnectedPhone(
             id: "iphone-marco",
-            deviceName: "iPhone di Marco",
             ownerName: "Marco",
-            modelName: "iPhone 15 Pro",
-            batteryLevel: 82,
-            signalStrength: 4,
             accentTop: "ocean",
-            accentBottom: "indigo",
-            state: .connected,
-            lastSeenLabel: "ora"
+            accentBottom: "indigo"
         ),
         ConnectedPhone(
             id: "iphone-giulia",
-            deviceName: "iPhone di Giulia",
             ownerName: "Giulia",
-            modelName: "iPhone 14",
-            batteryLevel: 64,
-            signalStrength: 4,
             accentTop: "violet",
-            accentBottom: "rose",
-            state: .connected,
-            lastSeenLabel: "12 s fa"
+            accentBottom: "rose"
         ),
         ConnectedPhone(
             id: "iphone-luca",
-            deviceName: "iPhone di Luca",
             ownerName: "Luca",
-            modelName: "iPhone 13 mini",
-            batteryLevel: 51,
-            signalStrength: 3,
             accentTop: "amber",
-            accentBottom: "gold",
-            state: .waiting,
-            lastSeenLabel: "48 s fa"
+            accentBottom: "gold"
         ),
         ConnectedPhone(
             id: "iphone-sara",
-            deviceName: "iPhone di Sara",
             ownerName: "Sara",
-            modelName: "iPhone 15",
-            batteryLevel: 95,
-            signalStrength: 2,
             accentTop: "forest",
-            accentBottom: "teal",
-            state: .ready,
-            lastSeenLabel: "1 min fa"
+            accentBottom: "teal"
         ),
         ConnectedPhone(
             id: "iphone-andrea",
-            deviceName: "iPhone di Andrea",
             ownerName: "Andrea",
-            modelName: "iPhone 12 Pro",
-            batteryLevel: 48,
-            signalStrength: 4,
             accentTop: "crimson",
-            accentBottom: "slate",
-            state: .connected,
-            lastSeenLabel: "adesso"
+            accentBottom: "slate"
         ),
         ConnectedPhone(
             id: "iphone-elena",
-            deviceName: "iPhone di Elena",
             ownerName: "Elena",
-            modelName: "iPhone 14 Pro",
-            batteryLevel: 73,
-            signalStrength: 3,
             accentTop: "slate",
-            accentBottom: "midnight",
-            state: .ready,
-            lastSeenLabel: "2 min fa"
+            accentBottom: "midnight"
         ),
     ]
 }

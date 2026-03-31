@@ -7,34 +7,21 @@ struct GamePlayView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    private var leftPlayer: ConnectedPhone { players.first ?? SampleDataProvider.mockConnectedPhones[0] }
-    private var rightPlayer: ConnectedPhone { players.dropFirst().first ?? SampleDataProvider.mockConnectedPhones[1] }
+    private var gameStyle: GameStyle {
+        selectedStyle ?? SampleDataProvider.gameStyles[0]
+    }
 
     @State private var leftScore = 0
     @State private var rightScore = 0
-
-    private var accentToken: String {
-        selectedStyle?.colorToken ?? leftPlayer.accentTop
-    }
 
     var body: some View {
         VStack(spacing: AppTheme.spacingLG) {
             topBar
             scoreHeader
             HStack(spacing: AppTheme.spacingLG) {
-                playerStation(
-                    phone: leftPlayer,
-                    score: leftScore,
-                    isLeading: true
-                )
+                playerHand(isLeading: true)
 
-                centerBadge
-
-                playerStation(
-                    phone: rightPlayer,
-                    score: rightScore,
-                    isLeading: false
-                )
+                playerHand(isLeading: false)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             Spacer(minLength: 0)
@@ -57,17 +44,6 @@ struct GamePlayView: View {
             }
 
             Spacer(minLength: 0)
-
-            if let selectedStyle {
-                Label(selectedStyle.name, systemImage: selectedStyle.symbol)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.08))
-                    .clipShape(Capsule())
-            }
         }
     }
 
@@ -100,79 +76,37 @@ struct GamePlayView: View {
         }
     }
 
-    private func playerStation(phone: ConnectedPhone, score: Int, isLeading: Bool) -> some View {
-        let contentAlignment: Alignment = isLeading ? .leading : .trailing
+    private func playerHand(isLeading: Bool) -> some View {
+        let artworkName = gameStyle.gameplayAssetName
 
-        return VStack(alignment: isLeading ? .leading : .trailing, spacing: AppTheme.spacingMD) {
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLG)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            AppTheme.placeholderColor(phone.accentTop),
-                            AppTheme.placeholderColor(phone.accentBottom)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    VStack(alignment: isLeading ? .leading : .trailing, spacing: 8) {
-                        Image(systemName: "iphone.gen2")
-                            .font(.system(size: 34, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.9))
-
-                        Text(phone.ownerName)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-
-                        Text("punteggio \(score)")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.75))
-                    }
-                    .padding(AppTheme.spacingLG)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: contentAlignment)
-                )
-                .frame(maxWidth: .infinity, minHeight: 320)
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLG)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                )
+        return ZStack(alignment: isLeading ? .leading : .trailing) {
+            Image(artworkName)
+                .resizable()
+                .scaledToFit()
+                .frame(maxHeight: 330)
+                .scaleEffect(x: isLeading ? 1 : -1, y: 1)
+                .shadow(color: .black.opacity(0.32), radius: 18, y: 10)
         }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var centerBadge: some View {
-        VStack(spacing: 6) {
-            Image(systemName: "gamecontroller.fill")
-                .font(.title2)
-                .foregroundStyle(.white)
-
-            Text("play")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .background(
-            Circle()
-                .fill(AppTheme.placeholderColor(accentToken).opacity(0.55))
-                .overlay(Circle().strokeBorder(.white.opacity(0.16), lineWidth: 1))
-        )
+        .frame(maxWidth: .infinity, minHeight: 360, alignment: isLeading ? .leading : .trailing)
+        .padding(.top, isLeading ? 28 : 0)
     }
 
     @ViewBuilder
     private var backgroundLayer: some View {
         ZStack {
+            GameStyleArtworkView(style: gameStyle, mode: .backdrop)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+
             LinearGradient(
                 colors: [
-                    AppTheme.placeholderColor(accentToken).opacity(0.45),
-                    AppTheme.placeholderColor("midnight"),
-                    .black
+                    .black.opacity(0.15),
+                    .black.opacity(0.55)
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                startPoint: .top,
+                endPoint: .bottom
             )
+            .ignoresSafeArea()
 
             RadialGradient(
                 colors: [
@@ -183,6 +117,7 @@ struct GamePlayView: View {
                 startRadius: 40,
                 endRadius: 700
             )
+            .ignoresSafeArea()
         }
     }
 }
@@ -191,8 +126,8 @@ struct GamePlayView: View {
     NavigationStack {
         GamePlayView(
             selectedMode: .duello,
-            selectedStyle: nil,
-            players: Array(SampleDataProvider.mockConnectedPhones.prefix(2))
+            selectedStyle: SampleDataProvider.gameStyles[0],
+            players: Array(SampleDataProvider.sampleConnectedPhones.prefix(2))
         )
     }
 }

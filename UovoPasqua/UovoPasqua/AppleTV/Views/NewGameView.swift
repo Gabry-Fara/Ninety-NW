@@ -6,30 +6,9 @@ enum GameMode: Hashable {
     case torneo   // 4–8 giocatori, eliminazione diretta
 }
 
-// stile grafico della partita — fake per ora
-struct GameStyle: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let colorToken: String
-    let symbol: String
-}
-
-private let availableStyles: [GameStyle] = [
-    GameStyle(id: "minimal",  name: "Minimal",  colorToken: "slate",   symbol: "circle.fill"),
-    GameStyle(id: "neon",     name: "Neon",     colorToken: "violet",  symbol: "sparkles"),
-    GameStyle(id: "retro",    name: "Retro",    colorToken: "amber",   symbol: "gamecontroller.fill"),
-    GameStyle(id: "nature",   name: "Nature",   colorToken: "forest",  symbol: "leaf.fill"),
-    GameStyle(id: "ocean",    name: "Ocean",    colorToken: "ocean",   symbol: "water.waves"),
-    GameStyle(id: "fire",     name: "Fire",     colorToken: "crimson", symbol: "flame.fill"),
-    GameStyle(id: "space",    name: "Space",    colorToken: "indigo",  symbol: "star.fill"),
-    GameStyle(id: "gold",     name: "Gold",     colorToken: "gold",    symbol: "crown.fill"),
-]
-
 struct NewGameView: View {
-    @Environment(\.dismiss) private var dismiss
-
     @State private var selectedMode: GameMode?    = nil
-    @State private var selectedStyle: GameStyle?  = nil
+    @State private var selectedStyle: GameStyle    = SampleDataProvider.gameStyles[0]
     @State private var tournamentPlayers: Int      = 4
     @State private var showConnectedIPhones = false
 
@@ -38,7 +17,6 @@ struct NewGameView: View {
 
     private enum ActionButton: Hashable {
         case create
-        case cancel
     }
 
     var body: some View {
@@ -51,7 +29,7 @@ struct NewGameView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
-                    Text("Scegli il formato e lo stile della partita.")
+                    Text("Scegli il formato e poi uno dei tre stili visivi.")
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.5))
                 }
@@ -100,23 +78,15 @@ struct NewGameView: View {
                     }
                     .disabled(selectedMode == nil)
                     .focused($focusedAction, equals: .create)
-
-                    QuickActionButtonView(
-                        label: "Annulla",
-                        symbolName: "xmark",
-                        style: .secondary
-                    ) {
-                        dismiss()
-                    }
-                    .focused($focusedAction, equals: .cancel)
                 }
                 .padding(.horizontal, AppTheme.spacingXL)
                 .padding(.bottom, AppTheme.spacingXL)
             }
             .padding(.top, AppTheme.spacingLG)
         }
-        .background(Color(white: 0.06).ignoresSafeArea())
+        .background(backgroundLayer.ignoresSafeArea())
         .animation(.easeOut(duration: 0.22), value: selectedMode)
+        .animation(.easeOut(duration: 0.22), value: selectedStyle.id)
         .onAppear {
             focusedMode = .duello
             focusedAction = nil
@@ -129,11 +99,9 @@ struct NewGameView: View {
                 focusedAction = nil
             }
         }
-        .onChange(of: selectedStyle) { _, newValue in
+        .onChange(of: selectedStyle) { _, _ in
             guard selectedMode != nil else { return }
-            if newValue != nil || selectedMode == .duello {
-                focusedAction = .create
-            }
+            focusedAction = .create
         }
         .onChange(of: tournamentPlayers) { _, _ in
             guard selectedMode == .torneo else { return }
@@ -272,107 +240,134 @@ struct NewGameView: View {
     // MARK: style section
 
     private var styleSection: some View {
-        VStack(alignment: .leading, spacing: AppTheme.spacingSM) {
+        let styles = SampleDataProvider.gameStyles
+        let columns = Array(repeating: GridItem(.flexible(), spacing: AppTheme.spacingMD), count: 3)
+
+        return VStack(alignment: .leading, spacing: AppTheme.spacingLG) {
             HStack {
                 Text("Stile")
                     .font(.title3)
                     .fontWeight(.bold)
                     .foregroundStyle(.white)
 
-                if selectedStyle == nil {
-                    Text("· opzionale")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.35))
-                }
+                Text("· cyber, oceano, vulcano")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.35))
             }
             .padding(.horizontal, AppTheme.spacingXL)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: AppTheme.spacingMD) {
-                    ForEach(availableStyles) { style in
-                        styleChip(style)
-                    }
+            LazyVGrid(columns: columns, spacing: AppTheme.spacingMD) {
+                ForEach(styles) { style in
+                    styleOption(style)
                 }
-                .padding(.horizontal, AppTheme.spacingXL)
-                .padding(.trailing, AppTheme.spacingXL)
-                .padding(.vertical, AppTheme.spacingXS)
             }
+            .padding(.horizontal, AppTheme.spacingXL)
         }
     }
 
-    private func styleChip(_ style: GameStyle) -> some View {
-        let isSelected = selectedStyle?.id == style.id
+    private func styleOption(_ style: GameStyle) -> some View {
+        let isSelected = selectedStyle.id == style.id
 
         return Button {
-            selectedStyle = isSelected ? nil : style
+            selectedStyle = style
         } label: {
-            StyleChipView(style: style, isSelected: isSelected)
+            StyleOptionCardView(style: style, isSelected: isSelected)
         }
         .buttonStyle(.plain)
     }
 }
 
-// chip compatto per la selezione stile
-private struct StyleChipView: View {
+private struct StyleOptionCardView: View {
     let style: GameStyle
     let isSelected: Bool
+
     @Environment(\.isFocused) private var isFocused
+
+    private var emphasis: Bool { isFocused || isSelected }
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            // sfondo gradiente
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD)
                 .fill(
                     LinearGradient(
                         colors: [
-                            AppTheme.placeholderColor(style.colorToken),
-                            AppTheme.placeholderColor(style.colorToken).opacity(0.5),
+                            AppTheme.placeholderColor(style.backgroundToken),
+                            AppTheme.placeholderColor(style.accentToken)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
-                .opacity(isSelected || isFocused ? 1 : 0.45)
 
-            // simbolo
-            Image(systemName: style.symbol)
-                .font(.system(size: 28))
-                .foregroundStyle(.white.opacity(0.2))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .padding(8)
+            Image(style.previewAssetName)
+                .resizable()
+                .scaledToFill()
+                .opacity(0.75)
+                .blur(radius: 0.2)
+                .clipped()
 
-            // nome
-            VStack(alignment: .leading, spacing: 2) {
-                Text(style.name)
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0.2),
+                    .init(color: .black.opacity(0.78), location: 1.0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Label(style.name, systemImage: style.symbolName)
                     .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .fontWeight(.bold)
                     .foregroundStyle(.white)
-                Text("Presto")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.5))
+
+                Text(style.tagline)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(2)
             }
             .padding(AppTheme.spacingSM)
+
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(AppTheme.spacingSM)
+            }
         }
-        .frame(width: 160, height: 100)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD))
+        .frame(height: 150)
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMD)
                 .strokeBorder(
-                    isSelected ? .white : Color.white.opacity(isFocused ? 0.4 : 0.0),
+                    isSelected ? .white : Color.white.opacity(isFocused ? 0.45 : 0.1),
                     lineWidth: isSelected ? 2 : 1
                 )
         )
-        .overlay(alignment: .topLeading) {
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.white)
-                    .padding(6)
-            }
+        .scaleEffect(emphasis ? AppTheme.focusScaleCard : 1)
+        .shadow(color: emphasis ? AppTheme.placeholderColor(style.accentToken).opacity(0.38) : .clear, radius: 18, y: 8)
+        .animation(.easeOut(duration: AppTheme.focusAnimDuration), value: emphasis)
+    }
+}
+
+private extension NewGameView {
+    @ViewBuilder
+    var backgroundLayer: some View {
+        ZStack {
+            GameStyleArtworkView(style: selectedStyle, mode: .backdrop, blurRadius: 0.5)
+                .ignoresSafeArea()
+
+            LinearGradient(
+                colors: [
+                    .black.opacity(0.20),
+                    .black.opacity(0.62)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
         }
-        .scaleEffect(isFocused ? AppTheme.focusScaleCard : 1)
-        .shadow(color: isFocused ? AppTheme.placeholderColor(style.colorToken).opacity(0.5) : .clear, radius: 16)
-        .animation(.easeOut(duration: AppTheme.focusAnimDuration), value: isFocused)
     }
 }
 
