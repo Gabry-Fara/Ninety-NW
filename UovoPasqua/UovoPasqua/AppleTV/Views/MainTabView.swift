@@ -8,14 +8,8 @@ struct MainTabView: View {
             Tab("Home", systemImage: AppTab.home.symbolName, value: AppTab.home) {
                 HomeView()
             }
-            Tab("Catalog", systemImage: AppTab.catalog.symbolName, value: AppTab.catalog) {
-                CatalogView()
-            }
-            Tab("Search", systemImage: AppTab.search.symbolName, value: AppTab.search) {
-                SearchView()
-            }
-            Tab("Library", systemImage: AppTab.library.symbolName, value: AppTab.library) {
-                LibraryView()
+            Tab("Stile", systemImage: AppTab.style.symbolName, value: AppTab.style) {
+                StyleView()
             }
         }
     }
