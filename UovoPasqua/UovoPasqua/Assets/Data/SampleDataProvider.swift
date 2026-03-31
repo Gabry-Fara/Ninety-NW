@@ -85,4 +85,80 @@ enum SampleDataProvider {
     static var searchSuggestions: [String] {
         ["Action", "Documentary", "Sci-Fi", "Drama", "Thriller", "Comedy", "New Releases"]
     }
+
+    // MARK: connected devices mock
+    static let mockConnectedPhones: [ConnectedPhone] = [
+        ConnectedPhone(
+            id: "iphone-marco",
+            deviceName: "iPhone di Marco",
+            ownerName: "Marco",
+            modelName: "iPhone 15 Pro",
+            batteryLevel: 82,
+            signalStrength: 4,
+            accentTop: "ocean",
+            accentBottom: "indigo",
+            state: .connected,
+            lastSeenLabel: "ora"
+        ),
+        ConnectedPhone(
+            id: "iphone-giulia",
+            deviceName: "iPhone di Giulia",
+            ownerName: "Giulia",
+            modelName: "iPhone 14",
+            batteryLevel: 64,
+            signalStrength: 4,
+            accentTop: "violet",
+            accentBottom: "rose",
+            state: .connected,
+            lastSeenLabel: "12 s fa"
+        ),
+        ConnectedPhone(
+            id: "iphone-luca",
+            deviceName: "iPhone di Luca",
+            ownerName: "Luca",
+            modelName: "iPhone 13 mini",
+            batteryLevel: 51,
+            signalStrength: 3,
+            accentTop: "amber",
+            accentBottom: "gold",
+            state: .waiting,
+            lastSeenLabel: "48 s fa"
+        ),
+        ConnectedPhone(
+            id: "iphone-sara",
+            deviceName: "iPhone di Sara",
+            ownerName: "Sara",
+            modelName: "iPhone 15",
+            batteryLevel: 95,
+            signalStrength: 2,
+            accentTop: "forest",
+            accentBottom: "teal",
+            state: .ready,
+            lastSeenLabel: "1 min fa"
+        ),
+        ConnectedPhone(
+            id: "iphone-andrea",
+            deviceName: "iPhone di Andrea",
+            ownerName: "Andrea",
+            modelName: "iPhone 12 Pro",
+            batteryLevel: 48,
+            signalStrength: 4,
+            accentTop: "crimson",
+            accentBottom: "slate",
+            state: .connected,
+            lastSeenLabel: "adesso"
+        ),
+        ConnectedPhone(
+            id: "iphone-elena",
+            deviceName: "iPhone di Elena",
+            ownerName: "Elena",
+            modelName: "iPhone 14 Pro",
+            batteryLevel: 73,
+            signalStrength: 3,
+            accentTop: "slate",
+            accentBottom: "midnight",
+            state: .ready,
+            lastSeenLabel: "2 min fa"
+        ),
+    ]
 }

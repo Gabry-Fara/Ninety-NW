@@ -31,6 +31,7 @@ struct NewGameView: View {
     @State private var selectedMode: GameMode?    = nil
     @State private var selectedStyle: GameStyle?  = nil
     @State private var tournamentPlayers: Int      = 4
+    @State private var showConnectedIPhones = false
 
     @FocusState private var focusedMode: GameMode?
 
@@ -88,7 +89,8 @@ struct NewGameView: View {
                         symbolName: "play.fill",
                         style: selectedMode != nil ? .primary : .secondary
                     ) {
-                        // avvio partita da implementare
+                        guard selectedMode != nil else { return }
+                        showConnectedIPhones = true
                     }
                     .disabled(selectedMode == nil)
 
@@ -108,6 +110,15 @@ struct NewGameView: View {
         .background(Color(white: 0.06).ignoresSafeArea())
         .animation(.easeOut(duration: 0.22), value: selectedMode)
         .onAppear { focusedMode = .duello }
+        .navigationDestination(isPresented: $showConnectedIPhones) {
+            if let mode = selectedMode {
+                ConnectedIPhonesView(
+                    selectedMode: mode,
+                    selectedStyle: selectedStyle,
+                    playerCount: mode == .duello ? 2 : tournamentPlayers
+                )
+            }
+        }
     }
 
     // MARK: mode card
