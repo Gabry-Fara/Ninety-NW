@@ -44,18 +44,29 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         #endif
     }
     
+#if canImport(AlarmKit)
+    struct NinetyAlarmMetadata: AlarmMetadata {}
+    
+    private func createDefaultAttributes() -> AlarmAttributes<NinetyAlarmMetadata> {
+        let presentation = AlarmPresentation(
+            alert: .init(title: "Ninety Wake Up")
+        )
+        return AlarmAttributes(presentation: presentation, tintColor: .blue)
+    }
+    #endif
+    
     func scheduleSystemAlarm(for targetDate: Date) {
         let alarmID = UUID()
         self.absoluteAlarmID = alarmID
         self.alarmStatus = "Absolute Failsafe Set for \(targetDate.formatted(date: .omitted, time: .shortened))"
         
-        #if false // canImport(AlarmKit) - Disabled due to beta API mismatch
+        #if canImport(AlarmKit)
         Task {
             do {
+                // Livello 1 (Failsafe Assoluto)
                 let configuration = AlarmManager.AlarmConfiguration(
-                    schedule: .date(targetDate), // guessing .date instead of .absolute based on beta pattern
-                    attributes: nil,
-                    sound: .named("WakeUpChime")
+                    schedule: .fixed(targetDate), 
+                    attributes: createDefaultAttributes()
                 )
                 try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
                 self.alarmStatus = "✅ Active Failsafe Alarm Scheduled in System"
@@ -72,32 +83,32 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     func triggerDynamicAlarm() {
         self.alarmStatus = "🚨 DYNAMIC WAKE EVENT TRIGGERED VIA ALARMKIT!"
         
-        // Prevent double alarm triggering
+        // Pulizia chirurgica della sveglia di Livello 1 dopo che Livello 2 è scattata
         if let oldID = absoluteAlarmID {
             #if canImport(AlarmKit)
             Task {
-                try? AlarmManager.shared.cancel(id: oldID)
+                try? await AlarmManager.shared.cancel(id: oldID)
             }
             #endif
             absoluteAlarmID = nil
         }
         
-        #if false // canImport(AlarmKit) - Disabled due to beta API mismatch
+        #if canImport(AlarmKit)
         Task {
             do {
-                // Zero-duration countdown to fire instantly
+                // Livello 2 (Trigger Euristico Dinamico) a zero secondi (modifica la precedente/trigger immediato)
                 let configuration = AlarmManager.AlarmConfiguration(
-                    schedule: .relative(.init()), // triggers immediately
-                    attributes: nil,
-                    sound: .named("WakeUpChime")
+                    schedule: .fixed(Date()),
+                    attributes: createDefaultAttributes()
                 )
                 try await AlarmManager.shared.schedule(id: UUID(), configuration: configuration)
+                self.alarmStatus = "✅ Livello 2 Executed! 🔥 Waking User!"
             } catch {
                 self.alarmStatus = "Dynamic execution failed: \(error)"
             }
         }
         #else
-        self.alarmStatus = "[Mock] Dynamic Alarm Executed! 🔥 Waking User!"
+        self.alarmStatus = "[Mock] Livello 2 Executed! 🔥 Waking User!"
         
         Task {
             let content = UNMutableNotificationContent()
