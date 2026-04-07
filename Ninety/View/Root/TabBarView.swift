@@ -35,6 +35,14 @@ struct TabBarView: View {
                 }
                 .onAppear { selectedTab = 2 }
                 .tag(2)
+                
+            DiagnosticsView()
+                .tabItem {
+                    Image(systemName: "ladybug")
+                    Text("Debug")
+                }
+                .onAppear { selectedTab = 3 }
+                .tag(3)
         }
     }
 }

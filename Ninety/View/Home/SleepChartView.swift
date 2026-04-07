@@ -20,7 +20,7 @@ struct SleepChartView: View {
             }
             .pickerStyle(SegmentedPickerStyle())
             .padding()
-            .onChange(of: homeViewModel.timeView) { _ in
+            .onChange(of: homeViewModel.timeView) { _, _ in
                 homeViewModel.filterSleepData()
             }
             

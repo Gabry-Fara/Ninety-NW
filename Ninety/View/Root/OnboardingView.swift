@@ -43,11 +43,8 @@ struct OnboardingView: View {
                             .frame(width: 325, height: 55)
                             .cornerRadius(10)
                             
-                            VStack{
-                                Text("By continuing, you agree to RestfulNight's " + "\n") +
-                                Text("Terms of Service").bold() +
-                                Text(" and ") +
-                                Text("Privacy Policy.").bold()
+                            VStack {
+                                Text("By continuing, you agree to RestfulNight's \n**Terms of Service** and **Privacy Policy.**")
                             }
                             .font(.footnote)
                             .foregroundColor(.secondary)

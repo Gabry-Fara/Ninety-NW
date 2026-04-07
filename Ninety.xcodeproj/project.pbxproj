@@ -3,10 +3,18 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		001E1C922F853DF500AD4DC7 /* SensorPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1C8E2F853DF500AD4DC7 /* SensorPayload.swift */; };
+		001E1C932F853DF500AD4DC7 /* SmartAlarmManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1C912F853DF500AD4DC7 /* SmartAlarmManager.swift */; };
+		001E1C942F853DF500AD4DC7 /* SleepHeuristicEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1C8F2F853DF500AD4DC7 /* SleepHeuristicEngine.swift */; };
+		001E1C952F853DF500AD4DC7 /* SleepSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1C902F853DF500AD4DC7 /* SleepSessionManager.swift */; };
+		001E1C972F853EB100AD4DC7 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1C962F853EB100AD4DC7 /* DiagnosticsView.swift */; };
+		00B643152F7EC58900CC8B51 /* NinetyWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		00B643212F7EC82E00CC8B51 /* AlarmKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643202F7EC82E00CC8B51 /* AlarmKit.framework */; };
+		00B643232F85305E00CC8B51 /* CoreMotion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643222F85305E00CC8B51 /* CoreMotion.framework */; };
 		5B7A310C2C3FDCCB00353790 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A310B2C3FDCCB00353790 /* HomeViewModel.swift */; };
 		5B7A31132C401F9F00353790 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A31122C401F9F00353790 /* SettingsViewModel.swift */; };
 		5BB3ED6A2C3AD54600CD4274 /* NinetyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB3ED692C3AD54600CD4274 /* NinetyApp.swift */; };
@@ -22,7 +30,41 @@
 		5BF32F852C3C05A900A528BD /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF32F842C3C05A900A528BD /* HomeView.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		00B643132F7EC58900CC8B51 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5BB3ED5E2C3AD54600CD4274 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 00B6430A2F7EC58800CC8B51;
+			remoteInfo = "NinetyWatch Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		00B643192F7EC58900CC8B51 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				00B643152F7EC58900CC8B51 /* NinetyWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		001E1C8E2F853DF500AD4DC7 /* SensorPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorPayload.swift; sourceTree = "<group>"; };
+		001E1C8F2F853DF500AD4DC7 /* SleepHeuristicEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepHeuristicEngine.swift; sourceTree = "<group>"; };
+		001E1C902F853DF500AD4DC7 /* SleepSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSessionManager.swift; sourceTree = "<group>"; };
+		001E1C912F853DF500AD4DC7 /* SmartAlarmManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartAlarmManager.swift; sourceTree = "<group>"; };
+		001E1C962F853EB100AD4DC7 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "NinetyWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		00B6431B2F7EC6A700CC8B51 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		00B6431C2F7EC6BC00CC8B51 /* Ninety.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Ninety.entitlements; sourceTree = "<group>"; };
+		00B643202F7EC82E00CC8B51 /* AlarmKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AlarmKit.framework; path = System/Library/Frameworks/AlarmKit.framework; sourceTree = SDKROOT; };
+		00B643222F85305E00CC8B51 /* CoreMotion.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMotion.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.4.sdk/System/Library/Frameworks/CoreMotion.framework; sourceTree = DEVELOPER_DIR; };
 		5B7A310B2C3FDCCB00353790 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		5B7A31122C401F9F00353790 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		5BB3ED662C3AD54600CD4274 /* Ninety.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ninety.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -39,17 +81,39 @@
 		5BF32F842C3C05A900A528BD /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		00B6430C2F7EC58800CC8B51 /* NinetyWatch Watch App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "NinetyWatch Watch App"; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		00B643082F7EC58800CC8B51 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00B643232F85305E00CC8B51 /* CoreMotion.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5BB3ED632C3AD54600CD4274 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				00B643212F7EC82E00CC8B51 /* AlarmKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		00B6431F2F7EC82E00CC8B51 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				00B643222F85305E00CC8B51 /* CoreMotion.framework */,
+				00B643202F7EC82E00CC8B51 /* AlarmKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		5B7A310A2C3FDC8200353790 /* Home */ = {
 			isa = PBXGroup;
 			children = (
@@ -82,6 +146,8 @@
 			isa = PBXGroup;
 			children = (
 				5BB3ED682C3AD54600CD4274 /* Ninety */,
+				00B6430C2F7EC58800CC8B51 /* NinetyWatch Watch App */,
+				00B6431F2F7EC82E00CC8B51 /* Frameworks */,
 				5BB3ED672C3AD54600CD4274 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +156,7 @@
 			isa = PBXGroup;
 			children = (
 				5BB3ED662C3AD54600CD4274 /* Ninety.app */,
+				00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,6 +164,12 @@
 		5BB3ED682C3AD54600CD4274 /* Ninety */ = {
 			isa = PBXGroup;
 			children = (
+				001E1C8E2F853DF500AD4DC7 /* SensorPayload.swift */,
+				001E1C8F2F853DF500AD4DC7 /* SleepHeuristicEngine.swift */,
+				001E1C902F853DF500AD4DC7 /* SleepSessionManager.swift */,
+				001E1C912F853DF500AD4DC7 /* SmartAlarmManager.swift */,
+				00B6431C2F7EC6BC00CC8B51 /* Ninety.entitlements */,
+				00B6431B2F7EC6A700CC8B51 /* Info.plist */,
 				5BB3ED692C3AD54600CD4274 /* NinetyApp.swift */,
 				5BB3ED7F2C3B0AA200CD4274 /* View */,
 				5BB3ED792C3AD96A00CD4274 /* SleepCalculator.mlmodel */,
@@ -128,6 +201,7 @@
 		5BB3ED812C3B0ACA00CD4274 /* Root */ = {
 			isa = PBXGroup;
 			children = (
+				001E1C962F853EB100AD4DC7 /* DiagnosticsView.swift */,
 				5BB3ED7D2C3B099800CD4274 /* TabBarView.swift */,
 				5BB3ED7B2C3ADCAB00CD4274 /* OnboardingView.swift */,
 			);
@@ -137,6 +211,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		00B6430A2F7EC58800CC8B51 /* NinetyWatch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00B643162F7EC58900CC8B51 /* Build configuration list for PBXNativeTarget "NinetyWatch Watch App" */;
+			buildPhases = (
+				00B643072F7EC58800CC8B51 /* Sources */,
+				00B643082F7EC58800CC8B51 /* Frameworks */,
+				00B643092F7EC58800CC8B51 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				00B6430C2F7EC58800CC8B51 /* NinetyWatch Watch App */,
+			);
+			name = "NinetyWatch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "NinetyWatch Watch App";
+			productReference = 00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
 		5BB3ED652C3AD54600CD4274 /* Ninety */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5BB3ED742C3AD54700CD4274 /* Build configuration list for PBXNativeTarget "Ninety" */;
@@ -144,10 +240,12 @@
 				5BB3ED622C3AD54600CD4274 /* Sources */,
 				5BB3ED632C3AD54600CD4274 /* Frameworks */,
 				5BB3ED642C3AD54600CD4274 /* Resources */,
+				00B643192F7EC58900CC8B51 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				00B643142F7EC58900CC8B51 /* PBXTargetDependency */,
 			);
 			name = Ninety;
 			productName = RestfulNight;
@@ -161,9 +259,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1540;
-				LastUpgradeCheck = 1540;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
+					00B6430A2F7EC58800CC8B51 = {
+						CreatedOnToolsVersion = 26.4;
+					};
 					5BB3ED652C3AD54600CD4274 = {
 						CreatedOnToolsVersion = 15.4;
 					};
@@ -183,11 +284,19 @@
 			projectRoot = "";
 			targets = (
 				5BB3ED652C3AD54600CD4274 /* Ninety */,
+				00B6430A2F7EC58800CC8B51 /* NinetyWatch Watch App */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		00B643092F7EC58800CC8B51 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5BB3ED642C3AD54600CD4274 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -200,6 +309,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		00B643072F7EC58800CC8B51 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5BB3ED622C3AD54600CD4274 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -207,10 +323,15 @@
 				5BF32F832C3C056900A528BD /* SettingsView.swift in Sources */,
 				5BC91AB02C4E81DA0039F374 /* SleepSettingsViewModel.swift in Sources */,
 				5BC91AB22C4EE89A0039F374 /* SleepChartView.swift in Sources */,
+				001E1C972F853EB100AD4DC7 /* DiagnosticsView.swift in Sources */,
 				5B7A310C2C3FDCCB00353790 /* HomeViewModel.swift in Sources */,
 				5BB3ED7E2C3B099800CD4274 /* TabBarView.swift in Sources */,
 				5BB3ED6C2C3AD54600CD4274 /* SleepSettingsView.swift in Sources */,
 				5BB3ED7A2C3AD96A00CD4274 /* SleepCalculator.mlmodel in Sources */,
+				001E1C922F853DF500AD4DC7 /* SensorPayload.swift in Sources */,
+				001E1C932F853DF500AD4DC7 /* SmartAlarmManager.swift in Sources */,
+				001E1C942F853DF500AD4DC7 /* SleepHeuristicEngine.swift in Sources */,
+				001E1C952F853DF500AD4DC7 /* SleepSessionManager.swift in Sources */,
 				5B7A31132C401F9F00353790 /* SettingsViewModel.swift in Sources */,
 				5BB3ED6A2C3AD54600CD4274 /* NinetyApp.swift in Sources */,
 				5BF32F852C3C05A900A528BD /* HomeView.swift in Sources */,
@@ -220,7 +341,87 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		00B643142F7EC58900CC8B51 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 00B6430A2F7EC58800CC8B51 /* NinetyWatch Watch App */;
+			targetProxy = 00B643132F7EC58900CC8B51 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		00B643172F7EC58900CC8B51 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "NinetyWatch Watch App/NinetyWatch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "NinetyWatch-Watch-App-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = NinetyWatch;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Ninety needs access to your heart rate to detect sleep stages.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Ninety uses your movement to identify the best time to wake you up.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.NinetyNW.Ninety;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = it.NinetyNW.Ninety.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		00B643182F7EC58900CC8B51 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "NinetyWatch Watch App/NinetyWatch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "NinetyWatch-Watch-App-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = NinetyWatch;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Ninety needs access to your heart rate to detect sleep stages.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Ninety uses your movement to identify the best time to wake you up.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.NinetyNW.Ninety;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = it.NinetyNW.Ninety.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 		5BB3ED722C3AD54700CD4274 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -256,6 +457,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = AA85423644;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -279,6 +481,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -319,6 +522,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = AA85423644;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -335,6 +539,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -345,22 +550,25 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Ninety/Ninety.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Ninety/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Ninety/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.deimantevalunaite.RestfulNight;
+				PRODUCT_BUNDLE_IDENTIFIER = it.NinetyNW.Ninety;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -373,22 +581,25 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Ninety/Ninety.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Ninety/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Ninety/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.deimantevalunaite.RestfulNight;
+				PRODUCT_BUNDLE_IDENTIFIER = it.NinetyNW.Ninety;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -399,6 +610,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		00B643162F7EC58900CC8B51 /* Build configuration list for PBXNativeTarget "NinetyWatch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00B643172F7EC58900CC8B51 /* Debug */,
+				00B643182F7EC58900CC8B51 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		5BB3ED612C3AD54600CD4274 /* Build configuration list for PBXProject "Ninety" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

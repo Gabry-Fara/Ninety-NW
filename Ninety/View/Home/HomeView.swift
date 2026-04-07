@@ -167,7 +167,9 @@ struct HomeView: View {
 
 extension View {
     func screenBounds() -> CGRect {
-        return UIScreen.main.bounds
+        let scenes = UIApplication.shared.connectedScenes
+        let windowScene = scenes.first as? UIWindowScene
+        return windowScene?.screen.bounds ?? UIScreen.main.bounds
     }
 }
 
