@@ -1,15 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "Ninety Logo.png",
+      "filename" : "Ninety Logo 1.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
+      "filename" : "Ninety Logo.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
+      "filename" : "Ninety Logo 2.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
