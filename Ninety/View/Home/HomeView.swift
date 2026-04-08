@@ -1,6 +1,6 @@
 //
 //  HomeView.swift
-//  RestfulNight
+//  Ninety
 //
 //  Created by Deimante Valunaite on 08/07/2024.
 //
@@ -83,7 +83,7 @@ struct HomeView: View {
                     .tint(.primary)
                 }
             }
-            .navigationTitle("RestfulNight")
+            .navigationTitle("Ninety")
             .navigationBarTitleDisplayMode(.large)
             .padding()
         }

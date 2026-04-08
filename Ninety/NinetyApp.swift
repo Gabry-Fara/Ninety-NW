@@ -1,6 +1,6 @@
 //
-//  RestfulNightApp.swift
-//  RestfulNight
+//  NinetyApp.swift
+//  Ninety
 //
 //  Created by Deimante Valunaite on 07/07/2024.
 //

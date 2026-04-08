@@ -1,6 +1,6 @@
 //
 //  OnboardingView.swift
-//  RestfulNight
+//  Ninety
 //
 //  Created by Deimante Valunaite on 07/07/2024.
 //
@@ -44,7 +44,7 @@ struct OnboardingView: View {
                             .cornerRadius(10)
                             
                             VStack {
-                                Text("By continuing, you agree to RestfulNight's \n**Terms of Service** and **Privacy Policy.**")
+                                Text("By continuing, you agree to Ninety's \n**Terms of Service** and **Privacy Policy.**")
                             }
                             .font(.footnote)
                             .foregroundColor(.secondary)
@@ -53,7 +53,7 @@ struct OnboardingView: View {
                     }
                     .padding()
                 }
-                .navigationTitle("RestfulNight")
+                .navigationTitle("Ninety")
                 .navigationBarTitleDisplayMode(.inline)
                 .tabViewStyle(.automatic)
             }

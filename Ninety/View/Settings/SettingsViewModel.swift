@@ -1,6 +1,6 @@
 //
 //  SettingsViewModel.swift
-//  RestfulNight
+//  Ninety
 //
 //  Created by Deimante Valunaite on 11/07/2024.
 //

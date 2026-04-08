@@ -1,6 +1,6 @@
 //
 //  HomeViewModel.swift
-//  RestfulNight
+//  Ninety
 //
 //  Created by Deimante Valunaite on 11/07/2024.
 //
@@ -63,7 +63,7 @@ class HomeViewModel: ObservableObject {
         
         for day in selectedDays {
             let content = UNMutableNotificationContent()
-            content.title = "RestfulNight"
+            content.title = "Ninety"
             content.subtitle = "Time to sleep at \(getTime(angle: startAngle).formatted(date: .omitted, time: .shortened))"
             content.sound = UNNotificationSound.default
             

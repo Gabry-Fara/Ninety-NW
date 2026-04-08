@@ -248,7 +248,7 @@
 				00B643142F7EC58900CC8B51 /* PBXTargetDependency */,
 			);
 			name = Ninety;
-			productName = RestfulNight;
+			productName = Ninety;
 			productReference = 5BB3ED662C3AD54600CD4274 /* Ninety.app */;
 			productType = "com.apple.product-type.application";
 		};

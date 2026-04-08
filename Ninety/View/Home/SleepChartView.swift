@@ -1,6 +1,6 @@
 //
 //  SleepChartView.swift
-//  RestfulNight
+//  Ninety
 //
 //  Created by Deimante Valunaite on 22/07/2024.
 //
