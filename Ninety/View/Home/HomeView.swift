@@ -12,80 +12,82 @@ struct HomeView: View {
     @StateObject private var homeViewModel = HomeViewModel()
    
     var body: some View {
-        NavigationView {
-            VStack(spacing: 15) {
-                SleepTimeSlider()
-                
-                HStack {
-                    Image(systemName: "moon.fill")
-                    VStack {
-                        Text(homeViewModel.getTime(angle: homeViewModel.startAngle).formatted(date: .omitted, time: .shortened))
-                            .font(.title2.bold())
-                        Text("Bedtime")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                    }
-                    Spacer()
-                    Image(systemName: "alarm.fill")
-                    VStack {
-                        Text(homeViewModel.getTime(angle: homeViewModel.toAngle).formatted(date: .omitted, time: .shortened))
-                            .font(.title2.bold())
-                        Text("Wake up")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+        NavigationStack {
+            List {
+                Section {
+                    HStack {
+                        Spacer()
+                        SleepTimeSlider()
+                            .padding(.vertical, 35) // Increased padding to prevent stroke clipping
+                        Spacer()
                     }
                 }
-                .padding(.horizontal)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
                 
-                HStack {
-                    Text("Choose days")
-                        .font(.headline)
-                        .bold()
-                    Spacer()
+                Section {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("Bedtime", systemImage: "moon.fill")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Text(homeViewModel.getTime(angle: homeViewModel.startAngle).formatted(date: .omitted, time: .shortened))
+                                .font(.title2.bold())
+                                .foregroundColor(.primary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Label("Wake up", systemImage: "sun.max.fill")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .labelStyle(.titleAndIcon) // Force trailing icon by flipping? Keep default for now.
+                            Text(homeViewModel.getTime(angle: homeViewModel.toAngle).formatted(date: .omitted, time: .shortened))
+                                .font(.title2.bold())
+                                .foregroundColor(.primary)
+                        }
+                    }
+                    .padding(.vertical, 8)
                 }
-                .padding([.top, .horizontal])
                 
-                HStack {
-                    ForEach(homeViewModel.daysOfWeek, id: \.id) { day in
-                        Text(day.initial)
-                            .frame(width: 42, height: 42)
-                            .background(homeViewModel.selectedDays.contains(day.id) ? Color.primary : Color.gray.opacity(0.3))
-                            .foregroundColor(homeViewModel.selectedDays.contains(day.id) ? Color.white : Color.black)
-                            .clipShape(Circle())
-                            .onTapGesture {
-                                if homeViewModel.selectedDays.contains(day.id) {
-                                    homeViewModel.selectedDays.remove(day.id)
-                                } else {
-                                    homeViewModel.selectedDays.insert(day.id)
+                Section(header: Text("Schedule")) {
+                    HStack(spacing: 8) {
+                        ForEach(homeViewModel.daysOfWeek, id: \.id) { day in
+                            Text(day.initial)
+                                .font(.subheadline.bold())
+                                .frame(maxWidth: .infinity, minHeight: 40)
+                                .background(homeViewModel.selectedDays.contains(day.id) ? Color.accentColor : Color(UIColor.tertiarySystemFill))
+                                .foregroundColor(homeViewModel.selectedDays.contains(day.id) ? Color.white : Color.primary)
+                                .clipShape(Circle())
+                                .onTapGesture {
+                                    withAnimation(.snappy) {
+                                        if homeViewModel.selectedDays.contains(day.id) {
+                                            homeViewModel.selectedDays.remove(day.id)
+                                        } else {
+                                            homeViewModel.selectedDays.insert(day.id)
+                                        }
+                                    }
                                 }
-                            }
+                        }
                     }
+                    .padding(.vertical, 6)
                 }
-                .padding(.bottom)
                 
-                HStack {
-                    Text("Remind me to sleep")
-                        .font(.headline)
-                    Spacer()
-                    Toggle("", isOn: $homeViewModel.isReminderEnabled)
-                }
-                .padding()
-                .background(Color.white)
-                .cornerRadius(20)
-                .shadow(radius: 2)
-                .tint(.primary)
-                .toolbar {
-                    NavigationLink {
-                        SleepChartView()
-                    } label: {
-                        Label("Calendar", systemImage: "calendar")
+                Section {
+                    Toggle(isOn: $homeViewModel.isReminderEnabled) {
+                        Label("Remind me to sleep", systemImage: "bed.double.fill")
                     }
-                    .tint(.primary)
+                    .tint(.accentColor)
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Ninety")
-            .navigationBarTitleDisplayMode(.large)
-            .padding()
+            .toolbar {
+                NavigationLink {
+                    SleepChartView()
+                } label: {
+                    Label("Calendar", systemImage: "calendar")
+                }
+            }
         }
     }
     
@@ -100,7 +102,7 @@ struct HomeView: View {
                     ForEach(numbers.indices, id: \.self) { index in
                         Text("\(numbers[index])")
                             .foregroundColor(.secondary)
-                            .font(.caption)
+                            .font(.caption2.weight(.medium))
                             .rotationEffect(.init(degrees: Double(index) * -45))
                             .offset(y: (width - 90) / 2)
                             .rotationEffect(.init(degrees: Double(index) * 45 ))
@@ -108,23 +110,26 @@ struct HomeView: View {
                 }
                 
                 Circle()
-                    .stroke(Color.black.opacity(0.06), lineWidth: 40)
+                    .stroke(Color(UIColor.quaternarySystemFill), lineWidth: 40)
                 
                 let reverseRotation = (homeViewModel.startProgress > homeViewModel.toProgress) ? -Double((1 - homeViewModel.startProgress) * 360) : 0
                 
                 Circle()
                     .trim(from: homeViewModel.startProgress > homeViewModel.toProgress ? 0 : homeViewModel.startProgress, to: homeViewModel.toProgress + (-reverseRotation / 360))
-                    .stroke(Color.black, style:
+                    .stroke(Color.accentColor, style:
                                 StrokeStyle(lineWidth: 40, lineCap: .round, lineJoin: .round))
                     .rotationEffect(.init(degrees: -90))
                     .rotationEffect(.init(degrees: reverseRotation))
                 
+                // Bedtime Handle
                 Image(systemName: "moon.stars.fill")
-                    .font(.callout)
+                    .font(.footnote)
+                    .foregroundStyle(Color.accentColor)
                     .frame(width: 30, height: 30)
                     .rotationEffect(.init(degrees: 90))
                     .rotationEffect(.init(degrees: -homeViewModel.startAngle))
-                    .background(.white, in: Circle())
+                    .background(Color(UIColor.systemBackground), in: Circle())
+                    .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 1)
                     .offset(x: width / 2)
                     .rotationEffect(.init(degrees: homeViewModel.startAngle))
                     .gesture(
@@ -135,12 +140,15 @@ struct HomeView: View {
                     )
                     .rotationEffect(.init(degrees: -90))
                 
-                Image(systemName: "alarm.fill")
-                    .font(.callout)
+                // Wakeup Handle
+                Image(systemName: "bell.fill")
+                    .font(.footnote)
+                    .foregroundStyle(Color.accentColor)
                     .frame(width: 30, height: 30)
                     .rotationEffect(.init(degrees: 90))
                     .rotationEffect(.init(degrees: -homeViewModel.toAngle))
-                    .background(.white, in: Circle())
+                    .background(Color(UIColor.systemBackground), in: Circle())
+                    .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 1)
                     .offset(x: width / 2)
                     .rotationEffect(.init(degrees: homeViewModel.toAngle))
                     .gesture(
@@ -151,17 +159,17 @@ struct HomeView: View {
                     )
                     .rotationEffect(.init(degrees: -90))
                 
-                HStack(spacing: 8) {
-                    Text("\(homeViewModel.getTimeDifference().0)h")
-                        .font(.title)
-                        .fontWeight(.medium)
-                    Text("\(homeViewModel.getTimeDifference().1)m")
-                        .font(.title)
-                        .fontWeight(.medium)
+                VStack(spacing: 4) {
+                    Text("\(homeViewModel.getTimeDifference().0)h \(homeViewModel.getTimeDifference().1)m")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(Color.primary)
+                    Text("Duration")
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
                 }
             }
         }
-        .frame(width: screenBounds().width / 1.6, height: screenBounds().width / 1.4)
+        .frame(width: screenBounds().width / 1.8, height: screenBounds().width / 1.8)
     }
 }
 

@@ -14,29 +14,47 @@ struct SleepSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("When do you want to wake up?")
-                        .font(.headline)
-                    DatePicker("Please enter a time", selection: $sleepingViewModel.wakeUp, displayedComponents: .hourAndMinute)
+                VStack {
+                    DatePicker("Wake up time", selection: $sleepingViewModel.wakeUp, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.wheel)
                         .labelsHidden()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .padding(.vertical)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+                
+                Section(header: Text("Sleep Duration")) {
+                    Stepper(value: $sleepingViewModel.sleepAmount, in: 4...12, step: 0.25) {
+                        HStack {
+                            Text("Amount of sleep")
+                            Spacer()
+                            Text("\(sleepingViewModel.sleepAmount.formatted()) hours")
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
                 
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Desired amount of sleep")
-                        .font(.headline)
-                    Stepper("\(sleepingViewModel.sleepAmount.formatted()) hours", value: $sleepingViewModel.sleepAmount, in: 4...12, step: 0.25)
-                }
-                
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Daily coffee intake")
-                        .font(.headline)
-                    Stepper("^[\(sleepingViewModel.coffeeAmount) cup](inflect: true)", value: $sleepingViewModel.coffeeAmount, in: 1...20)
+                Section(header: Text("Daily Habits")) {
+                    Stepper(value: $sleepingViewModel.coffeeAmount, in: 1...20) {
+                        HStack {
+                            Text("Coffee intake")
+                            Spacer()
+                            Text("^[\(sleepingViewModel.coffeeAmount) cup](inflect: true)")
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
             }
             .navigationTitle("Best Sleeping Time")
             .navigationBarTitleDisplayMode(.automatic)
             .toolbar {
-                Button("Calculate", action: sleepingViewModel.calculateBedTime)
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Calculate") {
+                        sleepingViewModel.calculateBedTime()
+                    }
+                    .bold()
+                }
             }
             .alert(sleepingViewModel.alertTitle, isPresented: $sleepingViewModel.showingAlert) {
                 Button("OK") { }
