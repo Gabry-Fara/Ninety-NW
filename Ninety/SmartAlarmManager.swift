@@ -97,8 +97,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         Task {
             do {
                 // Livello 2 (Trigger Euristico Dinamico) a zero secondi (modifica la precedente/trigger immediato)
+                let targetTime = Date().addingTimeInterval(2) // Devi assegnare almeno qualche secondo nel futuro
                 let configuration = AlarmManager.AlarmConfiguration(
-                    schedule: .fixed(Date()),
+                    schedule: .fixed(targetTime),
                     attributes: createDefaultAttributes()
                 )
                 try await AlarmManager.shared.schedule(id: UUID(), configuration: configuration)

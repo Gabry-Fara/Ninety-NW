@@ -53,6 +53,11 @@ struct DiagnosticsView: View {
                             smartAlarm.triggerDynamicAlarm()
                         }
                         .buttonStyle(.bordered)
+                        
+                        Button("Alarm Trigger") {
+                            smartAlarm.triggerDynamicAlarm()
+                        }
+                        .buttonStyle(.borderedProminent)
                         .tint(.red)
                     }
                     
