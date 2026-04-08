@@ -6,55 +6,17 @@
 //
 
 import SwiftUI
+import WatchKit
 
 struct ContentView: View {
     @StateObject private var sensorManager = WatchSensorManager.shared
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 8) {
-                Text("Ninety Watch Node")
-                    .font(.headline)
-                
-                HStack {
-                    Text("State:")
-                    Spacer()
-                    Text(sensorManager.sessionState)
-                        .foregroundColor(.blue)
-                }
-                .font(.footnote)
-                
-                HStack {
-                    Text("Tx:")
-                    Spacer()
-                    Text(sensorManager.connectionStatus)
-                        .foregroundColor(sensorManager.connectionStatus == "Reachable" ? .green : .orange)
-                }
-                .font(.footnote)
-                
-                Text(sensorManager.lastPayloadSent)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .padding(.vertical, 4)
-                
-                Button("Start Simulated Session") {
-                    // Simulating scheduling 5 seconds from now for immediate testing
-                    let futureDate = Date().addingTimeInterval(5)
-                    sensorManager.scheduleSmartAlarmSession(at: futureDate)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                
-                Button("Stop Session") {
-                    sensorManager.stopSession()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-            }
-            .padding()
+        TabView {
+            DashboardView(sensorManager: sensorManager)
+            ControlsView(sensorManager: sensorManager)
         }
+        .tabViewStyle(.verticalPage)
         .onAppear {
             sensorManager.setupWatchConnectivity()
             sensorManager.requestHealthPermissions { _ in }
@@ -62,6 +24,77 @@ struct ContentView: View {
             DispatchQueue.global().async {
                 let preloadSession = WKExtendedRuntimeSession()
                 preloadSession.invalidate()
+            }
+        }
+    }
+}
+
+struct DashboardView: View {
+    @ObservedObject var sensorManager: WatchSensorManager
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: sensorManager.connectionStatus == "Reachable" ? "link.icloud.fill" : "exclamationmark.icloud.fill")
+                .font(.system(size: 40))
+                .foregroundColor(sensorManager.connectionStatus == "Reachable" ? .green : .orange)
+                .symbolEffect(.pulse, isActive: sensorManager.connectionStatus == "Reachable")
+            
+            Text("Ninety Node")
+                .font(.headline)
+            
+            VStack(spacing: 4) {
+                Text(sensorManager.sessionState)
+                    .font(.caption2.bold())
+                    .foregroundColor(.blue)
+                    .textCase(.uppercase)
+                
+                Text(sensorManager.connectionStatus)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 4)
+            
+            if !sensorManager.lastPayloadSent.isEmpty {
+                Text(sensorManager.lastPayloadSent)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+struct ControlsView: View {
+    @ObservedObject var sensorManager: WatchSensorManager
+    
+    var body: some View {
+        List {
+            Section(header: Text("Session Control")) {
+                Button(action: {
+                    // Simulating scheduling 5 seconds from now for immediate testing
+                    let futureDate = Date().addingTimeInterval(5)
+                    sensorManager.scheduleSmartAlarmSession(at: futureDate)
+                }) {
+                    HStack {
+                        Image(systemName: "play.circle.fill")
+                        Text("Simulate")
+                    }
+                }
+                .listItemTint(.green)
+                
+                Button(action: {
+                    sensorManager.stopSession()
+                }) {
+                    HStack {
+                        Image(systemName: "stop.circle.fill")
+                        Text("Stop")
+                    }
+                }
+                .listItemTint(.red)
             }
         }
     }
