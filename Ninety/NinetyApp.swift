@@ -19,7 +19,7 @@ struct NinetyApp: App {
     
     var body: some Scene {
         WindowGroup {
-            TabBarView()
+            ScheduleView()
         }
     }
 }

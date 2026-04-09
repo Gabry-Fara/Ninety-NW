@@ -1,5 +1,5 @@
 //
-//  HomeViewModel.swift
+//  ScheduleViewModel.swift
 //  Ninety
 //
 //  Created by Deimante Valunaite on 11/07/2024.
@@ -19,7 +19,7 @@ struct SleepData: Identifiable {
     let sleepDuration: Double
 }
 
-class HomeViewModel: ObservableObject {
+class ScheduleViewModel: ObservableObject {
     @Published var startAngle: Double = 0
     @Published var toAngle: Double = 180
     @Published var startProgress: CGFloat = 0

@@ -12,37 +12,29 @@ struct TabBarView: View {
    
     var body: some View {
         TabView(selection: $selectedTab) {
-            HomeView()
+            ScheduleView()
                 .tabItem { 
-                    Image(systemName: "house")
-                    Text("Home")
+                    Image(systemName: "alarm")
+                    Text("Schedule")
                 }
                 .onAppear { selectedTab = 0 }
                 .tag(0)
-            
-            SleepSettingsView()
-                .tabItem {
-                    Image(systemName: "moon")
-                    Text("Sleep")
-                }
-                .onAppear { selectedTab = 1 }
-                .tag(1)
             
             SettingsView()
                 .tabItem {  
                     Image(systemName: "gearshape")
                     Text("Settings")
                 }
-                .onAppear { selectedTab = 2 }
-                .tag(2)
+                .onAppear { selectedTab = 1 }
+                .tag(1)
                 
             DiagnosticsView()
                 .tabItem {
                     Image(systemName: "ladybug")
                     Text("Debug")
                 }
-                .onAppear { selectedTab = 3 }
-                .tag(3)
+                .onAppear { selectedTab = 2 }
+                .tag(2)
         }
     }
 }

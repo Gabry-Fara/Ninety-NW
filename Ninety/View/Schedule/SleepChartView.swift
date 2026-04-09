@@ -9,19 +9,19 @@ import Charts
 import SwiftUI
 
 struct SleepChartView: View {
-    @ObservedObject var homeViewModel = HomeViewModel()
+    @ObservedObject var viewModel = ScheduleViewModel()
     
     var body: some View {
         VStack {
-            Picker("Time View", selection: $homeViewModel.timeView) {
+            Picker("Time View", selection: $viewModel.timeView) {
                 ForEach(TimeView.allCases, id: \.self) { view in
                     Text(view.rawValue.capitalized).tag(view)
                 }
             }
             .pickerStyle(SegmentedPickerStyle())
             .padding()
-            .onChange(of: homeViewModel.timeView) { _, _ in
-                homeViewModel.filterSleepData()
+            .onChange(of: viewModel.timeView) { _, _ in
+                viewModel.filterSleepData()
             }
             
             Chart {
@@ -33,7 +33,7 @@ struct SleepChartView: View {
                             .foregroundColor(.secondary)
                     }
                 
-                ForEach(homeViewModel.filteredSleepData) { data in
+                ForEach(viewModel.filteredSleepData) { data in
                     BarMark(
                         x: .value("Date", data.date, unit: .day),
                         y: .value("Sleep Duration", data.sleepDuration)
