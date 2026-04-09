@@ -490,14 +490,26 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func zScore(value: Double, mean: Double, standardDeviation: Double) -> Double {
-        (value - mean) / (standardDeviation + 0.001)
+        let denominator = standardDeviation + 0.001
+        return (value - mean) / denominator
     }
 
     private func circadianCosine(at date: Date) -> Double {
         let calendar = Calendar.current
         let components = calendar.dateComponents([.hour, .minute, .second], from: date)
-        let seconds = Double((components.hour ?? 0) * 3600 + (components.minute ?? 0) * 60 + (components.second ?? 0))
-        let normalized = seconds / 86_400
+        
+        // 1. Risolvi gli opzionali in modo isolato (il tipo inferito sarà Int)
+        let h = components.hour ?? 0
+        let m = components.minute ?? 0
+        let s = components.second ?? 0
+        
+        // 2. Fai la matematica con gli interi in un passaggio separato
+        let totalSeconds = (h * 3600) + (m * 60) + s
+        
+        // 3. Converti in Double solo alla fine
+        let seconds = Double(totalSeconds)
+        let normalized = seconds / 86_400.0 // Aggiunto .0 per esplicitare il tipo Double
+        
         return cos(2 * .pi * normalized)
     }
 }
