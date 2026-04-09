@@ -6,96 +6,113 @@
 //
 
 import SwiftUI
-import UserNotifications
 
 struct ScheduleView: View {
     @StateObject private var viewModel = ScheduleViewModel()
+    @ObservedObject private var smartAlarm = SmartAlarmManager.shared
+    @ObservedObject private var sleepManager = SleepSessionManager.shared
     @State private var showingSettings = false
     @State private var showingDiagnostics = false
+    @State private var showingWakeTimePicker = false
    
     var body: some View {
         NavigationStack {
             List {
-                // MARK: - Sleep Wheel
                 Section {
-                    HStack {
-                        Spacer()
-                        SleepTimeSlider()
-                            .padding(.vertical, 35)
-                        Spacer()
-                    }
-                }
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-                
-                // MARK: - Bedtime & Wake Up Summary
-                Section {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Label("Bedtime", systemImage: "moon.fill")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Text(viewModel.getTime(angle: viewModel.startAngle).formatted(date: .omitted, time: .shortened))
-                                .font(.title2.bold())
-                                .foregroundStyle(.primary)
-                                .contentTransition(.numericText())
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Wake Up")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+
+                        Button {
+                            showingWakeTimePicker = true
+                        } label: {
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                Text(viewModel.wakeTimeLabel)
+                                    .font(.system(size: 54, weight: .semibold, design: .rounded))
+                                    .monospacedDigit()
+                                    .contentTransition(.numericText())
+                                    .minimumScaleFactor(0.8)
+
+                                Text(viewModel.scheduledDayLabel)
+                                    .font(.title3.weight(.medium))
+                                    .foregroundStyle(.secondary)
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .contentShape(Rectangle())
                         }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Label("Wake Up", systemImage: "sun.max.fill")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Text(viewModel.getTime(angle: viewModel.toAngle).formatted(date: .omitted, time: .shortened))
-                                .font(.title2.bold())
-                                .foregroundStyle(.primary)
-                                .contentTransition(.numericText())
-                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Double tap to choose a wake-up time")
+
+                        Text("Tap the time to change it.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        Text("Ninety starts preparing 30 minutes before wake-up so your watch can look for the best moment to wake you.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.vertical, 8)
                 }
-                
-                // MARK: - Days of the Week
-                Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Active Days")
-                            .font(.subheadline)
+
+                Section("Your Session") {
+                    LabeledContent("Starts Tracking") {
+                        Text(viewModel.projectedSession.monitoringStartDate.formatted(date: .omitted, time: .shortened))
                             .foregroundStyle(.secondary)
-                        
-                        HStack(spacing: 8) {
-                            ForEach(viewModel.daysOfWeek, id: \.id) { day in
-                                Text(day.initial)
-                                    .font(.subheadline.bold())
-                                    .frame(maxWidth: .infinity, minHeight: 40)
-                                    .background(viewModel.selectedDays.contains(day.id) ? Color.accentColor : Color(UIColor.tertiarySystemFill))
-                                    .foregroundStyle(viewModel.selectedDays.contains(day.id) ? Color.white : Color.primary)
-                                    .clipShape(Circle())
-                                    .onTapGesture {
-                                        withAnimation(.snappy) {
-                                            if viewModel.selectedDays.contains(day.id) {
-                                                viewModel.selectedDays.remove(day.id)
-                                            } else {
-                                                viewModel.selectedDays.insert(day.id)
-                                            }
-                                        }
-                                    }
-                                    .accessibilityLabel("\(day.id)")
-                                    .accessibilityAddTraits(viewModel.selectedDays.contains(day.id) ? .isSelected : [])
-                            }
+                    }
+
+                    LabeledContent("Wake-Up Alarm") {
+                        Text(viewModel.projectedSession.wakeUpDate.formatted(date: .omitted, time: .shortened))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    LabeledContent("Sleep Stage") {
+                        Text(sleepManager.officialStageDisplay)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    LabeledContent("Watch") {
+                        Text(viewModel.userFriendlyWatchStatus(from: sleepManager.watchStatus))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+
+                Section("Status") {
+                    LabeledContent("Alarm") {
+                        Text(viewModel.userFriendlyAlarmStatus(from: smartAlarm.alarmStatus))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+
+                    if let scheduledSession = viewModel.lastScheduledSession {
+                        LabeledContent("Scheduled For") {
+                            Text(scheduledSession.wakeUpDate.formatted(date: .abbreviated, time: .shortened))
+                                .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.vertical, 6)
-                }
-                
-                // MARK: - Reminder
-                Section(footer: Text("You'll receive a notification 30 minutes before your scheduled bedtime.")) {
-                    Toggle(isOn: $viewModel.isReminderEnabled) {
-                        Label("Bedtime Reminder", systemImage: "bell.badge.fill")
+
+                    if let schedulingError = viewModel.schedulingError {
+                        Text(schedulingError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
                     }
-                    .tint(.accentColor)
+                }
+
+                Section {
+                    NavigationLink(destination: SleepChartView()) {
+                        Label("Sleep Trends", systemImage: "chart.bar.xaxis")
+                    }
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Schedule")
+            .navigationTitle("Wake Up")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -137,101 +154,76 @@ struct ScheduleView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-        }
-    }
-    
-    @ViewBuilder
-    func SleepTimeSlider() -> some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width
-            ZStack {
-                ZStack {
-                    let numbers = [12, 15, 18, 21, 0, 3, 6, 9]
-                    
-                    ForEach(numbers.indices, id: \.self) { index in
-                        Text("\(numbers[index])")
-                            .foregroundStyle(.secondary)
-                            .font(.caption2.weight(.medium))
-                            .rotationEffect(.init(degrees: Double(index) * -45))
-                            .offset(y: (width - 90) / 2)
-                            .rotationEffect(.init(degrees: Double(index) * 45 ))
+            .sheet(isPresented: $showingWakeTimePicker) {
+                NavigationStack {
+                    Form {
+                        Section {
+                            DatePicker(
+                                "Wake Up",
+                                selection: $viewModel.wakeUpTime,
+                                displayedComponents: .hourAndMinute
+                            )
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        } footer: {
+                            Text("Choose the time you want to wake up. Ninety will handle the rest.")
+                        }
+                    }
+                    .navigationTitle("Wake Up")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                showingWakeTimePicker = false
+                            }
+                        }
+
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                showingWakeTimePicker = false
+                            }
+                        }
                     }
                 }
-                
-                Circle()
-                    .stroke(Color(UIColor.quaternarySystemFill), lineWidth: 40)
-                
-                let reverseRotation = (viewModel.startProgress > viewModel.toProgress) ? -Double((1 - viewModel.startProgress) * 360) : 0
-                
-                Circle()
-                    .trim(from: viewModel.startProgress > viewModel.toProgress ? 0 : viewModel.startProgress, to: viewModel.toProgress + (-reverseRotation / 360))
-                    .stroke(Color.accentColor, style:
-                                StrokeStyle(lineWidth: 40, lineCap: .round, lineJoin: .round))
-                    .rotationEffect(.init(degrees: -90))
-                    .rotationEffect(.init(degrees: reverseRotation))
-                
-                // Bedtime Handle
-                Image(systemName: "moon.stars.fill")
-                    .font(.footnote)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 30, height: 30)
-                    .rotationEffect(.init(degrees: 90))
-                    .rotationEffect(.init(degrees: -viewModel.startAngle))
-                    .background(Color(UIColor.systemBackground), in: Circle())
-                    .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 1)
-                    .offset(x: width / 2)
-                    .rotationEffect(.init(degrees: viewModel.startAngle))
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                viewModel.onDrag(value: value, fromSlider: true)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 10) {
+                    Button {
+                        Task {
+                            await viewModel.scheduleSession()
+                        }
+                    } label: {
+                        Group {
+                            if viewModel.isScheduling {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                                    .tint(.white)
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text("Schedule Smart Alarm")
+                                    .frame(maxWidth: .infinity)
                             }
-                    )
-                    .rotationEffect(.init(degrees: -90))
-                    .accessibilityLabel("Bedtime")
-                    .accessibilityValue(viewModel.getTime(angle: viewModel.startAngle).formatted(date: .omitted, time: .shortened))
-                
-                // Wake Up Handle
-                Image(systemName: "alarm.fill")
-                    .font(.footnote)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 30, height: 30)
-                    .rotationEffect(.init(degrees: 90))
-                    .rotationEffect(.init(degrees: -viewModel.toAngle))
-                    .background(Color(UIColor.systemBackground), in: Circle())
-                    .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 1)
-                    .offset(x: width / 2)
-                    .rotationEffect(.init(degrees: viewModel.toAngle))
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                viewModel.onDrag(value: value)
-                            }
-                    )
-                    .rotationEffect(.init(degrees: -90))
-                    .accessibilityLabel("Wake up")
-                    .accessibilityValue(viewModel.getTime(angle: viewModel.toAngle).formatted(date: .omitted, time: .shortened))
-                
-                VStack(spacing: 4) {
-                    Text("\(viewModel.getTimeDifference().0)h \(viewModel.getTimeDifference().1)m")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .contentTransition(.numericText())
-                    Text("Duration")
-                        .font(.caption)
+                        }
+                        .font(.headline)
+                        .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    Text("You’ll be woken around \(viewModel.projectedSession.wakeUpDate.formatted(date: .omitted, time: .shortened)).")
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
+                .padding(.horizontal)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+                .background(.bar)
             }
         }
-        .frame(width: screenBounds().width / 1.8, height: screenBounds().width / 1.8)
-    }
-}
-
-extension View {
-    func screenBounds() -> CGRect {
-        let scenes = UIApplication.shared.connectedScenes
-        let windowScene = scenes.first as? UIWindowScene
-        return windowScene?.screen.bounds ?? UIScreen.main.bounds
     }
 }
 
