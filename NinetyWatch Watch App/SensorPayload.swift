@@ -5,6 +5,7 @@ struct SensorPayload: Codable {
     let id: UUID
     let timestamp: Date
     let hrSamples: [Double]
+    let motionCount: Double
     let accelerometerVariance: Double
     let isMockData: Bool
 }

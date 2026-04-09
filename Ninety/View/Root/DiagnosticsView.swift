@@ -50,6 +50,56 @@ struct DiagnosticsView: View {
                         .buttonStyle(.borderedProminent)
                         .padding(.top, 5)
                     }
+
+                    GroupBox("Sleep Stage Classifier") {
+                        HStack(alignment: .top) {
+                            Text("Model:")
+                                .bold()
+                            Spacer()
+                            Text(sleepManager.modelStatus)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .font(.caption)
+
+                        HStack {
+                            Text("Raw Stage:")
+                                .bold()
+                            Spacer()
+                            Text(sleepManager.rawStageDisplay)
+                                .foregroundColor(.secondary)
+                        }
+                        .font(.caption)
+
+                        HStack {
+                            Text("Official Stage:")
+                                .bold()
+                            Spacer()
+                            Text(sleepManager.officialStageDisplay)
+                                .foregroundColor(.secondary)
+                        }
+                        .font(.caption)
+
+                        HStack(alignment: .top) {
+                            Text("Epoch:")
+                                .bold()
+                            Spacer()
+                            Text(sleepManager.latestEpochSummary)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .font(.caption)
+
+                        HStack(alignment: .top) {
+                            Text("Features:")
+                                .bold()
+                            Spacer()
+                            Text(sleepManager.latestFeatureSummary)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .font(.caption)
+                    }
                     
                     GroupBox("AlarmKit Constraints") {
                         HStack {
@@ -86,7 +136,7 @@ struct DiagnosticsView: View {
                         .tint(.red)
                     }
                     
-                    GroupBox("Heuristic Log Stream") {
+                    GroupBox("Classifier Log Stream") {
                         VStack(alignment: .leading, spacing: 8) {
                             if sleepManager.logs.isEmpty {
                                 Text("No logs yet. Start session on Watch.")

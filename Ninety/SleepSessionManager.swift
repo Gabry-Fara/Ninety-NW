@@ -74,6 +74,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     private var sessionMotionCounts: [Double] = []
     private var rawPredictions: [SleepStage] = []
     private var stageModel: MLModel?
+    private var activeWakeTargetDate: Date?
+    private var dynamicAlarmTriggered = false
 
     override init() {
         super.init()
@@ -91,6 +93,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     func startWatchSession(targetDate: Date? = nil) {
         resetSession()
+        activeWakeTargetDate = targetDate
+        dynamicAlarmTriggered = false
 
         guard let session = wcSession else { return }
 
@@ -111,6 +115,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func stopWatchSession() {
+        activeWakeTargetDate = nil
+        dynamicAlarmTriggered = false
         guard let session = wcSession else { return }
         let command = ["action": "stopSession"]
         if session.isReachable {
@@ -121,6 +127,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func pauseWatchMonitoring() {
+        activeWakeTargetDate = nil
+        dynamicAlarmTriggered = false
         guard let session = wcSession else { return }
         let command = ["action": "pauseMonitoring"]
         if session.isReachable {
@@ -349,6 +357,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
 
         log("Epoch classified. Raw: \(rawStageText) | Official: \(officialStageText)")
+        evaluateDynamicAlarmTrigger(for: prediction)
     }
 
     private func updateEpochSummary(for epoch: EpochAggregate) {
@@ -382,6 +391,27 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         return values.last
     }
 
+    private func evaluateDynamicAlarmTrigger(for prediction: PredictionSnapshot) {
+        guard activeWakeTargetDate != nil else {
+            return
+        }
+
+        guard !dynamicAlarmTriggered else {
+            return
+        }
+
+        guard prediction.smoothedStage == .wake || prediction.smoothedStage == .rem else {
+            return
+        }
+
+        dynamicAlarmTriggered = true
+        log("Optimal wake stage detected from classifier: \(prediction.smoothedStage.title). Triggering alarm.")
+
+        Task { @MainActor in
+            SmartAlarmManager.shared.triggerDynamicAlarm()
+        }
+    }
+
     private func resetSession() {
         processingQueue.async {
             self.currentEpochPayloads.removeAll()
@@ -390,6 +420,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             self.sessionMotionCounts.removeAll()
             self.rawPredictions.removeAll()
             self.recentPayloadIDs.removeAll()
+            self.dynamicAlarmTriggered = false
 
             DispatchQueue.main.async {
                 self.rawStageDisplay = "Waiting for 10 epochs"

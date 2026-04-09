@@ -10,6 +10,7 @@ import UserNotifications
 
 struct HomeView: View {
     @StateObject private var homeViewModel = HomeViewModel()
+    @ObservedObject private var sleepManager = SleepSessionManager.shared
    
     var body: some View {
         NavigationStack {
@@ -47,6 +48,24 @@ struct HomeView: View {
                         }
                     }
                     .padding(.vertical, 8)
+                }
+
+                Section(header: Text("Live Sleep Stage")) {
+                    HStack {
+                        Label("Official Stage", systemImage: "waveform.path.ecg")
+                        Spacer()
+                        Text(sleepManager.officialStageDisplay)
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack {
+                        Label("Latest Epoch", systemImage: "clock.badge")
+                        Spacer()
+                        Text(sleepManager.latestEpochSummary)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .font(.caption)
                 }
                 
                 Section(header: Text("Schedule")) {

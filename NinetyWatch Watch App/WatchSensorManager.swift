@@ -7,6 +7,8 @@ import Combine
 
 class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDelegate, WCSessionDelegate {
     private static let pendingScheduleKey = "pendingSmartAlarmSchedule"
+    private let payloadInterval: TimeInterval = 5
+    private let motionThreshold = 0.08
     
     static let shared = WatchSensorManager()
     
@@ -22,14 +24,15 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
+    private var payloadTimer: AnyCancellable?
     
     // CoreMotion background anchors
-    private var currentVariance: Double = 0.0
-    private var lastTransmissionTime = Date()
+    private var motionDeviationSamples: [Double] = []
+    private var motionCountBuffer: Double = 0
     private let motionQueue = OperationQueue()
     
     // For Mocking
-    private var mockTimer: Timer?
+    private var mockTimer: AnyCancellable?
     
     override init() {
         super.init()
@@ -73,6 +76,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     func requestHealthPermissions(completion: @escaping (Bool) -> Void) {
         let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)!
         healthStore.requestAuthorization(toShare: nil, read: [hrType]) { success, _ in
+            if success {
+                self.enableHeartRateBackgroundDelivery()
+            }
             DispatchQueue.main.async {
                 completion(success)
             }
@@ -180,31 +186,41 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             healthStore.stop(query)
             hrQuery = nil
         }
-        mockTimer?.invalidate()
+        payloadTimer?.cancel()
+        payloadTimer = nil
+        motionDeviationSamples.removeAll()
+        motionCountBuffer = 0
+        hrSamplesBuffer.removeAll()
+        mockTimer?.cancel()
         mockTimer = nil
     }
     
     private func startRealSensors() {
-        lastTransmissionTime = Date()
+        motionDeviationSamples.removeAll()
+        motionCountBuffer = 0
+        hrSamplesBuffer.removeAll()
+        enableHeartRateBackgroundDelivery()
         
-        // Start Accelerometer via PUSH API to guarantee background wake
         if motionManager.isAccelerometerAvailable {
             motionManager.accelerometerUpdateInterval = 1.0 / 50.0 // 50 Hz
             motionManager.startAccelerometerUpdates(to: motionQueue) { [weak self] data, _ in
                 guard let self = self, let data = data else { return }
                 
                 let magnitude = sqrt(pow(data.acceleration.x, 2) + pow(data.acceleration.y, 2) + pow(data.acceleration.z, 2))
-                self.currentVariance = abs(magnitude - 1.0)
-                
-                let now = Date()
-                if now.timeIntervalSince(self.lastTransmissionTime) >= 5.0 {
-                    self.lastTransmissionTime = now
-                    DispatchQueue.main.async {
-                        self.compileAndTransmitPayload()
-                    }
+                let deviation = abs(magnitude - 1.0)
+
+                self.motionDeviationSamples.append(deviation)
+                if deviation >= self.motionThreshold {
+                    self.motionCountBuffer += 1
                 }
             }
         }
+
+        payloadTimer = Timer.publish(every: payloadInterval, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.compileAndTransmitPayload()
+            }
         
         // Start HR
         let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)!
@@ -233,15 +249,19 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     private func compileAndTransmitPayload() {
+        let motionVariance = standardDeviation(for: motionDeviationSamples)
         let payload = SensorPayload(
             id: UUID(),
             timestamp: Date(),
             hrSamples: hrSamplesBuffer,
-            accelerometerVariance: currentVariance,
+            motionCount: motionCountBuffer,
+            accelerometerVariance: motionVariance,
             isMockData: false
         )
         
-        hrSamplesBuffer.removeAll() // Clear buffer after sending
+        hrSamplesBuffer.removeAll()
+        motionDeviationSamples.removeAll()
+        motionCountBuffer = 0
         
         transmit(payload: payload)
     }
@@ -277,17 +297,48 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     // MARK: - Mocking Data
     
     private func startMockDataStream() {
-        // Simulating 5 second batches of mock transitions
-        mockTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        mockTimer = Timer.publish(every: payloadInterval, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
             let mockPayload = SensorPayload(
                 id: UUID(),
                 timestamp: Date(),
                 hrSamples: [Double.random(in: 55...65), Double.random(in: 50...60)],
+                motionCount: Double.random(in: 0...30),
                 accelerometerVariance: Double.random(in: 0.0...0.5),
                 isMockData: true
             )
             self?.transmit(payload: mockPayload)
         }
+    }
+
+    private func enableHeartRateBackgroundDelivery() {
+        let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)!
+        healthStore.enableBackgroundDelivery(for: hrType, frequency: .immediate) { success, error in
+            if let error {
+                DispatchQueue.main.async {
+                    self.connectionStatus = "HK background failed: \(error.localizedDescription)"
+                }
+                return
+            }
+
+            if success {
+                DispatchQueue.main.async {
+                    if self.connectionStatus == "Disconnected" || self.connectionStatus.hasPrefix("HK background failed") {
+                        self.connectionStatus = "HK background enabled"
+                    }
+                }
+            }
+        }
+    }
+
+    private func standardDeviation(for values: [Double]) -> Double {
+        guard values.count > 1 else { return 0 }
+        let mean = values.reduce(0, +) / Double(values.count)
+        let variance = values.reduce(0) { partialResult, value in
+            partialResult + pow(value - mean, 2)
+        } / Double(values.count)
+        return sqrt(variance)
     }
     
     // MARK: - WCSessionDelegate
