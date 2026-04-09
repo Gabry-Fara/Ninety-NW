@@ -16,19 +16,17 @@
 		00B643152F7EC58900CC8B51 /* NinetyWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		00B643212F7EC82E00CC8B51 /* AlarmKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643202F7EC82E00CC8B51 /* AlarmKit.framework */; };
 		00B643232F85305E00CC8B51 /* CoreMotion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643222F85305E00CC8B51 /* CoreMotion.framework */; };
-		5B7A310C2C3FDCCB00353790 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A310B2C3FDCCB00353790 /* HomeViewModel.swift */; };
+		5B7A310C2C3FDCCB00353790 /* ScheduleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A310B2C3FDCCB00353790 /* ScheduleViewModel.swift */; };
 		5B7A31132C401F9F00353790 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A31122C401F9F00353790 /* SettingsViewModel.swift */; };
 		5BB3ED6A2C3AD54600CD4274 /* NinetyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB3ED692C3AD54600CD4274 /* NinetyApp.swift */; };
-		5BB3ED6C2C3AD54600CD4274 /* SleepSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB3ED6B2C3AD54600CD4274 /* SleepSettingsView.swift */; };
 		5BB3ED6E2C3AD54700CD4274 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5BB3ED6D2C3AD54700CD4274 /* Assets.xcassets */; };
 		5BB3ED712C3AD54700CD4274 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5BB3ED702C3AD54700CD4274 /* Preview Assets.xcassets */; };
 		5BB3ED7A2C3AD96A00CD4274 /* SleepCalculator.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 5BB3ED792C3AD96A00CD4274 /* SleepCalculator.mlmodel */; };
 		5BB3ED7C2C3ADCAB00CD4274 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB3ED7B2C3ADCAB00CD4274 /* OnboardingView.swift */; };
 		5BB3ED7E2C3B099800CD4274 /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB3ED7D2C3B099800CD4274 /* TabBarView.swift */; };
-		5BC91AB02C4E81DA0039F374 /* SleepSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC91AAF2C4E81DA0039F374 /* SleepSettingsViewModel.swift */; };
 		5BC91AB22C4EE89A0039F374 /* SleepChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC91AB12C4EE89A0039F374 /* SleepChartView.swift */; };
 		5BF32F832C3C056900A528BD /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF32F822C3C056900A528BD /* SettingsView.swift */; };
-		5BF32F852C3C05A900A528BD /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF32F842C3C05A900A528BD /* HomeView.swift */; };
+		5BF32F852C3C05A900A528BD /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF32F842C3C05A900A528BD /* ScheduleView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,20 +65,18 @@
 		00B6431C2F7EC6BC00CC8B51 /* Ninety.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Ninety.entitlements; sourceTree = "<group>"; };
 		00B643202F7EC82E00CC8B51 /* AlarmKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AlarmKit.framework; path = System/Library/Frameworks/AlarmKit.framework; sourceTree = SDKROOT; };
 		00B643222F85305E00CC8B51 /* CoreMotion.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMotion.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.4.sdk/System/Library/Frameworks/CoreMotion.framework; sourceTree = DEVELOPER_DIR; };
-		5B7A310B2C3FDCCB00353790 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		5B7A310B2C3FDCCB00353790 /* ScheduleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleViewModel.swift; sourceTree = "<group>"; };
 		5B7A31122C401F9F00353790 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		5BB3ED662C3AD54600CD4274 /* Ninety.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ninety.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5BB3ED692C3AD54600CD4274 /* NinetyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NinetyApp.swift; sourceTree = "<group>"; };
-		5BB3ED6B2C3AD54600CD4274 /* SleepSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSettingsView.swift; sourceTree = "<group>"; };
 		5BB3ED6D2C3AD54700CD4274 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5BB3ED702C3AD54700CD4274 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		5BB3ED792C3AD96A00CD4274 /* SleepCalculator.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = SleepCalculator.mlmodel; sourceTree = "<group>"; };
 		5BB3ED7B2C3ADCAB00CD4274 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		5BB3ED7D2C3B099800CD4274 /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
-		5BC91AAF2C4E81DA0039F374 /* SleepSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSettingsViewModel.swift; sourceTree = "<group>"; };
 		5BC91AB12C4EE89A0039F374 /* SleepChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepChartView.swift; sourceTree = "<group>"; };
 		5BF32F822C3C056900A528BD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		5BF32F842C3C05A900A528BD /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		5BF32F842C3C05A900A528BD /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -117,23 +113,14 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		5B7A310A2C3FDC8200353790 /* Home */ = {
+		5B7A310A2C3FDC8200353790 /* Schedule */ = {
 			isa = PBXGroup;
 			children = (
-				5BF32F842C3C05A900A528BD /* HomeView.swift */,
+				5BF32F842C3C05A900A528BD /* ScheduleView.swift */,
 				5BC91AB12C4EE89A0039F374 /* SleepChartView.swift */,
-				5B7A310B2C3FDCCB00353790 /* HomeViewModel.swift */,
+				5B7A310B2C3FDCCB00353790 /* ScheduleViewModel.swift */,
 			);
-			path = Home;
-			sourceTree = "<group>";
-		};
-		5B7A310D2C3FDDF900353790 /* Sleep */ = {
-			isa = PBXGroup;
-			children = (
-				5BB3ED6B2C3AD54600CD4274 /* SleepSettingsView.swift */,
-				5BC91AAF2C4E81DA0039F374 /* SleepSettingsViewModel.swift */,
-			);
-			path = Sleep;
+			path = Schedule;
 			sourceTree = "<group>";
 		};
 		5B7A310F2C3FDE2900353790 /* Settings */ = {
@@ -195,8 +182,7 @@
 			children = (
 				5BB3ED812C3B0ACA00CD4274 /* Root */,
 				5B7A310F2C3FDE2900353790 /* Settings */,
-				5B7A310D2C3FDDF900353790 /* Sleep */,
-				5B7A310A2C3FDC8200353790 /* Home */,
+				5B7A310A2C3FDC8200353790 /* Schedule */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -324,12 +310,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				5BF32F832C3C056900A528BD /* SettingsView.swift in Sources */,
-				5BC91AB02C4E81DA0039F374 /* SleepSettingsViewModel.swift in Sources */,
 				5BC91AB22C4EE89A0039F374 /* SleepChartView.swift in Sources */,
 				001E1C972F853EB100AD4DC7 /* DiagnosticsView.swift in Sources */,
-				5B7A310C2C3FDCCB00353790 /* HomeViewModel.swift in Sources */,
+				5B7A310C2C3FDCCB00353790 /* ScheduleViewModel.swift in Sources */,
 				5BB3ED7E2C3B099800CD4274 /* TabBarView.swift in Sources */,
-				5BB3ED6C2C3AD54600CD4274 /* SleepSettingsView.swift in Sources */,
 				5BB3ED7A2C3AD96A00CD4274 /* SleepCalculator.mlmodel in Sources */,
 				001E1C922F853DF500AD4DC7 /* SensorPayload.swift in Sources */,
 				001E1C932F853DF500AD4DC7 /* SmartAlarmManager.swift in Sources */,
@@ -338,7 +322,7 @@
 				001E1CBA2F87DF9D00AD4DC7 /* SleepStagesV1.mlmodel in Sources */,
 				5B7A31132C401F9F00353790 /* SettingsViewModel.swift in Sources */,
 				5BB3ED6A2C3AD54600CD4274 /* NinetyApp.swift in Sources */,
-				5BF32F852C3C05A900A528BD /* HomeView.swift in Sources */,
+				5BF32F852C3C05A900A528BD /* ScheduleView.swift in Sources */,
 				5BB3ED7C2C3ADCAB00CD4274 /* OnboardingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

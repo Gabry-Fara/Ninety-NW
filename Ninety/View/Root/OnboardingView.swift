@@ -58,7 +58,7 @@ struct OnboardingView: View {
                 .tabViewStyle(.automatic)
             }
           } else {
-            TabBarView()
+            ScheduleView()
         }
     }
 }
