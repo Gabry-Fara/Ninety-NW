@@ -59,6 +59,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         let alarmID = UUID()
         self.absoluteAlarmID = alarmID
         self.alarmStatus = "Absolute Failsafe Set for \(targetDate.formatted(date: .omitted, time: .shortened))"
+        SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
         
         #if canImport(AlarmKit)
         Task {
@@ -82,6 +83,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     // Layer Two: The Dynamic Heuristic Trigger
     func triggerDynamicAlarm() {
         self.alarmStatus = "🚨 DYNAMIC WAKE EVENT TRIGGERED VIA ALARMKIT!"
+        SleepSessionManager.shared.pauseWatchMonitoring()
         
         // Pulizia chirurgica della sveglia di Livello 1 dopo che Livello 2 è scattata
         if let oldID = absoluteAlarmID {

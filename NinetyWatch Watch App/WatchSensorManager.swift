@@ -6,6 +6,7 @@ import WatchConnectivity
 import Combine
 
 class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDelegate, WCSessionDelegate {
+    private static let pendingScheduleKey = "pendingSmartAlarmSchedule"
     
     static let shared = WatchSensorManager()
     
@@ -22,7 +23,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
     
-    private var dataTimer: Timer?
+    // CoreMotion background anchors
+    private var currentVariance: Double = 0.0
+    private var lastTransmissionTime = Date()
+    private let motionQueue = OperationQueue()
     
     // For Mocking
     private var mockTimer: Timer?
@@ -31,13 +35,39 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         super.init()
         setupWatchConnectivity()
     }
-    
+
+    var hasPendingSchedule: Bool {
+        pendingScheduledStartDate != nil
+    }
+
+    var pendingScheduleDescription: String? {
+        guard let date = pendingScheduledStartDate else { return nil }
+        return "Queued for \(date.formatted(date: .omitted, time: .shortened))"
+    }
+
     func setupWatchConnectivity() {
         if WCSession.isSupported() {
             wcSession = WCSession.default
             wcSession?.delegate = self
             wcSession?.activate()
         }
+    }
+
+    func refreshConnectionStatus() {
+        guard let session = wcSession else {
+            connectionStatus = "Disconnected"
+            sendWatchStatusUpdate(sessionState)
+            return
+        }
+
+        guard session.activationState == .activated else {
+            connectionStatus = "Session not activated"
+            sendWatchStatusUpdate(sessionState)
+            return
+        }
+
+        connectionStatus = session.isReachable ? "Phone reachable" : "Phone unavailable, queued delivery"
+        sendWatchStatusUpdate(sessionState)
     }
     
     func requestHealthPermissions(completion: @escaping (Bool) -> Void) {
@@ -55,18 +85,43 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         #else
         self.isMocking = false
         #endif
-        
+
         self.runtimeSession = WKExtendedRuntimeSession()
         self.runtimeSession?.delegate = self
         self.runtimeSession?.start(at: date)
+        clearPendingSchedule()
         self.sessionState = "Scheduled for \(date.formatted(date: .omitted, time: .shortened))"
+        sendWatchStatusUpdate(self.sessionState)
+    }
+
+    func armPendingScheduleIfPossible() {
+        guard let date = pendingScheduledStartDate else { return }
+
+        guard WKExtension.shared().applicationState == .active else {
+            DispatchQueue.main.async {
+                self.sessionState = "Open watch app to arm smart alarm"
+            }
+            sendWatchStatusUpdate("Watch app must be opened to arm Smart Alarm")
+            return
+        }
+
+        scheduleSmartAlarmSession(at: date)
     }
     
     func stopSession() {
         runtimeSession?.invalidate()
         runtimeSession = nil
+        clearPendingSchedule()
         stopSensors()
         sessionState = "Manually Stopped"
+        sendWatchStatusUpdate(sessionState)
+    }
+
+    func pauseMonitoring() {
+        clearPendingSchedule()
+        stopSensors()
+        sessionState = "Monitoring Paused After Alarm"
+        sendWatchStatusUpdate(sessionState)
     }
     
     // MARK: - WKExtendedRuntimeSessionDelegate
@@ -75,18 +130,36 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         DispatchQueue.main.async {
             self.sessionState = "Session Started"
             self.startSensors()
+            self.sendWatchStatusUpdate(self.sessionState)
         }
     }
     
     func extendedRuntimeSessionWillExpire(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
         DispatchQueue.main.async {
             self.sessionState = "Session Expiring Soon"
+            self.sendWatchStatusUpdate(self.sessionState)
         }
     }
     
     func extendedRuntimeSession(_ extendedRuntimeSession: WKExtendedRuntimeSession, didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason, error: Error?) {
         DispatchQueue.main.async {
-            self.sessionState = "Session Invalidated"
+            if
+                let nsError = error as NSError?,
+                nsError.domain == WKExtendedRuntimeSessionErrorDomain,
+                let wkErrorCode = WKExtendedRuntimeSessionErrorCode(rawValue: nsError.code)
+            {
+                switch wkErrorCode {
+                case .scheduledTooFarInAdvance:
+                    self.sessionState = "Error: Scheduled >36h ahead"
+                case .mustBeActiveToStartOrSchedule:
+                    self.sessionState = "Error: Must be in foreground"
+                default:
+                    self.sessionState = "Invalidated: \(wkErrorCode.rawValue)"
+                }
+            } else {
+                self.sessionState = "Session Invalidated"
+            }
+            self.sendWatchStatusUpdate(self.sessionState)
             self.stopSensors()
         }
     }
@@ -107,17 +180,30 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             healthStore.stop(query)
             hrQuery = nil
         }
-        dataTimer?.invalidate()
-        dataTimer = nil
         mockTimer?.invalidate()
         mockTimer = nil
     }
     
     private func startRealSensors() {
-        // Start Accelerometer
+        lastTransmissionTime = Date()
+        
+        // Start Accelerometer via PUSH API to guarantee background wake
         if motionManager.isAccelerometerAvailable {
             motionManager.accelerometerUpdateInterval = 1.0 / 50.0 // 50 Hz
-            motionManager.startAccelerometerUpdates()
+            motionManager.startAccelerometerUpdates(to: motionQueue) { [weak self] data, _ in
+                guard let self = self, let data = data else { return }
+                
+                let magnitude = sqrt(pow(data.acceleration.x, 2) + pow(data.acceleration.y, 2) + pow(data.acceleration.z, 2))
+                self.currentVariance = abs(magnitude - 1.0)
+                
+                let now = Date()
+                if now.timeIntervalSince(self.lastTransmissionTime) >= 5.0 {
+                    self.lastTransmissionTime = now
+                    DispatchQueue.main.async {
+                        self.compileAndTransmitPayload()
+                    }
+                }
+            }
         }
         
         // Start HR
@@ -135,11 +221,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         if let query = hrQuery {
             healthStore.execute(query)
         }
-        
-        // Batch and send every 5 seconds
-        dataTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            self?.compileAndTransmitPayload()
-        }
     }
     
     private func processHRSamples(_ samples: [HKSample]?) {
@@ -152,20 +233,11 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     private func compileAndTransmitPayload() {
-        // Calculate accelerometer variance
-        var variance = 0.0
-        if let motionData = motionManager.accelerometerData {
-            // Simplified dynamic variance metric based on magnitude
-            let magnitude = sqrt(pow(motionData.acceleration.x, 2) + pow(motionData.acceleration.y, 2) + pow(motionData.acceleration.z, 2))
-            // Typically you would store the past 5s of data to calculate rolling variance.
-            // For architecture implementation proof, we capture current reading deviation from 1G gravity.
-            variance = abs(magnitude - 1.0)
-        }
-        
         let payload = SensorPayload(
+            id: UUID(),
             timestamp: Date(),
             hrSamples: hrSamplesBuffer,
-            accelerometerVariance: variance,
+            accelerometerVariance: currentVariance,
             isMockData: false
         )
         
@@ -176,27 +248,26 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     private func transmit(payload: SensorPayload) {
         guard let session = wcSession else { return }
-        
-        if session.activationState != .activated {
-            DispatchQueue.main.async {
-                self.connectionStatus = "Session not activated"
-            }
-            return
-        }
-        
-        DispatchQueue.main.async {
-            self.connectionStatus = "Reachable"
-        }
-        
+
         if let encoded = try? JSONEncoder().encode(payload),
            let dict = try? JSONSerialization.jsonObject(with: encoded, options: []) as? [String: Any] {
-            
-            session.sendMessage(dict, replyHandler: nil) { [weak self] error in
+            session.transferUserInfo(dict)
+
+            if session.isReachable {
+                session.sendMessage(dict, replyHandler: nil) { [weak self] error in
+                    DispatchQueue.main.async {
+                        self?.connectionStatus = "Send failed: \(error.localizedDescription)"
+                    }
+                }
                 DispatchQueue.main.async {
-                    self?.connectionStatus = "Send failed: \(error.localizedDescription)"
+                    self.connectionStatus = "Phone reachable"
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.connectionStatus = "Phone unavailable, queued delivery"
                 }
             }
-            
+
             DispatchQueue.main.async {
                 self.lastPayloadSent = "Sent at \(payload.timestamp.formatted(date: .omitted, time: .standard)), HR count: \(payload.hrSamples.count)"
             }
@@ -209,6 +280,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         // Simulating 5 second batches of mock transitions
         mockTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             let mockPayload = SensorPayload(
+                id: UUID(),
                 timestamp: Date(),
                 hrSamples: [Double.random(in: 55...65), Double.random(in: 50...60)],
                 accelerometerVariance: Double.random(in: 0.0...0.5),
@@ -222,7 +294,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async {
-            self.connectionStatus = activationState == .activated ? "Activated" : "Not Activated"
+            self.refreshConnectionStatus()
+        }
+    }
+
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        DispatchQueue.main.async {
+            self.refreshConnectionStatus()
         }
     }
     
@@ -235,11 +313,65 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     private func processIncomingCommand(_ payload: [String: Any]) {
-        if let action = payload["action"] as? String, action == "startSession" {
-            DispatchQueue.main.async {
-                // start in 5 seconds
-                self.scheduleSmartAlarmSession(at: Date().addingTimeInterval(5))
+        if let action = payload["action"] as? String {
+            if action == "startSession" {
+                if let targetInterval = payload["targetDate"] as? TimeInterval {
+                    // Start exactly 30 minutes before the target alarm date
+                    let wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
+                    DispatchQueue.main.async {
+                        self.queueOrScheduleSmartAlarmSession(at: wakeWindowStartDate)
+                    }
+                } else {
+                    // Fallback to instant mock start
+                    DispatchQueue.main.async {
+                        self.queueOrScheduleSmartAlarmSession(at: Date().addingTimeInterval(5))
+                    }
+                }
+            } else if action == "stopSession" {
+                DispatchQueue.main.async {
+                    self.stopSession()
+                }
+            } else if action == "pauseMonitoring" {
+                DispatchQueue.main.async {
+                    self.pauseMonitoring()
+                }
             }
+        }
+    }
+
+    private var pendingScheduledStartDate: Date? {
+        let interval = UserDefaults.standard.object(forKey: Self.pendingScheduleKey) as? TimeInterval
+        return interval.map(Date.init(timeIntervalSince1970:))
+    }
+
+    private func queueOrScheduleSmartAlarmSession(at date: Date) {
+        guard WKExtension.shared().applicationState == .active else {
+            UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.pendingScheduleKey)
+            sessionState = "Queued. Open watch app to arm session"
+            sendWatchStatusUpdate("Queued on watch. Open the watch app to arm Smart Alarm.")
+            return
+        }
+
+        scheduleSmartAlarmSession(at: date)
+    }
+
+    private func clearPendingSchedule() {
+        UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
+    }
+
+    private func sendWatchStatusUpdate(_ status: String) {
+        guard let session = wcSession, session.activationState == .activated else { return }
+
+        let message: [String: Any] = [
+            "watchStatus": status,
+            "watchConnectionStatus": connectionStatus,
+            "queuedSchedule": pendingScheduledStartDate?.timeIntervalSince1970 as Any
+        ]
+
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(message)
         }
     }
 }

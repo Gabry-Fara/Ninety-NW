@@ -18,6 +18,31 @@ struct DiagnosticsView: View {
                                 .foregroundColor(.secondary)
                         }
                         .font(.caption)
+
+                        HStack(alignment: .top) {
+                            Text("Watch Session:")
+                                .bold()
+                            Spacer()
+                            Text(sleepManager.watchStatus)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .font(.caption)
+
+                        HStack(alignment: .top) {
+                            Text("Delivery:")
+                                .bold()
+                            Spacer()
+                            Text(sleepManager.watchConnectionStatus)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .font(.caption)
+
+                        Text("If the watch app is not foregrounded, the start request is queued and the user must open the watch app to arm Smart Alarm.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
                         
                         Button("Start Session on Watch") {
                             sleepManager.startWatchSession()

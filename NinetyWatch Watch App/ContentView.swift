@@ -18,7 +18,6 @@ struct ContentView: View {
         }
         .tabViewStyle(.verticalPage)
         .onAppear {
-            sensorManager.setupWatchConnectivity()
             sensorManager.requestHealthPermissions { _ in }
             // Triggering the extended runtime session init off the main thread prompts user without freezing
             DispatchQueue.global().async {
@@ -31,13 +30,17 @@ struct ContentView: View {
 
 struct DashboardView: View {
     @ObservedObject var sensorManager: WatchSensorManager
+
+    private var isInteractiveDeliveryAvailable: Bool {
+        sensorManager.connectionStatus == "Phone reachable" || sensorManager.connectionStatus.hasPrefix("Syncing")
+    }
     
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: sensorManager.connectionStatus == "Reachable" ? "link.icloud.fill" : "exclamationmark.icloud.fill")
+            Image(systemName: isInteractiveDeliveryAvailable ? "link.icloud.fill" : "exclamationmark.icloud.fill")
                 .font(.system(size: 40))
-                .foregroundColor(sensorManager.connectionStatus == "Reachable" ? .green : .orange)
-                .symbolEffect(.pulse, isActive: sensorManager.connectionStatus == "Reachable")
+                .foregroundColor(isInteractiveDeliveryAvailable ? .green : .orange)
+                .symbolEffect(.pulse, isActive: isInteractiveDeliveryAvailable)
             
             Text("Ninety Node")
                 .font(.headline)
@@ -53,7 +56,21 @@ struct DashboardView: View {
                     .foregroundColor(.secondary)
             }
             .padding(.top, 4)
-            
+
+            if let pendingScheduleDescription = sensorManager.pendingScheduleDescription {
+                VStack(spacing: 4) {
+                    Text("Action Required")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.orange)
+                    Text("\(pendingScheduleDescription)\nKeep the app open to arm Smart Alarm.")
+                        .font(.system(size: 10, design: .rounded))
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+            }
+
             if !sensorManager.lastPayloadSent.isEmpty {
                 Text(sensorManager.lastPayloadSent)
                     .font(.system(size: 9, design: .monospaced))
@@ -74,6 +91,18 @@ struct ControlsView: View {
     var body: some View {
         List {
             Section(header: Text("Session Control")) {
+                if sensorManager.hasPendingSchedule {
+                    Button(action: {
+                        sensorManager.armPendingScheduleIfPossible()
+                    }) {
+                        HStack {
+                            Image(systemName: "bolt.badge.clock.fill")
+                            Text("Arm Queued Session")
+                        }
+                    }
+                    .listItemTint(.orange)
+                }
+
                 Button(action: {
                     // Simulating scheduling 5 seconds from now for immediate testing
                     let futureDate = Date().addingTimeInterval(5)
