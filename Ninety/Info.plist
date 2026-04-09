@@ -4,6 +4,8 @@
 <dict>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Ninety requires AlarmKit to ensure your wake-up alarm sounds even when your device is on silent</string>
+	<key>NSSiriUsageDescription</key>
+	<string>Ninety uses Siri to schedule your wake-up session and smart alarm.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

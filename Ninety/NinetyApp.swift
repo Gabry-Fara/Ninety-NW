@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppIntents
 
 @main
 struct NinetyApp: App {
@@ -16,6 +17,7 @@ struct NinetyApp: App {
         // If these are not instantly mapped, WCSession cannot wake the iOS app from suspended states!
         _ = SleepSessionManager.shared
         _ = SmartAlarmManager.shared
+        NinetyShortcutsProvider.updateAppShortcutParameters()
     }
     
     var body: some Scene {

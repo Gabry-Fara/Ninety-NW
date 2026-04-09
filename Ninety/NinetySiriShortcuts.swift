@@ -32,17 +32,15 @@ struct ScheduleWakeUpIntent: AppIntent {
 
 struct NinetyShortcutsProvider: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
-        [
-            AppShortcut(
-                intent: ScheduleWakeUpIntent(),
-                phrases: [
-                    "Wake me up at \(\.$wakeUpTime) in \(.applicationName)",
-                    "Schedule a wake up at \(\.$wakeUpTime) in \(.applicationName)",
-                    "Set my sleep session in \(.applicationName)"
-                ],
-                shortTitle: "Wake Up",
-                systemImageName: "alarm"
-            )
-        ]
+        AppShortcut(
+            intent: ScheduleWakeUpIntent(),
+            phrases: [
+                "Wake me up with \(.applicationName)",
+                "Schedule my wake up in \(.applicationName)",
+                "Set my sleep session in \(.applicationName)"
+            ],
+            shortTitle: "Wake Up",
+            systemImageName: "alarm"
+        )
     }
 }

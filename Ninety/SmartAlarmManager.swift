@@ -11,6 +11,12 @@ import AlarmKit
 @MainActor
 class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = SmartAlarmManager()
+    static let monitoringLeadTime: TimeInterval = 30 * 60
+
+    struct ScheduledSleepSession {
+        let wakeUpDate: Date
+        let monitoringStartDate: Date
+    }
     
     @Published var alarmStatus: String = "No alarms configured."
     
@@ -54,6 +60,13 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         return AlarmAttributes(presentation: presentation, tintColor: .blue)
     }
     #endif
+
+    func scheduleSleepSession(endingAt requestedWakeUpDate: Date) -> ScheduledSleepSession {
+        let wakeUpDate = normalizedWakeUpDate(from: requestedWakeUpDate)
+        let monitoringStartDate = wakeUpDate.addingTimeInterval(-Self.monitoringLeadTime)
+        scheduleSystemAlarm(for: wakeUpDate)
+        return ScheduledSleepSession(wakeUpDate: wakeUpDate, monitoringStartDate: monitoringStartDate)
+    }
     
     func scheduleSystemAlarm(for targetDate: Date) {
         let alarmID = UUID()
@@ -162,5 +175,13 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         } catch {
             print("Failed to initialize physical alarm audio layer: \(error)")
         }
+    }
+
+    private func normalizedWakeUpDate(from requestedWakeUpDate: Date) -> Date {
+        guard requestedWakeUpDate <= Date() else {
+            return requestedWakeUpDate
+        }
+
+        return Calendar.current.date(byAdding: .day, value: 1, to: requestedWakeUpDate) ?? requestedWakeUpDate
     }
 }
