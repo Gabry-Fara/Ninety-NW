@@ -37,6 +37,18 @@ struct SettingsView: View {
                 .tint(.accentColor)
             }
             
+            Section(header: Text("Appearance")) {
+                Picker(selection: $settingsViewModel.selectedTheme) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Label(theme.rawValue, systemImage: theme.icon)
+                            .tag(theme)
+                    }
+                } label: {
+                    Label("Theme", systemImage: "paintbrush.fill")
+                }
+                .pickerStyle(.navigationLink)
+            }
+            
             Section(header: Text("Sleeping Preferences")) {
                 NavigationLink(destination: SleepChartView()) {
                     Label("Sleep duration", systemImage: "chart.bar.fill")

@@ -9,6 +9,7 @@ import SwiftUI
 
 @main
 struct NinetyApp: App {
+    @AppStorage("appTheme") private var selectedTheme: AppTheme = .system
     
     init() {
         // Core initialization to bind WCSession & UNUserNotification delegates immediately on launch.
@@ -20,6 +21,7 @@ struct NinetyApp: App {
     var body: some Scene {
         WindowGroup {
             ScheduleView()
+                .preferredColorScheme(selectedTheme.colorScheme)
         }
     }
 }
