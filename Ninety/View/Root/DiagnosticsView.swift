@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DiagnosticsView: View {
+    @EnvironmentObject private var viewModel: ScheduleViewModel
     @ObservedObject private var sleepManager = SleepSessionManager.shared
     @ObservedObject private var smartAlarm = SmartAlarmManager.shared
     
@@ -8,6 +9,74 @@ struct DiagnosticsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    GroupBox("Your Session") {
+                        VStack(spacing: 12) {
+                            HStack {
+                                Text("Starts Tracking:")
+                                    .bold()
+                                Spacer()
+                                Text(viewModel.projectedSession.monitoringStartDate.formatted(date: .omitted, time: .shortened))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            HStack {
+                                Text("Wake-Up Alarm:")
+                                    .bold()
+                                Spacer()
+                                Text(viewModel.projectedSession.wakeUpDate.formatted(date: .omitted, time: .shortened))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            HStack {
+                                Text("Sleep Stage:")
+                                    .bold()
+                                Spacer()
+                                Text(sleepManager.officialStageDisplay)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            HStack {
+                                Text("Watch:")
+                                    .bold()
+                                Spacer()
+                                Text(viewModel.userFriendlyWatchStatus(from: sleepManager.watchStatus))
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                        }
+                        .font(.caption)
+                    }
+
+                    GroupBox("Status") {
+                        VStack(spacing: 12) {
+                            HStack {
+                                Text("Alarm:")
+                                    .bold()
+                                Spacer()
+                                Text(viewModel.userFriendlyAlarmStatus(from: smartAlarm.alarmStatus))
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.trailing)
+                            }
+                            
+                            if let scheduledSession = viewModel.lastScheduledSession {
+                                HStack {
+                                    Text("Scheduled For:")
+                                        .bold()
+                                    Spacer()
+                                    Text(scheduledSession.wakeUpDate.formatted(date: .abbreviated, time: .shortened))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            if let schedulingError = viewModel.schedulingError {
+                                Text(schedulingError)
+                                    .font(.caption2)
+                                    .foregroundColor(.red)
+                                    .padding(.top, 4)
+                            }
+                        }
+                        .font(.caption)
+                    }
                     
                     GroupBox("Watch Connectivity") {
                         HStack {
@@ -159,4 +228,9 @@ struct DiagnosticsView: View {
             .navigationTitle("Diagnostics")
         }
     }
+}
+
+#Preview {
+    DiagnosticsView()
+        .environmentObject(ScheduleViewModel())
 }

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ScheduleView: View {
-    @StateObject private var viewModel = ScheduleViewModel()
+    @EnvironmentObject private var viewModel: ScheduleViewModel
     @ObservedObject private var smartAlarm = SmartAlarmManager.shared
     @ObservedObject private var sleepManager = SleepSessionManager.shared
     @State private var showingSettings = false
@@ -61,49 +61,7 @@ struct ScheduleView: View {
                     .padding(.vertical, 8)
                 }
 
-                Section("Your Session") {
-                    LabeledContent("Starts Tracking") {
-                        Text(viewModel.projectedSession.monitoringStartDate.formatted(date: .omitted, time: .shortened))
-                            .foregroundStyle(.secondary)
-                    }
 
-                    LabeledContent("Wake-Up Alarm") {
-                        Text(viewModel.projectedSession.wakeUpDate.formatted(date: .omitted, time: .shortened))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    LabeledContent("Sleep Stage") {
-                        Text(sleepManager.officialStageDisplay)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    LabeledContent("Watch") {
-                        Text(viewModel.userFriendlyWatchStatus(from: sleepManager.watchStatus))
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                    }
-                }
-
-                Section("Status") {
-                    LabeledContent("Alarm") {
-                        Text(viewModel.userFriendlyAlarmStatus(from: smartAlarm.alarmStatus))
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                    }
-
-                    if let scheduledSession = viewModel.lastScheduledSession {
-                        LabeledContent("Scheduled For") {
-                            Text(scheduledSession.wakeUpDate.formatted(date: .abbreviated, time: .shortened))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    if let schedulingError = viewModel.schedulingError {
-                        Text(schedulingError)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Wake Up")
@@ -223,4 +181,5 @@ struct ScheduleView: View {
 
 #Preview {
     ScheduleView()
+        .environmentObject(ScheduleViewModel())
 }

@@ -11,6 +11,7 @@ import AppIntents
 @main
 struct NinetyApp: App {
     @AppStorage("appTheme") private var selectedTheme: AppTheme = .system
+    @StateObject private var scheduleViewModel = ScheduleViewModel()
     
     init() {
         // Core initialization to bind WCSession & UNUserNotification delegates immediately on launch.
@@ -24,6 +25,7 @@ struct NinetyApp: App {
         WindowGroup {
             ScheduleView()
                 .preferredColorScheme(selectedTheme.colorScheme)
+                .environmentObject(scheduleViewModel)
         }
     }
 }
