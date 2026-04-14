@@ -68,6 +68,19 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         return ScheduledSleepSession(wakeUpDate: wakeUpDate, monitoringStartDate: monitoringStartDate)
     }
     
+    func cancelSession() {
+        if let alarmID = absoluteAlarmID {
+            #if canImport(AlarmKit)
+            Task {
+                try? await AlarmManager.shared.cancel(id: alarmID)
+            }
+            #endif
+            absoluteAlarmID = nil
+        }
+        SleepSessionManager.shared.pauseWatchMonitoring()
+        self.alarmStatus = "No alarms configured."
+    }
+    
     func scheduleSystemAlarm(for targetDate: Date) {
         let alarmID = UUID()
         self.absoluteAlarmID = alarmID

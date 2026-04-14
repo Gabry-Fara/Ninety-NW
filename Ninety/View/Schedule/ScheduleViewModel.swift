@@ -24,6 +24,7 @@ final class ScheduleViewModel: ObservableObject {
     }
     @Published var lastScheduledSession: SmartAlarmManager.ScheduledSleepSession?
     @Published var isScheduling = false
+    @Published var isAlarmEnabled = false
     @Published var schedulingError: String?
 
     @Published var sleepData: [SleepData] = []
@@ -78,10 +79,17 @@ final class ScheduleViewModel: ObservableObject {
         let granted = await requestAlarmPermissions()
         guard granted else {
             schedulingError = "Permissions are required to schedule the wake-up session."
+            // Optionally revert the toggle if permissions fail:
+            // isAlarmEnabled = false 
             return
         }
 
         lastScheduledSession = SmartAlarmManager.shared.scheduleSleepSession(endingAt: wakeUpTime)
+    }
+
+    func cancelSession() {
+        SmartAlarmManager.shared.cancelSession()
+        lastScheduledSession = nil
     }
 
     func userFriendlyWatchStatus(from status: String) -> String {

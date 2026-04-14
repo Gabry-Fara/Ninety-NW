@@ -15,56 +15,62 @@ struct ScheduleView: View {
     @State private var showingDiagnostics = false
     @State private var showingWakeTimePicker = false
    
+    @Namespace private var glassNamespace
+    
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Wake Up")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-
+            ZStack {
+                // Background Navigation Layer
+                HorizonBackground(isActive: viewModel.isAlarmEnabled)
+                    .ignoresSafeArea()
+                
+                GlassEffectContainer(spacing: 30) {
+                    VStack {
+                        // Keeps the pill optically centered 
+                        Spacer()
+                        
+                        // Primary Wake Up Control (Minimalist Pill)
                         Button {
                             showingWakeTimePicker = true
                         } label: {
-                            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                Text(viewModel.wakeTimeLabel)
-                                    .font(.system(size: 54, weight: .semibold, design: .rounded))
-                                    .monospacedDigit()
-                                    .contentTransition(.numericText())
-                                    .minimumScaleFactor(0.8)
-
-                                Text(viewModel.scheduledDayLabel)
-                                    .font(.title3.weight(.medium))
-                                    .foregroundStyle(.secondary)
-
-                                Spacer()
-
-                                Image(systemName: "chevron.right")
-                                    .font(.headline.weight(.semibold))
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .contentShape(Rectangle())
+                            Text(viewModel.wakeTimeLabel)
+                                .font(.system(size: 84, weight: .light, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(viewModel.isAlarmEnabled ? .white : .white.opacity(0.4))
+                                .contentTransition(.numericText())
+                                .padding(.horizontal, 48)
+                                .padding(.vertical, 32)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityHint("Double tap to choose a wake-up time")
-
-                        Text("Tap the time to change it.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        Text("Ninety starts preparing 30 minutes before wake-up so your watch can look for the best moment to wake you.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 64, style: .continuous))
+                        
+                        Spacer()
                     }
-                    .padding(.vertical, 8)
+                    .padding(.bottom, 120) // Offsets the top toolbar to visually center on the physical screen
                 }
-
-
+                
+                // Floating Bottom Action Pill
+                VStack {
+                    Spacer()
+                    
+                    Button {
+                        viewModel.isAlarmEnabled.toggle()
+                        if viewModel.isAlarmEnabled {
+                            Task { await viewModel.scheduleSession() }
+                        } else {
+                            viewModel.cancelSession()
+                        }
+                    } label: {
+                        Text(viewModel.isAlarmEnabled ? "Alarm On" : "Alarm Off")
+                            .font(.headline)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.isAlarmEnabled)
+                    }
+                    .buttonStyle(GlassButtonStyle(isProminent: viewModel.isAlarmEnabled, tint: .blue))
+                    .padding(.bottom, 24)
+                }
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Wake Up")
+            .preferredColorScheme(.dark)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -84,9 +90,10 @@ struct ScheduleView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .symbolRenderingMode(.hierarchical)
-                            .font(.body.weight(.medium))
+                            .foregroundStyle(.white)
+                            .font(.title2.weight(.medium))
                     }
-                    .accessibilityLabel("More Options")
+                    .glassEffect(.regular.interactive(), in: Circle())
                 }
             }
             .navigationDestination(isPresented: $showingSettings) {
@@ -124,6 +131,8 @@ struct ScheduleView: View {
                     }
                     .navigationTitle("Wake Up")
                     .navigationBarTitleDisplayMode(.inline)
+                    .scrollContentBackground(.hidden)
+                    .containerBackground(.clear, for: .navigation)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Cancel") {
@@ -140,40 +149,6 @@ struct ScheduleView: View {
                 }
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
-            }
-            .safeAreaInset(edge: .bottom) {
-                VStack(spacing: 10) {
-                    Button {
-                        Task {
-                            await viewModel.scheduleSession()
-                        }
-                    } label: {
-                        Group {
-                            if viewModel.isScheduling {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                                    .tint(.white)
-                                    .frame(maxWidth: .infinity)
-                            } else {
-                                Text("Schedule Smart Alarm")
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
-                        .font(.headline)
-                        .padding(.vertical, 16)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                    Text("You’ll be woken around \(viewModel.projectedSession.wakeUpDate.formatted(date: .omitted, time: .shortened)).")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-                .background(.bar)
             }
         }
     }

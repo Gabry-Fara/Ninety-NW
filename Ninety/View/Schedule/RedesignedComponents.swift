@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct HorizonBackground: View {
+    var isActive: Bool = true
+    
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -16,30 +18,36 @@ struct HorizonBackground: View {
                 ZStack {
                     // Outer glow
                     Ellipse()
-                        .fill(Color.blue.opacity(0.3))
+                        .fill(isActive ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
                         .frame(width: 600, height: 300)
                         .blur(radius: 60)
                         .offset(y: 150)
+                        .animation(.easeInOut(duration: 1.0), value: isActive)
                     
                     // Main arc
-                    Ellipse()
-                        .stroke(
-                            LinearGradient(
-                                colors: [.clear, .blue.opacity(0.8), .clear],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            lineWidth: 3
-                        )
-                        .frame(width: 500, height: 250)
-                        .offset(y: 125)
-                        .blur(radius: 1)
+                    if isActive {
+                        Ellipse()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.clear, .blue.opacity(0.8), .clear],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: 3
+                            )
+                            .frame(width: 500, height: 250)
+                            .offset(y: 125)
+                            .blur(radius: 1)
+                            .transition(.opacity)
+                    }
                 }
             }
             .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.8), value: isActive)
         }
     }
 }
+
 
 struct GlassPill<Content: View>: View {
     var content: Content

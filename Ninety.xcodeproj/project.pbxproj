@@ -27,6 +27,8 @@
 		5BC91AB22C4EE89A0039F374 /* SleepChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC91AB12C4EE89A0039F374 /* SleepChartView.swift */; };
 		5BF32F832C3C056900A528BD /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF32F822C3C056900A528BD /* SettingsView.swift */; };
 		5BF32F852C3C05A900A528BD /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF32F842C3C05A900A528BD /* ScheduleView.swift */; };
+		A1B2C3E12C3FDC8200353790 /* RedesignedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */; };
+		A1B2C3D22C3FDC8200353790 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +79,8 @@
 		5BC91AB12C4EE89A0039F374 /* SleepChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepChartView.swift; sourceTree = "<group>"; };
 		5BF32F822C3C056900A528BD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		5BF32F842C3C05A900A528BD /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
+		A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignedComponents.swift; sourceTree = "<group>"; };
+		A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlass.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -117,6 +121,7 @@
 			isa = PBXGroup;
 			children = (
 				5BF32F842C3C05A900A528BD /* ScheduleView.swift */,
+				A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */,
 				5BC91AB12C4EE89A0039F374 /* SleepChartView.swift */,
 				5B7A310B2C3FDCCB00353790 /* ScheduleViewModel.swift */,
 			);
@@ -162,6 +167,7 @@
 				00B6431B2F7EC6A700CC8B51 /* Info.plist */,
 				5BB3ED692C3AD54600CD4274 /* NinetyApp.swift */,
 				5BB3ED7F2C3B0AA200CD4274 /* View */,
+				A1B2C3D02C3FDC8200353790 /* Utilities */,
 				5BB3ED792C3AD96A00CD4274 /* SleepCalculator.mlmodel */,
 				5BB3ED6D2C3AD54700CD4274 /* Assets.xcassets */,
 				5BB3ED6F2C3AD54700CD4274 /* Preview Content */,
@@ -195,6 +201,14 @@
 				5BB3ED7B2C3ADCAB00CD4274 /* OnboardingView.swift */,
 			);
 			path = Root;
+			sourceTree = "<group>";
+		};
+		A1B2C3D02C3FDC8200353790 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */,
+			);
+			path = Utilities;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -323,6 +337,8 @@
 				5B7A31132C401F9F00353790 /* SettingsViewModel.swift in Sources */,
 				5BB3ED6A2C3AD54600CD4274 /* NinetyApp.swift in Sources */,
 				5BF32F852C3C05A900A528BD /* ScheduleView.swift in Sources */,
+				A1B2C3E12C3FDC8200353790 /* RedesignedComponents.swift in Sources */,
+				A1B2C3D22C3FDC8200353790 /* LiquidGlass.swift in Sources */,
 				5BB3ED7C2C3ADCAB00CD4274 /* OnboardingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

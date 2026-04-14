@@ -7,226 +7,154 @@ struct DiagnosticsView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    GroupBox("Your Session") {
-                        VStack(spacing: 12) {
-                            HStack {
-                                Text("Starts Tracking:")
-                                    .bold()
-                                Spacer()
-                                Text(viewModel.projectedSession.monitoringStartDate.formatted(date: .omitted, time: .shortened))
-                                    .foregroundColor(.secondary)
+            ZStack {
+                // Background Navigation Layer (Subtle for diagnostics)
+                Color.black.ignoresSafeArea()
+                
+                ScrollView {
+                    GlassEffectContainer(spacing: 20) {
+                        VStack(spacing: 24) {
+                            diagnosticSection("Your Session") {
+                                VStack(spacing: 12) {
+                                    diagnosticRow("Starts Tracking:", viewModel.projectedSession.monitoringStartDate.formatted(date: .omitted, time: .shortened))
+                                    diagnosticRow("Wake-Up Alarm:", viewModel.projectedSession.wakeUpDate.formatted(date: .omitted, time: .shortened))
+                                    diagnosticRow("Sleep Stage:", sleepManager.officialStageDisplay)
+                                    diagnosticRow("Watch:", viewModel.userFriendlyWatchStatus(from: sleepManager.watchStatus))
+                                }
                             }
-                            
-                            HStack {
-                                Text("Wake-Up Alarm:")
-                                    .bold()
-                                Spacer()
-                                Text(viewModel.projectedSession.wakeUpDate.formatted(date: .omitted, time: .shortened))
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            HStack {
-                                Text("Sleep Stage:")
-                                    .bold()
-                                Spacer()
-                                Text(sleepManager.officialStageDisplay)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            HStack {
-                                Text("Watch:")
-                                    .bold()
-                                Spacer()
-                                Text(viewModel.userFriendlyWatchStatus(from: sleepManager.watchStatus))
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.trailing)
-                            }
-                        }
-                        .font(.caption)
-                    }
 
-                    GroupBox("Status") {
-                        VStack(spacing: 12) {
-                            HStack {
-                                Text("Alarm:")
-                                    .bold()
-                                Spacer()
-                                Text(viewModel.userFriendlyAlarmStatus(from: smartAlarm.alarmStatus))
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.trailing)
+                            diagnosticSection("Status") {
+                                VStack(spacing: 12) {
+                                    diagnosticRow("Alarm:", viewModel.userFriendlyAlarmStatus(from: smartAlarm.alarmStatus))
+                                    
+                                    if let scheduledSession = viewModel.lastScheduledSession {
+                                        diagnosticRow("Scheduled For:", scheduledSession.wakeUpDate.formatted(date: .abbreviated, time: .shortened))
+                                    }
+                                    
+                                    if let schedulingError = viewModel.schedulingError {
+                                        Text(schedulingError)
+                                            .font(.caption2)
+                                            .foregroundColor(.red)
+                                            .padding(.top, 4)
+                                    }
+                                }
                             }
                             
-                            if let scheduledSession = viewModel.lastScheduledSession {
-                                HStack {
-                                    Text("Scheduled For:")
-                                        .bold()
-                                    Spacer()
-                                    Text(scheduledSession.wakeUpDate.formatted(date: .abbreviated, time: .shortened))
+                            diagnosticSection("Watch Connectivity") {
+                                VStack(spacing: 12) {
+                                    diagnosticRow("Last Payload:", sleepManager.lastPayloadReceived)
+                                    diagnosticRow("Watch Session:", sleepManager.watchStatus)
+                                    diagnosticRow("Delivery:", sleepManager.watchConnectionStatus)
+                                    
+                                    Text("If the watch app is not foregrounded, the start request is queued and the user must open the watch app to arm Smart Alarm.")
+                                        .font(.system(size: 10))
                                         .foregroundColor(.secondary)
+                                        .padding(.top, 4)
+                                    
+                                    Button("Start Session on Watch") {
+                                        sleepManager.startWatchSession()
+                                    }
+                                    .buttonStyle(GlassButtonStyle.glassProminent)
+                                    .tint(.blue)
+                                    .padding(.top, 5)
+                                }
+                            }
+
+                            diagnosticSection("Sleep Classifier") {
+                                VStack(spacing: 10) {
+                                    diagnosticRow("Model:", sleepManager.modelStatus)
+                                    diagnosticRow("Raw Stage:", sleepManager.rawStageDisplay)
+                                    diagnosticRow("Official Stage:", sleepManager.officialStageDisplay)
+                                    diagnosticRow("Epoch:", sleepManager.latestEpochSummary)
+                                    diagnosticRow("Features:", sleepManager.latestFeatureSummary)
                                 }
                             }
                             
-                            if let schedulingError = viewModel.schedulingError {
-                                Text(schedulingError)
-                                    .font(.caption2)
-                                    .foregroundColor(.red)
-                                    .padding(.top, 4)
-                            }
-                        }
-                        .font(.caption)
-                    }
-                    
-                    GroupBox("Watch Connectivity") {
-                        HStack {
-                            Text("Last Payload:")
-                                .bold()
-                            Spacer()
-                            Text(sleepManager.lastPayloadReceived)
-                                .foregroundColor(.secondary)
-                        }
-                        .font(.caption)
-
-                        HStack(alignment: .top) {
-                            Text("Watch Session:")
-                                .bold()
-                            Spacer()
-                            Text(sleepManager.watchStatus)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .font(.caption)
-
-                        HStack(alignment: .top) {
-                            Text("Delivery:")
-                                .bold()
-                            Spacer()
-                            Text(sleepManager.watchConnectionStatus)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .font(.caption)
-
-                        Text("If the watch app is not foregrounded, the start request is queued and the user must open the watch app to arm Smart Alarm.")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 4)
-                        
-                        Button("Start Session on Watch") {
-                            sleepManager.startWatchSession()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .padding(.top, 5)
-                    }
-
-                    GroupBox("Sleep Stage Classifier") {
-                        HStack(alignment: .top) {
-                            Text("Model:")
-                                .bold()
-                            Spacer()
-                            Text(sleepManager.modelStatus)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .font(.caption)
-
-                        HStack {
-                            Text("Raw Stage:")
-                                .bold()
-                            Spacer()
-                            Text(sleepManager.rawStageDisplay)
-                                .foregroundColor(.secondary)
-                        }
-                        .font(.caption)
-
-                        HStack {
-                            Text("Official Stage:")
-                                .bold()
-                            Spacer()
-                            Text(sleepManager.officialStageDisplay)
-                                .foregroundColor(.secondary)
-                        }
-                        .font(.caption)
-
-                        HStack(alignment: .top) {
-                            Text("Epoch:")
-                                .bold()
-                            Spacer()
-                            Text(sleepManager.latestEpochSummary)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .font(.caption)
-
-                        HStack(alignment: .top) {
-                            Text("Features:")
-                                .bold()
-                            Spacer()
-                            Text(sleepManager.latestFeatureSummary)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .font(.caption)
-                    }
-                    
-                    GroupBox("AlarmKit Constraints") {
-                        HStack {
-                            Text("Status:")
-                                .bold()
-                            Spacer()
-                            Text(smartAlarm.alarmStatus)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        .font(.caption)
-                        
-                        Button("Request System Permissions") {
-                            smartAlarm.requestPermissions { _ in }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .padding(.top, 5)
-                        
-                        Button("Schedule Failsafe (In +30 min)") {
-                            let endOfWindow = Date().addingTimeInterval(30 * 60)
-                            smartAlarm.scheduleSystemAlarm(for: endOfWindow)
-                        }
-                        .buttonStyle(.bordered)
-                        
-                        Button("Test Dynamic Sub-Routine") {
-                            smartAlarm.triggerDynamicAlarm()
-                        }
-                        .buttonStyle(.bordered)
-                        
-                        Button("Alarm Trigger") {
-                            smartAlarm.triggerDynamicAlarm()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
-                    }
-                    
-                    GroupBox("Classifier Log Stream") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            if sleepManager.logs.isEmpty {
-                                Text("No logs yet. Start session on Watch.")
-                                    .foregroundColor(.secondary)
-                            } else {
-                                ForEach(sleepManager.logs, id: \.self) { logMsg in
-                                    Text(logMsg)
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .padding(.bottom, 2)
-                                    Divider()
+                            diagnosticSection("AlarmKit Constraints") {
+                                VStack(spacing: 12) {
+                                    diagnosticRow("Status:", smartAlarm.alarmStatus)
+                                    
+                                    VStack(spacing: 8) {
+                                        Button("Request System Permissions") {
+                                            smartAlarm.requestPermissions { _ in }
+                                        }
+                                        .buttonStyle(GlassButtonStyle.glassProminent)
+                                        
+                                        Button("Schedule Failsafe (In +30 min)") {
+                                            let endOfWindow = Date().addingTimeInterval(30 * 60)
+                                            smartAlarm.scheduleSystemAlarm(for: endOfWindow)
+                                        }
+                                        .buttonStyle(GlassButtonStyle.glass)
+                                        
+                                        Button("Test Dynamic Sub-Routine") {
+                                            smartAlarm.triggerDynamicAlarm()
+                                        }
+                                        .buttonStyle(GlassButtonStyle.glass)
+                                        
+                                        Button("Alarm Trigger") {
+                                            smartAlarm.triggerDynamicAlarm()
+                                        }
+                                        .buttonStyle(GlassButtonStyle.glassProminent)
+                                        .tint(.red)
+                                    }
+                                    .padding(.top, 5)
                                 }
                             }
+                            
+                            diagnosticSection("Log Stream") {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    if sleepManager.logs.isEmpty {
+                                        Text("No logs yet. Start session on Watch.")
+                                            .foregroundColor(.secondary)
+                                    } else {
+                                        ForEach(sleepManager.logs, id: \.self) { logMsg in
+                                            Text(logMsg)
+                                                .font(.system(size: 10, design: .monospaced))
+                                                .padding(.bottom, 2)
+                                            Divider()
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
                     }
-                    
                 }
-                .padding()
             }
             .navigationTitle("Diagnostics")
+            .navigationBarTitleDisplayMode(.inline)
+            .scrollContentBackground(.hidden)
+            .containerBackground(.clear, for: .navigation)
         }
+    }
+    
+    @ViewBuilder
+    private func diagnosticSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title.uppercased())
+                .font(.caption.bold())
+                .tracking(1)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 4)
+            
+            content()
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
+        }
+    }
+    
+    @ViewBuilder
+    private func diagnosticRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label)
+                .bold()
+            Spacer()
+            Text(value)
+                .foregroundColor(.secondary)
+        }
+        .font(.caption)
     }
 }
 
