@@ -1,15 +1,23 @@
 import SwiftUI
 
 struct HorizonBackground: View {
+    @Environment(\.colorScheme) var colorScheme
     var isActive: Bool = true
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            (colorScheme == .light ? Color(white: 0.95) : Color.black)
+                .ignoresSafeArea()
             
             // Subtle top gradient
-            LinearGradient(colors: [.black, Color(white: 0.05)], startPoint: .top, endPoint: .center)
-                .ignoresSafeArea()
+            LinearGradient(
+                colors: colorScheme == .light ?
+                    [Color(white: 0.95), Color(white: 0.9)] :
+                    [.black, Color(white: 0.05)],
+                startPoint: .top,
+                endPoint: .center
+            )
+            .ignoresSafeArea()
 
             VStack {
                 Spacer()
@@ -18,7 +26,9 @@ struct HorizonBackground: View {
                 ZStack {
                     // Outer glow
                     Ellipse()
-                        .fill(isActive ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
+                        .fill(isActive
+                              ? Color.blue.opacity(colorScheme == .light ? 0.2 : 0.3)
+                              : Color.gray.opacity(colorScheme == .light ? 0.05 : 0.1))
                         .frame(width: 600, height: 300)
                         .blur(radius: 60)
                         .offset(y: 150)
@@ -29,7 +39,7 @@ struct HorizonBackground: View {
                         Ellipse()
                             .stroke(
                                 LinearGradient(
-                                    colors: [.clear, .blue.opacity(0.8), .clear],
+                                    colors: [.clear, Color.blue.opacity(colorScheme == .light ? 0.6 : 0.8), .clear],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 ),

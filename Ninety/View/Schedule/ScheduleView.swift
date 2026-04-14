@@ -36,7 +36,8 @@ struct ScheduleView: View {
                             Text(viewModel.wakeTimeLabel)
                                 .font(.system(size: 84, weight: .light, design: .rounded))
                                 .monospacedDigit()
-                                .foregroundStyle(viewModel.isAlarmEnabled ? .white : .white.opacity(0.4))
+                                .foregroundStyle(.primary)
+                                .opacity(viewModel.isAlarmEnabled ? 1.0 : 0.4)
                                 .contentTransition(.numericText())
                                 .padding(.horizontal, 48)
                                 .padding(.vertical, 32)
@@ -70,7 +71,6 @@ struct ScheduleView: View {
                     .padding(.bottom, 24)
                 }
             }
-            .preferredColorScheme(.dark)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -90,7 +90,7 @@ struct ScheduleView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.primary)
                             .font(.title2.weight(.medium))
                     }
                     .glassEffect(.regular.interactive(), in: Circle())

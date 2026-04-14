@@ -35,10 +35,14 @@ enum AppTheme: String, CaseIterable, Identifiable {
 }
 
 class SettingsViewModel: ObservableObject {
-    @Published var username: String = ""
-    @Published var email: String = ""
     @AppStorage("appTheme") var selectedTheme: AppTheme = .system
-    @Published var isNotificationsEnabled = false {
+    
+    // Smart Alarm configuration
+    @AppStorage("smartWakeWindow") var smartWakeWindow: Int = 30 // minutes before alarm to start sensing
+    @AppStorage("hapticAlarm") var hapticAlarm: Bool = true // vibrate gently before ringing
+    @AppStorage("saveToHealthKit") var saveToHealthKit: Bool = true // save sleep data
+    
+    @AppStorage("isNotificationsEnabled") var isNotificationsEnabled: Bool = false {
         didSet {
             if isNotificationsEnabled {
                 enableNotifications()
@@ -46,12 +50,22 @@ class SettingsViewModel: ObservableObject {
         }
     }
     
+    func checkNotificationStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                self.isNotificationsEnabled = (settings.authorizationStatus == .authorized)
+            }
+        }
+    }
+    
     private func enableNotifications() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { success, error in
-            if success {
-                print("All set!")
-            } else if let error {
-                print(error.localizedDescription)
+            DispatchQueue.main.async {
+                if success {
+                    self.isNotificationsEnabled = true
+                } else {
+                    self.isNotificationsEnabled = false
+                }
             }
         }
     }
