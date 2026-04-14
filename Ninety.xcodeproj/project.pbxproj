@@ -358,13 +358,13 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Ninety needs access to your heart rate to detect sleep stages.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Ninety uses your movement to identify the best time to wake you up.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.NinetyNW.Ninety;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.chiscian.Ninety;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.NinetyNW.Ninety.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -395,13 +395,13 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Ninety needs access to your heart rate to detect sleep stages.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Ninety uses your movement to identify the best time to wake you up.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.NinetyNW.Ninety;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.chiscian.Ninety;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.NinetyNW.Ninety.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -552,6 +552,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Ninety/Info.plist;
+				INFOPLIST_KEY_NSSiriUsageDescription = "Ninety uses Siri to schedule your wake-up session and smart alarm.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -563,7 +564,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.NinetyNW.Ninety;
+				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -584,6 +585,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Ninety/Info.plist;
+				INFOPLIST_KEY_NSSiriUsageDescription = "Ninety uses Siri to schedule your wake-up session and smart alarm.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -595,7 +597,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.NinetyNW.Ninety;
+				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

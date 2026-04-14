@@ -104,12 +104,6 @@ struct ScheduleView: View {
                             .foregroundStyle(.red)
                     }
                 }
-
-                Section {
-                    NavigationLink(destination: SleepChartView()) {
-                        Label("Sleep Trends", systemImage: "chart.bar.xaxis")
-                    }
-                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Wake Up")
