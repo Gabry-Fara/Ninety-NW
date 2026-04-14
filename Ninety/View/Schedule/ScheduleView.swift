@@ -27,78 +27,84 @@ struct ScheduleView: View {
                 HorizonBackground(isActive: viewModel.isAlarmEnabled)
                     .ignoresSafeArea()
                 
-                GlassEffectContainer(spacing: 30) {
-                    VStack {
-                        // Keeps the pill optically centered 
-                        Spacer()
-                        
-                        if showingWakeTimePicker {
-                            // Immersive Custom Picker
-                            ZStack {
-                                // Central Glass Pill Highlight
-                                RoundedRectangle(cornerRadius: 48, style: .continuous)
-                                    .fill(Color(white: 0.5).opacity(0.001)) // Transparent base to trigger glass hit-testing correctly
-                                    .glassEffect(.regular)
-                                    .frame(height: 96)
-                                    .padding(.horizontal, 48)
-                                
-                                HStack(spacing: 12) {
-                                    CustomWheelPicker(selectedValue: $internalHour, range: 0...23, isMinutes: false, isActive: viewModel.isAlarmEnabled)
-                                        .frame(width: 100)
-                                    
-                                    Text(":")
-                                        .font(.system(size: 64, weight: .light, design: .rounded))
-                                        .foregroundStyle(.primary)
-                                        .opacity(viewModel.isAlarmEnabled ? 0.8 : 0.3)
-                                        .offset(y: -4) // Optically align colon
-                                    
-                                    CustomWheelPicker(selectedValue: $internalMinute, range: 0...59, isMinutes: true, isActive: viewModel.isAlarmEnabled)
-                                        .frame(width: 100)
-                                }
-                                .frame(height: 280)
-                                .mask(
-                                    LinearGradient(
-                                        stops: [
-                                            .init(color: .clear, location: 0),
-                                            .init(color: .black, location: 0.25),
-                                            .init(color: .black, location: 0.75),
-                                            .init(color: .clear, location: 1)
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
+                // Tap-to-dismiss: tapping empty space cancels picker without saving
+                if showingWakeTimePicker {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                showingWakeTimePicker = false
                             }
-                            .padding(.bottom, 120) // Offsets the top toolbar to visually center on the physical screen
-                            .transition(.scale(scale: 0.9).combined(with: .opacity))
-                        } else {
-                            // Primary Wake Up Control (Minimalist Pill)
-                            Button {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                    let calendar = Calendar.current
-                                    internalHour = calendar.component(.hour, from: viewModel.wakeUpTime)
-                                    internalMinute = calendar.component(.minute, from: viewModel.wakeUpTime)
-                                    showingWakeTimePicker = true
-                                }
-                            } label: {
-                                Text(viewModel.wakeTimeLabel)
-                                    .font(.system(size: 84, weight: .light, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundStyle(.primary)
-                                    .opacity(viewModel.isAlarmEnabled ? 1.0 : 0.4)
-                                    .contentTransition(.numericText())
-                                    .padding(.horizontal, 48)
-                                    .padding(.vertical, 32)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 64, style: .continuous))
-                            .padding(.bottom, 120) // Offsets the top toolbar to visually center on the physical screen
-                            .transition(.scale(scale: 1.1).combined(with: .opacity))
                         }
+                        .ignoresSafeArea()
+                }
+                
+                // The pill is anchored by a fixed top spacer so it never shifts
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 160)
+                    
+                    ZStack {
+                        // Glass pill background — always fixed shape and size
+                        RoundedRectangle(cornerRadius: 38, style: .continuous)
+                            .fill(Color(white: 0.5).opacity(0.001))
+                            .glassEffect(.regular.interactive().tint(viewModel.isAlarmEnabled ? .blue : .clear), in: RoundedRectangle(cornerRadius: 38, style: .continuous))
+                            .glassEffectID("timePill", in: glassNamespace)
+                            .frame(width: 286, height: 96)
                         
-                        Spacer()
+                        // Content — crossfades, never moves
+                        if showingWakeTimePicker {
+                            HStack(spacing: 12) {
+                                CustomWheelPicker(selectedValue: $internalHour, range: 0...23, isMinutes: false, isActive: viewModel.isAlarmEnabled)
+                                    .frame(width: 100)
+                                
+                                Text(":")
+                                    .font(.system(size: 64, weight: .light, design: .rounded))
+                                    .foregroundStyle(.primary)
+                                    .opacity(viewModel.isAlarmEnabled ? 0.8 : 0.3)
+                                    .offset(y: -4)
+                                
+                                CustomWheelPicker(selectedValue: $internalMinute, range: 0...59, isMinutes: true, isActive: viewModel.isAlarmEnabled)
+                                    .frame(width: 100)
+                            }
+                            .frame(width: 286, height: 280)
+                            .mask(
+                                LinearGradient(
+                                    stops: [
+                                        .init(color: .clear, location: 0),
+                                        .init(color: .black, location: 0.28),
+                                        .init(color: .black, location: 0.72),
+                                        .init(color: .clear, location: 1)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .transition(.opacity)
+                        } else {
+                            Text(String(format: "%02d:%02d", Calendar.current.component(.hour, from: viewModel.wakeUpTime), Calendar.current.component(.minute, from: viewModel.wakeUpTime)))
+                                .font(.system(size: 76, weight: .light, design: .rounded))
+                                .monospacedDigit()
+                                .fixedSize(horizontal: true, vertical: false)
+                                .foregroundStyle(.primary)
+                                .opacity(viewModel.isAlarmEnabled ? 1.0 : 0.4)
+                                .contentTransition(.numericText())
+                                .transition(.opacity)
+                        }
                     }
+                    .frame(width: 286, height: 280)
+                    .contentShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
+                    .onTapGesture {
+                        if !showingWakeTimePicker {
+                            let calendar = Calendar.current
+                            internalHour = calendar.component(.hour, from: viewModel.wakeUpTime)
+                            internalMinute = calendar.component(.minute, from: viewModel.wakeUpTime)
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                showingWakeTimePicker = true
+                            }
+                        }
+                    }
+                    
+                    Spacer()
                 }
                 
                 // Floating Bottom Action Pill
@@ -145,20 +151,7 @@ struct ScheduleView: View {
                 }
             }
             .toolbar {
-                if showingWakeTimePicker {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                showingWakeTimePicker = false
-                            }
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.title3.weight(.medium))
-                                .foregroundStyle(.primary)
-                        }
-                        .transition(.opacity)
-                    }
-                } else {
+                if !showingWakeTimePicker {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button {
@@ -181,7 +174,6 @@ struct ScheduleView: View {
                                 .font(.title2.weight(.medium))
                         }
                         .glassEffect(.regular.interactive(), in: Circle())
-                        .transition(.opacity)
                     }
                 }
             }
@@ -224,19 +216,19 @@ struct CustomWheelPicker: View {
             LazyVStack(spacing: 0) {
                 ForEach(range, id: \.self) { value in
                     Text(String(format: "%02d", value))
-                        .font(.system(size: 80, weight: .light, design: .rounded))
+                        .font(.system(size: 76, weight: .light, design: .rounded)) // Matches static label exactly
                         .monospacedDigit()
-                        .frame(height: 80)
+                        .frame(height: 96) // Match pill height so selected item sits on pill
                         .foregroundStyle(.primary)
                         .opacity(viewPosition == value ? baseOpacity : blurOpacity)
-                        .scaleEffect(viewPosition == value ? 1.0 : 0.6)
+                        .scaleEffect(viewPosition == value ? 1.0 : 0.65)
                         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewPosition)
                         .id(value)
                 }
             }
             .scrollTargetLayout()
         }
-        .safeAreaPadding(.vertical, 100)
+        .safeAreaPadding(.vertical, 92) // (280 - 96) / 2 = 92, centers selected row in pill
         .scrollPosition(id: $viewPosition, anchor: .center)
         .scrollTargetBehavior(.viewAligned)
         .onChange(of: viewPosition) { _, newValue in
