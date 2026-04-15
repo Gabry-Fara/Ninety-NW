@@ -42,27 +42,57 @@ struct SettingsView: View {
                             .tracking(2)
                             .foregroundStyle(.secondary)
                             .padding(.leading, 8)
-                            
-                        HStack(spacing: 12) {
-                            ForEach(AppTheme.allCases) { theme in
+                        
+                        VStack(spacing: 0) {
+                            // Visual Previews
+                            HStack(spacing: 40) {
+                                Spacer()
+                                // Light Preview
                                 Button {
                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        settingsViewModel.selectedTheme = theme
+                                        settingsViewModel.selectedTheme = .light
                                     }
                                 } label: {
-                                    VStack(spacing: 8) {
-                                        Image(systemName: theme.icon)
-                                            .font(.title2)
-                                        Text(theme.rawValue)
-                                            .font(.caption.bold())
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
+                                    ThemePreviewView(theme: .light, isSelected: settingsViewModel.selectedTheme == .light)
                                 }
-                                .buttonStyle(GlassButtonStyle(
-                                    isProminent: settingsViewModel.selectedTheme == theme,
-                                    tint: settingsViewModel.selectedTheme == theme ? .blue : nil
-                                ))
+                                .buttonStyle(.plain)
+                                
+                                // Night Preview
+                                Button {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        settingsViewModel.selectedTheme = .night
+                                    }
+                                } label: {
+                                    ThemePreviewView(theme: .night, isSelected: settingsViewModel.selectedTheme == .night)
+                                }
+                                .buttonStyle(.plain)
+                                Spacer()
+                            }
+                            .padding(.vertical, 24)
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
+                            
+                            Spacer().frame(height: 16)
+                            
+                            // Automatic Toggle
+                            settingsSection("") {
+                                settingsToggleRow(
+                                    icon: "circle.lefthalf.filled",
+                                    color: .primary,
+                                    title: "Automatic",
+                                    isOn: Binding(
+                                        get: { settingsViewModel.selectedTheme == .system },
+                                        set: { isOn in
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                if isOn {
+                                                    settingsViewModel.selectedTheme = .system
+                                                } else {
+                                                    // Default to light if turning off automatic
+                                                    settingsViewModel.selectedTheme = .light
+                                                }
+                                            }
+                                        }
+                                    )
+                                )
                             }
                         }
                     }
@@ -161,4 +191,86 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
+}
+private struct ThemePreviewView: View {
+    let theme: AppTheme
+    let isSelected: Bool
+
+    private var previewGradient: LinearGradient {
+        switch theme {
+        case .system:
+            return LinearGradient(
+                colors: [Color(white: 0.92), Color(white: 0.18)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .light:
+            return LinearGradient(
+                colors: [Color("F8FAFC"), Color("CBD5E1")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        case .night:
+            return LinearGradient(
+                colors: [Color("0F172A"), Color("1E3A8A")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+
+    private var iconName: String {
+        switch theme {
+        case .system:
+            return "circle.lefthalf.filled"
+        case .light:
+            return "sun.max.fill"
+        case .night:
+            return "moon.stars.fill"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(previewGradient)
+                .frame(width: 96, height: 128)
+                .overlay(alignment: .topTrailing) {
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(.white, .blue)
+                            .padding(8)
+                    }
+                }
+                .overlay {
+                    VStack(spacing: 10) {
+                        Circle()
+                            .fill(.white.opacity(theme == .night ? 0.18 : 0.65))
+                            .frame(width: 32, height: 32)
+                            .overlay {
+                                Image(systemName: iconName)
+                                    .foregroundStyle(theme == .night ? .white : .black.opacity(0.75))
+                            }
+
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(.white.opacity(theme == .night ? 0.16 : 0.55))
+                            .frame(width: 56, height: 10)
+
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(.white.opacity(theme == .night ? 0.10 : 0.38))
+                            .frame(width: 42, height: 10)
+                    }
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(isSelected ? Color.blue : Color.white.opacity(0.16), lineWidth: isSelected ? 3 : 1)
+                }
+                .shadow(color: .black.opacity(0.12), radius: 16, y: 10)
+
+            Text(theme.rawValue)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+        }
+    }
 }

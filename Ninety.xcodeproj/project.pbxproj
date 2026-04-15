@@ -371,7 +371,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Ninety needs access to your heart rate to detect sleep stages.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Ninety uses your movement to identify the best time to wake you up.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.chiscian.Ninety;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.mike.Ninety;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -410,7 +410,7 @@
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Ninety needs access to your heart rate to detect sleep stages.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Ninety uses your movement to identify the best time to wake you up.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.chiscian.Ninety;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.mike.Ninety;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
