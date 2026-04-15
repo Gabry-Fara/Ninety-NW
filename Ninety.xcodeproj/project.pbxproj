@@ -27,8 +27,8 @@
 		5BC91AB22C4EE89A0039F374 /* SleepChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC91AB12C4EE89A0039F374 /* SleepChartView.swift */; };
 		5BF32F832C3C056900A528BD /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF32F822C3C056900A528BD /* SettingsView.swift */; };
 		5BF32F852C3C05A900A528BD /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF32F842C3C05A900A528BD /* ScheduleView.swift */; };
-		A1B2C3E12C3FDC8200353790 /* RedesignedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */; };
 		A1B2C3D22C3FDC8200353790 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */; };
+		A1B2C3E12C3FDC8200353790 /* RedesignedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -79,8 +79,8 @@
 		5BC91AB12C4EE89A0039F374 /* SleepChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepChartView.swift; sourceTree = "<group>"; };
 		5BF32F822C3C056900A528BD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		5BF32F842C3C05A900A528BD /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
-		A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignedComponents.swift; sourceTree = "<group>"; };
 		A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlass.swift; sourceTree = "<group>"; };
+		A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignedComponents.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -362,13 +362,14 @@
 				CODE_SIGN_ENTITLEMENTS = "NinetyWatch Watch App/NinetyWatch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = AA85423644;
+				DEVELOPMENT_TEAM = MRW2SK48AX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "NinetyWatch-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = NinetyWatch;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Ninety needs access to your heart rate to detect sleep stages.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Ninety uses your movement to identify the best time to wake you up.";
+				INFOPLIST_KEY_NSSiriUsageDescription = Smart_Alarm_trigger;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.chiscian.Ninety;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -376,7 +377,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = it.ninetyTeam.ninety.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -399,13 +400,14 @@
 				CODE_SIGN_ENTITLEMENTS = "NinetyWatch Watch App/NinetyWatch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = AA85423644;
+				DEVELOPMENT_TEAM = MRW2SK48AX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "NinetyWatch-Watch-App-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = NinetyWatch;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Ninety needs access to your heart rate to detect sleep stages.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Ninety uses your movement to identify the best time to wake you up.";
+				INFOPLIST_KEY_NSSiriUsageDescription = Smart_Alarm_trigger;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = it.chiscian.Ninety;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -413,7 +415,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety.watchkitapp;
+				PRODUCT_BUNDLE_IDENTIFIER = it.ninetyTeam.ninety.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -560,7 +562,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Ninety/Preview Content\"";
-				DEVELOPMENT_TEAM = AA85423644;
+				DEVELOPMENT_TEAM = MRW2SK48AX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Ninety/Info.plist;
@@ -576,7 +578,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety;
+				PRODUCT_BUNDLE_IDENTIFIER = it.ninetyTeam.ninety;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -593,7 +595,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Ninety/Preview Content\"";
-				DEVELOPMENT_TEAM = AA85423644;
+				DEVELOPMENT_TEAM = MRW2SK48AX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Ninety/Info.plist;
@@ -609,7 +611,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety;
+				PRODUCT_BUNDLE_IDENTIFIER = it.ninetyTeam.ninety;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
