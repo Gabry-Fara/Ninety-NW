@@ -43,6 +43,8 @@ final class ScheduleViewModel: ObservableObject {
     @Published var sleepData: [SleepData] = []
     @Published var filteredSleepData: [SleepData] = []
     @Published var timeView: TimeView = .week
+    @Published var selectedDayHour: Int = 7
+    @Published var selectedDayMinute: Int = 0
 
     init() {
         let storedWakeTimes = UserDefaults.standard.dictionary(forKey: StorageKey.wakeTimesDict) as? [String: TimeInterval] ?? [:]
@@ -209,13 +211,14 @@ final class ScheduleViewModel: ObservableObject {
         toggleScheduledWeekday(selectedWeekday)
     }
 
-    func updateWakeTime(_ date: Date) {
+    func updateWakeTime(hour: Int, minute: Int) {
         let key = String(selectedWeekday)
-        let cal = Calendar.current
-        let h = cal.component(.hour, from: date)
-        let m = cal.component(.minute, from: date)
-        wakeTimes[key] = TimeInterval(h * 3600 + m * 60)
-        currentWakeUpTime = Self.todayDate(hour: h, minute: m)
+        wakeTimes[key] = TimeInterval(hour * 3600 + minute * 60)
+        
+        selectedDayHour = hour
+        selectedDayMinute = minute
+        currentWakeUpTime = Self.todayDate(hour: hour, minute: minute)
+        
         lastScheduledSession = nextUpcomingSession
 
         guard scheduledWeekdays.contains(selectedWeekday) else {
@@ -229,13 +232,13 @@ final class ScheduleViewModel: ObservableObject {
     
     private func updateCurrentWakeUpTime() {
         let key = String(selectedWeekday)
-        if let secondsSinceMidnight = wakeTimes[key] {
-            let h = Int(secondsSinceMidnight) / 3600
-            let m = (Int(secondsSinceMidnight) % 3600) / 60
-            currentWakeUpTime = Self.todayDate(hour: h, minute: m)
-        } else {
-            currentWakeUpTime = Self.defaultWakeTime
-        }
+        let totalSeconds = wakeTimes[key] ?? TimeInterval(7 * 3600)
+        let h = Int(totalSeconds) / 3600
+        let m = (Int(totalSeconds) % 3600) / 60
+        
+        selectedDayHour = h
+        selectedDayMinute = m
+        currentWakeUpTime = Self.todayDate(hour: h, minute: m)
     }
 
     /// Builds a Date for today at the given hour and minute.

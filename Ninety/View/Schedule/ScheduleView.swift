@@ -81,10 +81,11 @@ struct ScheduleView: View {
                         }
                     }
                     .onAppear(perform: syncInternalTime)
-                    .onChange(of: viewModel.currentWakeUpTime) { _, _ in
-                        if !showingWakeTimePicker {
-                            syncInternalTime()
-                        }
+                    .onChange(of: viewModel.selectedDayHour) { _, _ in
+                        if !showingWakeTimePicker { syncInternalTime() }
+                    }
+                    .onChange(of: viewModel.selectedDayMinute) { _, _ in
+                        if !showingWakeTimePicker { syncInternalTime() }
                     }
                     Spacer().frame(height: 40)
                     if viewModel.isAlarmEnabled && !showingWakeTimePicker {
@@ -111,12 +112,7 @@ struct ScheduleView: View {
                     Spacer()
                     if showingWakeTimePicker {
                         Button {
-                            var components = DateComponents()
-                            components.hour = internalHour
-                            components.minute = internalMinute
-                            if let newDate = Calendar.current.date(from: components) {
-                                viewModel.updateWakeTime(newDate)
-                            }
+                            viewModel.updateWakeTime(hour: internalHour, minute: internalMinute)
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                 showingWakeTimePicker = false
                             }
@@ -201,9 +197,8 @@ struct ScheduleView: View {
     }
 
     private func syncInternalTime() {
-        let calendar = Calendar.current
-        internalHour = calendar.component(.hour, from: viewModel.currentWakeUpTime)
-        internalMinute = calendar.component(.minute, from: viewModel.currentWakeUpTime)
+        internalHour = viewModel.selectedDayHour
+        internalMinute = viewModel.selectedDayMinute
     }
 }
 
