@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @StateObject private var settingsViewModel = SettingsViewModel()
+    @State private var showingAbout = false
     
     var body: some View {
         ScrollView {
@@ -72,28 +73,22 @@ struct SettingsView: View {
                             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
                             
                             Spacer().frame(height: 16)
-                            
+
                             // Automatic Toggle
-                            settingsSection("") {
-                                settingsToggleRow(
-                                    icon: "circle.lefthalf.filled",
-                                    color: .primary,
-                                    title: "Automatic",
-                                    isOn: Binding(
-                                        get: { settingsViewModel.selectedTheme == .system },
-                                        set: { isOn in
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                                if isOn {
-                                                    settingsViewModel.selectedTheme = .system
-                                                } else {
-                                                    // Default to light if turning off automatic
-                                                    settingsViewModel.selectedTheme = .light
-                                                }
-                                            }
+                            settingsToggleRow(
+                                icon: "circle.lefthalf.filled",
+                                color: .primary,
+                                title: "Automatic",
+                                isOn: Binding(
+                                    get: { settingsViewModel.selectedTheme == .system },
+                                    set: { isOn in
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            settingsViewModel.selectedTheme = isOn ? .system : .light
                                         }
-                                    )
+                                    }
                                 )
-                            }
+                            )
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
                         }
                     }
                     
@@ -111,7 +106,7 @@ struct SettingsView: View {
                     // General Section
                     settingsSection("GENERAL") {
                         Button {
-                            // Make action for 'About'
+                            showingAbout = true
                         } label: {
                             HStack(spacing: 16) {
                                 Image(systemName: "info.circle.fill")
@@ -146,6 +141,9 @@ struct SettingsView: View {
         .containerBackground(.clear, for: .navigation)
         .onAppear {
             settingsViewModel.checkNotificationStatus()
+        }
+        .sheet(isPresented: $showingAbout) {
+            AboutView()
         }
     }
     
@@ -189,88 +187,162 @@ struct SettingsView: View {
     }
 }
 
-#Preview {
-    SettingsView()
+// MARK: - About View
+
+private struct AboutView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                HorizonBackground(isActive: false)
+                    .ignoresSafeArea()
+
+                VStack(spacing: 32) {
+                    Spacer()
+
+                    VStack(spacing: 16) {
+                        Image("Logo design")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 80)
+                            .accessibilityHidden(true)
+
+                        VStack(spacing: 4) {
+                            Text("Ninety")
+                                .font(.title.bold())
+                            Text("Version \(appVersion)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("Smart sleep tracking powered by on-device ML. Your data stays on your devices.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding()
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
+                    }
+                    .padding(.horizontal, 32)
+
+                    Spacer()
+                }
+                .padding()
+            }
+            .navigationTitle("About")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .containerBackground(.clear, for: .navigation)
+        }
+    }
 }
+
 private struct ThemePreviewView: View {
     let theme: AppTheme
     let isSelected: Bool
 
-    private var previewGradient: LinearGradient {
+    private var previewBackground: some ShapeStyle {
         switch theme {
-        case .system:
-            return LinearGradient(
-                colors: [Color(white: 0.92), Color(white: 0.18)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
         case .light:
-            return LinearGradient(
-                colors: [Color("F8FAFC"), Color("CBD5E1")],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            return AnyShapeStyle(Color.white)
         case .night:
-            return LinearGradient(
-                colors: [Color("0F172A"), Color("1E3A8A")],
-                startPoint: .top,
-                endPoint: .bottom
+            return AnyShapeStyle(Color.black.opacity(0.92))
+        case .system:
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [Color.white, Color.black.opacity(0.92)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             )
         }
     }
 
-    private var iconName: String {
+    private var accentColor: Color {
         switch theme {
-        case .system:
-            return "circle.lefthalf.filled"
         case .light:
-            return "sun.max.fill"
+            return .orange
         case .night:
-            return "moon.stars.fill"
+            return .blue
+        case .system:
+            return .purple
+        }
+    }
+
+    private var titleColor: Color {
+        switch theme {
+        case .light:
+            return .black.opacity(0.8)
+        case .night:
+            return .white.opacity(0.9)
+        case .system:
+            return .primary
         }
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(previewGradient)
-                .frame(width: 96, height: 128)
+        VStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(previewBackground)
+                .overlay {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Capsule()
+                            .fill(accentColor.opacity(0.9))
+                            .frame(width: 42, height: 8)
+
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(accentColor.opacity(theme == .light ? 0.18 : 0.28))
+                            .frame(height: 26)
+
+                        Spacer()
+
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(accentColor.opacity(0.85))
+                                .frame(width: 8, height: 8)
+                            Capsule()
+                                .fill(titleColor.opacity(0.2))
+                                .frame(width: 30, height: 8)
+                        }
+                    }
+                    .padding(14)
+                }
+                .frame(width: 104, height: 148)
                 .overlay(alignment: .topTrailing) {
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.title3)
                             .foregroundStyle(.white, .blue)
-                            .padding(8)
+                            .padding(10)
                     }
                 }
                 .overlay {
-                    VStack(spacing: 10) {
-                        Circle()
-                            .fill(.white.opacity(theme == .night ? 0.18 : 0.65))
-                            .frame(width: 32, height: 32)
-                            .overlay {
-                                Image(systemName: iconName)
-                                    .foregroundStyle(theme == .night ? .white : .black.opacity(0.75))
-                            }
-
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(.white.opacity(theme == .night ? 0.16 : 0.55))
-                            .frame(width: 56, height: 10)
-
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(.white.opacity(theme == .night ? 0.10 : 0.38))
-                            .frame(width: 42, height: 10)
-                    }
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 3)
                 }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(isSelected ? Color.blue : Color.white.opacity(0.16), lineWidth: isSelected ? 3 : 1)
-                }
-                .shadow(color: .black.opacity(0.12), radius: 16, y: 10)
+                .shadow(color: .black.opacity(theme == .light ? 0.08 : 0.22), radius: 12, y: 6)
 
             Text(theme.rawValue)
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
         }
+        .contentShape(Rectangle())
     }
+}
+
+#Preview {
+    SettingsView()
 }

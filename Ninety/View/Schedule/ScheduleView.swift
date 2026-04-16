@@ -4,9 +4,7 @@
 //
 //  Created by Deimante Valunaite on 08/07/2024.
 //
-
 import SwiftUI
-
 struct ScheduleView: View {
     @EnvironmentObject private var viewModel: ScheduleViewModel
     @ObservedObject private var smartAlarm = SmartAlarmManager.shared
@@ -14,74 +12,44 @@ struct ScheduleView: View {
     @State private var showingSettings = false
     @State private var showingDiagnostics = false
     @State private var showingWakeTimePicker = false
-   
+    @State private var showingSleepHistory = false
     @Namespace private var glassNamespace
-    
     @State private var internalHour: Int = 0
     @State private var internalMinute: Int = 0
-    
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background Navigation Layer
                 HorizonBackground(isActive: viewModel.isAlarmEnabled)
                     .ignoresSafeArea()
-                
-                // Tap-to-dismiss: tapping empty space cancels picker without saving
                 if showingWakeTimePicker {
                     Color.clear
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            // Reset the picker back to the saved time to discard unsaved user interaction
-                            let calendar = Calendar.current
+                            syncInternalTime()
                             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                internalHour = calendar.component(.hour, from: viewModel.wakeUpTime)
-                                internalMinute = calendar.component(.minute, from: viewModel.wakeUpTime)
                                 showingWakeTimePicker = false
                             }
                         }
                         .ignoresSafeArea()
                 }
-                
-                // The pill is anchored by a fixed top spacer so it never shifts
                 VStack(spacing: 0) {
                     Spacer().frame(height: 160)
-                    
                     ZStack {
-                        // Glass pill background — always fixed shape and size
                         RoundedRectangle(cornerRadius: 38, style: .continuous)
                             .fill(Color(white: 0.5).opacity(0.001))
                             .glassEffect(.regular.interactive().tint(viewModel.isAlarmEnabled ? .blue : .clear), in: RoundedRectangle(cornerRadius: 38, style: .continuous))
                             .glassEffectID("timePill", in: glassNamespace)
                             .frame(width: 286, height: 96)
-                        
-                        // Unified Content Layer — Always uses the Wheel Picker!
-                        // It never switches views, so it logically CANNOT jump or shift.
-                        // We simply fade out adjacent inactive numbers when not in picker mode.
                         HStack(spacing: 12) {
-                            CustomWheelPicker(
-                                selectedValue: $internalHour,
-                                range: 0...23,
-                                isMinutes: false,
-                                isActive: viewModel.isAlarmEnabled,
-                                isPickerMode: showingWakeTimePicker
-                            )
-                            .frame(width: 100)
-                            
+                            CustomWheelPicker(selectedValue: $internalHour, range: 0...23, isMinutes: false, isActive: true, isPickerMode: showingWakeTimePicker)
+                                .frame(width: 100)
                             Text(":")
                                 .font(.system(size: 64, weight: .light, design: .rounded))
                                 .foregroundStyle(.primary)
                                 .opacity(viewModel.isAlarmEnabled ? 0.8 : 0.3)
-                                .offset(y: -4) // Match picker colon
-                            
-                            CustomWheelPicker(
-                                selectedValue: $internalMinute,
-                                range: 0...59,
-                                isMinutes: true,
-                                isActive: viewModel.isAlarmEnabled,
-                                isPickerMode: showingWakeTimePicker
-                            )
-                            .frame(width: 100)
+                                .offset(y: -4)
+                            CustomWheelPicker(selectedValue: $internalMinute, range: 0...59, isMinutes: true, isActive: true, isPickerMode: showingWakeTimePicker)
+                                .frame(width: 100)
                         }
                         .frame(width: 286, height: 280)
                         .mask(
@@ -96,9 +64,8 @@ struct ScheduleView: View {
                                 endPoint: .bottom
                             )
                         )
-                        .disabled(!showingWakeTimePicker) // Lock scrolling when static
+                        .disabled(!showingWakeTimePicker)
                     }
-                    // IMPORTANT: always the same fixed height so Spacer below never shifts
                     .frame(width: 286, height: 280)
                     .contentShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
                     .onTapGesture {
@@ -108,35 +75,38 @@ struct ScheduleView: View {
                             }
                         }
                     }
-                    .onAppear {
-                        let calendar = Calendar.current
-                        internalHour = calendar.component(.hour, from: viewModel.wakeUpTime)
-                        internalMinute = calendar.component(.minute, from: viewModel.wakeUpTime)
-                    }
-                    .onChange(of: viewModel.wakeUpTime) { _, newTime in
+                    .onAppear(perform: syncInternalTime)
+                    .onChange(of: viewModel.wakeUpTime) { _, _ in
                         if !showingWakeTimePicker {
-                            let calendar = Calendar.current
-                            internalHour = calendar.component(.hour, from: newTime)
-                            internalMinute = calendar.component(.minute, from: newTime)
+                            syncInternalTime()
                         }
                     }
-                    
+                    if viewModel.isAlarmEnabled && !showingWakeTimePicker {
+                        Text("Next wake-up · \(viewModel.nextUpcomingLabel)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 16)
+                            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                    }
+                    if !showingWakeTimePicker {
+                        DayOfWeekSelector(scheduledWeekdays: viewModel.scheduledWeekdays) { weekday in
+                            viewModel.toggleScheduledWeekday(weekday)
+                        }
+                        .padding(.top, viewModel.isAlarmEnabled ? 12 : 28)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+                    }
                     Spacer()
                 }
-                
-                // Floating Bottom Action Pill
                 VStack {
                     Spacer()
-                    
                     if showingWakeTimePicker {
                         Button {
                             var components = DateComponents()
                             components.hour = internalHour
                             components.minute = internalMinute
                             if let newDate = Calendar.current.date(from: components) {
-                                viewModel.wakeUpTime = newDate
+                                viewModel.updateWakeTime(newDate)
                             }
-                            
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                 showingWakeTimePicker = false
                             }
@@ -147,23 +117,19 @@ struct ScheduleView: View {
                         }
                         .buttonStyle(GlassButtonStyle(isProminent: true, tint: .blue))
                         .padding(.bottom, 24)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     } else {
                         Button {
-                            viewModel.isAlarmEnabled.toggle()
-                            if viewModel.isAlarmEnabled {
-                                Task { await viewModel.scheduleSession() }
-                            } else {
-                                viewModel.cancelSession()
-                            }
+                            Task { await viewModel.scheduleSession() }
                         } label: {
-                            Text(viewModel.isAlarmEnabled ? "Alarm On" : "Alarm Off")
+                            Text(viewModel.primaryButtonTitle)
                                 .font(.headline)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.isAlarmEnabled)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.primaryButtonTitle)
                         }
                         .buttonStyle(GlassButtonStyle(isProminent: viewModel.isAlarmEnabled, tint: .blue))
+                        .disabled(!viewModel.isAlarmEnabled || viewModel.isScheduling)
                         .padding(.bottom, 24)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     }
                 }
             }
@@ -176,9 +142,12 @@ struct ScheduleView: View {
                             } label: {
                                 Label("Settings", systemImage: "gearshape")
                             }
-                            
+                            Button {
+                                showingSleepHistory = true
+                            } label: {
+                                Label("Sleep History", systemImage: "chart.bar.fill")
+                            }
                             Divider()
-                            
                             Button {
                                 showingDiagnostics = true
                             } label: {
@@ -194,8 +163,13 @@ struct ScheduleView: View {
                     }
                 }
             }
+            .navigationTitle(showingWakeTimePicker ? "Set Wake Time" : "Ninety")
+            .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsView()
+            }
+            .navigationDestination(isPresented: $showingSleepHistory) {
+                SleepChartView()
             }
             .sheet(isPresented: $showingDiagnostics) {
                 NavigationStack {
@@ -213,43 +187,73 @@ struct ScheduleView: View {
             }
         }
     }
+
+    private func syncInternalTime() {
+        let calendar = Calendar.current
+        internalHour = calendar.component(.hour, from: viewModel.wakeUpTime)
+        internalMinute = calendar.component(.minute, from: viewModel.wakeUpTime)
+    }
 }
 
-// MARK: - Custom Liquid Picker
+private struct DayOfWeekSelector: View {
+    let scheduledWeekdays: Set<Int>
+    let onToggle: (Int) -> Void
+    private let weekdaySymbols = ["S", "M", "T", "W", "T", "F", "S"]
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
+                let weekday = index + 1
+                let isScheduled = scheduledWeekdays.contains(weekday)
+
+                Button {
+                    onToggle(weekday)
+                } label: {
+                    Text(symbol)
+                        .font(.footnote.weight(.semibold))
+                        .frame(width: 34, height: 34)
+                        .foregroundStyle(isScheduled ? Color.white : Color.primary.opacity(0.9))
+                        .background {
+                            Circle()
+                                .fill(isScheduled ? Color.blue.opacity(0.25) : Color.white.opacity(0.08))
+                                .glassEffect(.regular.tint(isScheduled ? .blue : .clear), in: Circle())
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .glassEffect(.regular, in: Capsule())
+    }
+}
 
 struct CustomWheelPicker: View {
     @Binding var selectedValue: Int
     let range: ClosedRange<Int>
     let isMinutes: Bool
     let isActive: Bool
-    let isPickerMode: Bool // True when active interacting, false just shows center
-    
+    let isPickerMode: Bool
     @State private var viewPosition: Int?
-    
-    private var baseOpacity: Double { isActive ? 1.0 : 0.4 }
-    private var blurOpacity: Double { isActive ? 0.3 : 0.1 }
-    
+    private let multiplier = 100
     private var count: Int { range.upperBound - range.lowerBound + 1 }
-    // A smaller multiplier keeps memory footprint lean while feeling functionally infinite
-    private let multiplier: Int = 100
-    
+
     var body: some View {
+        let baseOpacity = isActive ? 1.0 : 0.4
+        let blurOpacity = isActive ? 0.3 : 0.1
+
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 0) {
-                // Generate items
                 ForEach(0..<(count * multiplier), id: \.self) { index in
-                    // Calculate real time value (e.g., 0-23 or 0-59)
                     let value = range.lowerBound + (index % count)
-                    
+
                     Text(String(format: "%02d", value))
                         .font(.system(size: 76, weight: .light, design: .rounded))
                         .monospacedDigit()
                         .frame(height: 96)
                         .foregroundStyle(.primary)
-                        // iOS 17 hardware-accelerated scroll transition: zero lag, bound directly to scroll physics!
                         .scrollTransition(axis: .vertical) { content, phase in
                             content
-                                // Fade adjacent numbers completely transparent if we aren't in interacting mode
                                 .opacity(phase.isIdentity ? baseOpacity : (isPickerMode ? blurOpacity : 0.0))
                                 .scaleEffect(phase.isIdentity ? 1.0 : (isPickerMode ? 0.65 : 1.0))
                         }
@@ -258,17 +262,15 @@ struct CustomWheelPicker: View {
             }
             .scrollTargetLayout()
         }
-        .safeAreaPadding(.vertical, 92) // Centers selected row within the 280pt parent height
+        .safeAreaPadding(.vertical, 92)
         .scrollPosition(id: $viewPosition, anchor: .center)
         .scrollTargetBehavior(.viewAligned)
         .onChange(of: viewPosition) { _, newValue in
-            if let newValue = newValue {
-                // Convert index back to actual time value
+            if let newValue {
                 selectedValue = range.lowerBound + (newValue % count)
             }
         }
         .onChange(of: selectedValue) { _, newSelected in
-            // Allows external bindings (like tapping 'Alarm Off/On') to snap the wheel instantly
             if let currentPos = viewPosition {
                 let currentShownValue = range.lowerBound + (currentPos % count)
                 if currentShownValue != newSelected {
@@ -279,12 +281,9 @@ struct CustomWheelPicker: View {
             }
         }
         .onAppear {
-            // Start perfectly in the middle of our list to allow scrolling in both directions
             let midIndexOrigin = (multiplier / 2) * count
             let offset = selectedValue - range.lowerBound
             viewPosition = midIndexOrigin + offset
         }
     }
 }
-
-

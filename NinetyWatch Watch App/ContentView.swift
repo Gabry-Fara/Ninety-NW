@@ -14,7 +14,9 @@ struct ContentView: View {
     var body: some View {
         TabView {
             DashboardView(sensorManager: sensorManager)
+                .containerBackground(.background, for: .tabView)
             ControlsView(sensorManager: sensorManager)
+                .containerBackground(.background, for: .tabView)
         }
         .tabViewStyle(.verticalPage)
         .onAppear {
@@ -41,6 +43,7 @@ struct DashboardView: View {
                 .font(.system(size: 40))
                 .foregroundColor(isInteractiveDeliveryAvailable ? .green : .orange)
                 .symbolEffect(.pulse, isActive: isInteractiveDeliveryAvailable)
+                .accessibilityLabel(isInteractiveDeliveryAvailable ? "Phone reachable" : "Phone unreachable")
             
             Text("Ninety Node")
                 .font(.headline)
@@ -63,7 +66,7 @@ struct DashboardView: View {
                         .font(.caption2.bold())
                         .foregroundStyle(.orange)
                     Text("\(pendingScheduleDescription)\nKeep the app open to arm Smart Alarm.")
-                        .font(.system(size: 10, design: .rounded))
+                        .font(.caption2)
                         .multilineTextAlignment(.center)
                         .foregroundColor(.secondary)
                 }
@@ -73,11 +76,12 @@ struct DashboardView: View {
 
             if !sensorManager.lastPayloadSent.isEmpty {
                 Text(sensorManager.lastPayloadSent)
-                    .font(.system(size: 9, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .multilineTextAlignment(.center)
                     .padding(.top, 4)
+                    .accessibilityLabel("Last sensor payload: \(sensorManager.lastPayloadSent)")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

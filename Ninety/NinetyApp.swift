@@ -23,7 +23,7 @@ struct NinetyApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ScheduleView()
+            OnboardingView()
                 .preferredColorScheme(selectedTheme.colorScheme)
                 .environmentObject(scheduleViewModel)
         }

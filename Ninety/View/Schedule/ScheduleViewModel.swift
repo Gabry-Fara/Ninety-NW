@@ -15,6 +15,7 @@ struct SleepData: Identifiable {
 final class ScheduleViewModel: ObservableObject {
     private enum StorageKey {
         static let wakeTime = "scheduleWakeTimeInterval"
+        static let scheduledWeekdays = "scheduleWeekdayPlan"
     }
 
     @Published var wakeUpTime: Date {
@@ -22,20 +23,27 @@ final class ScheduleViewModel: ObservableObject {
             UserDefaults.standard.set(wakeUpTime.timeIntervalSince1970, forKey: StorageKey.wakeTime)
         }
     }
+    @Published var scheduledWeekdays: Set<Int> {
+        didSet {
+            UserDefaults.standard.set(Array(scheduledWeekdays).sorted(), forKey: StorageKey.scheduledWeekdays)
+        }
+    }
     @Published var lastScheduledSession: SmartAlarmManager.ScheduledSleepSession?
     @Published var isScheduling = false
-    @Published var isAlarmEnabled = false
     @Published var schedulingError: String?
-
     @Published var sleepData: [SleepData] = []
     @Published var filteredSleepData: [SleepData] = []
     @Published var timeView: TimeView = .week
 
     init() {
         let storedWakeTime = UserDefaults.standard.object(forKey: StorageKey.wakeTime) as? TimeInterval
+        let storedWeekdays = UserDefaults.standard.array(forKey: StorageKey.scheduledWeekdays) as? [Int] ?? []
         wakeUpTime = storedWakeTime.map(Date.init(timeIntervalSince1970:)) ?? Self.defaultWakeTime
+        scheduledWeekdays = Set(storedWeekdays)
+        lastScheduledSession = nil
         generateSampleSleepData()
         filterSleepData()
+        lastScheduledSession = nextUpcomingSession
     }
 
     static var defaultWakeTime: Date {
@@ -46,13 +54,19 @@ final class ScheduleViewModel: ObservableObject {
         return Calendar.current.date(from: components) ?? .now
     }
 
+    var isAlarmEnabled: Bool {
+        !scheduledWeekdays.isEmpty
+    }
+
     var projectedSession: SmartAlarmManager.ScheduledSleepSession {
-        let wakeUpDate = normalizedWakeUpDate(from: wakeUpTime)
-        let monitoringStartDate = wakeUpDate.addingTimeInterval(-SmartAlarmManager.monitoringLeadTime)
-        return SmartAlarmManager.ScheduledSleepSession(
-            wakeUpDate: wakeUpDate,
-            monitoringStartDate: monitoringStartDate
-        )
+        nextUpcomingSession ?? fallbackProjectedSession
+    }
+
+    var nextUpcomingSession: SmartAlarmManager.ScheduledSleepSession? {
+        guard let nextWakeUpDate = nextUpcomingWakeUpDate else {
+            return nil
+        }
+        return makeSession(for: nextWakeUpDate)
     }
 
     var wakeTimeLabel: String {
@@ -60,17 +74,45 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     var scheduledDayLabel: String {
-        if Calendar.current.isDateInToday(projectedSession.wakeUpDate) {
+        guard let wakeUpDate = nextUpcomingSession?.wakeUpDate else {
+            return "Pick your days"
+        }
+        if Calendar.current.isDateInToday(wakeUpDate) {
             return "Today"
         }
-        if Calendar.current.isDateInTomorrow(projectedSession.wakeUpDate) {
+        if Calendar.current.isDateInTomorrow(wakeUpDate) {
             return "Tomorrow"
         }
-        return projectedSession.wakeUpDate.formatted(.dateTime.weekday(.wide))
+        return wakeUpDate.formatted(.dateTime.weekday(.wide))
+    }
+
+    var nextUpcomingLabel: String {
+        guard let session = nextUpcomingSession else {
+            return "No days selected"
+        }
+        let day = session.wakeUpDate.formatted(.dateTime.weekday(.abbreviated))
+        let time = session.wakeUpDate.formatted(date: .omitted, time: .shortened)
+        return "\(day) · \(time)"
+    }
+
+    var primaryButtonTitle: String {
+        guard !isScheduling else {
+            return "Updating Plan..."
+        }
+        guard nextUpcomingSession != nil else {
+            return "Choose Days to Plan"
+        }
+        return "Next Up · \(nextUpcomingLabel)"
     }
 
     func scheduleSession() async {
         guard !isScheduling else { return }
+        guard let nextUpcomingSession else {
+            SmartAlarmManager.shared.cancelSession()
+            lastScheduledSession = nil
+            schedulingError = nil
+            return
+        }
 
         isScheduling = true
         schedulingError = nil
@@ -78,18 +120,48 @@ final class ScheduleViewModel: ObservableObject {
 
         let granted = await requestAlarmPermissions()
         guard granted else {
-            schedulingError = "Permissions are required to schedule the wake-up session."
-            // Optionally revert the toggle if permissions fail:
-            // isAlarmEnabled = false 
+            schedulingError = "Permissions are required to schedule your weekly wake-up plan."
             return
         }
 
-        lastScheduledSession = SmartAlarmManager.shared.scheduleSleepSession(endingAt: wakeUpTime)
+        SmartAlarmManager.shared.scheduleSystemAlarm(for: nextUpcomingSession.wakeUpDate)
+        lastScheduledSession = nextUpcomingSession
     }
 
     func cancelSession() {
         SmartAlarmManager.shared.cancelSession()
         lastScheduledSession = nil
+    }
+
+    func toggleScheduledWeekday(_ weekday: Int) {
+        if scheduledWeekdays.contains(weekday) {
+            scheduledWeekdays.remove(weekday)
+        } else {
+            scheduledWeekdays.insert(weekday)
+        }
+
+        lastScheduledSession = nextUpcomingSession
+
+        Task {
+            if scheduledWeekdays.isEmpty {
+                cancelSession()
+            } else {
+                await scheduleSession()
+            }
+        }
+    }
+
+    func updateWakeTime(_ date: Date) {
+        wakeUpTime = date
+        lastScheduledSession = nextUpcomingSession
+
+        guard !scheduledWeekdays.isEmpty else {
+            return
+        }
+
+        Task {
+            await scheduleSession()
+        }
     }
 
     func userFriendlyWatchStatus(from status: String) -> String {
@@ -146,6 +218,47 @@ final class ScheduleViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private var nextUpcomingWakeUpDate: Date? {
+        guard !scheduledWeekdays.isEmpty else {
+            return nil
+        }
+
+        let calendar = Calendar.current
+        let now = Date()
+        let wakeComponents = calendar.dateComponents([.hour, .minute], from: wakeUpTime)
+
+        return scheduledWeekdays.compactMap { weekday in
+            var candidateComponents = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+            candidateComponents.weekday = weekday
+            candidateComponents.hour = wakeComponents.hour
+            candidateComponents.minute = wakeComponents.minute
+            candidateComponents.second = 0
+
+            guard var candidateDate = calendar.date(from: candidateComponents) else {
+                return nil
+            }
+
+            if candidateDate <= now {
+                candidateDate = calendar.date(byAdding: .day, value: 7, to: candidateDate) ?? candidateDate
+            }
+
+            return candidateDate
+        }
+        .min()
+    }
+
+    private var fallbackProjectedSession: SmartAlarmManager.ScheduledSleepSession {
+        let wakeUpDate = normalizedWakeUpDate(from: wakeUpTime)
+        return makeSession(for: wakeUpDate)
+    }
+
+    private func makeSession(for wakeUpDate: Date) -> SmartAlarmManager.ScheduledSleepSession {
+        SmartAlarmManager.ScheduledSleepSession(
+            wakeUpDate: wakeUpDate,
+            monitoringStartDate: wakeUpDate.addingTimeInterval(-SmartAlarmManager.monitoringLeadTime)
+        )
     }
 
     private func requestAlarmPermissions() async -> Bool {
