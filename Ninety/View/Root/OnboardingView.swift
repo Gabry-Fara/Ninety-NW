@@ -9,6 +9,8 @@ import SwiftUI
 
 struct OnboardingView: View {
     @AppStorage("isBoarding") var isOnBoarding: Bool = true
+    @AppStorage("hasSeenTour") var hasSeenTour: Bool = false
+    @AppStorage("showGuidedTour") var showGuidedTour: Bool = false
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     @Environment(\.colorScheme) private var colorScheme
 
@@ -46,6 +48,13 @@ struct OnboardingView: View {
                         Button("Get Started".localized(for: appLanguage)) {
                             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                                 isOnBoarding.toggle()
+                            }
+                            // Trigger guided tour on first install
+                            if !hasSeenTour {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                    hasSeenTour = true
+                                    showGuidedTour = true
+                                }
                             }
                         }
                         .buttonStyle(GlassButtonStyle.glassProminent)

@@ -5,6 +5,7 @@
 //  Created by Deimante Valunaite on 08/07/2024.
 //
 import SwiftUI
+
 struct ScheduleView: View {
     private let timeBlockOffset: CGFloat = -130
     private let daySelectorOffset: CGFloat = 18
@@ -21,8 +22,13 @@ struct ScheduleView: View {
     @State private var internalMinute: Int = 0
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
+    @AppStorage("showGuidedTour") private var showGuidedTour: Bool = false
     private let impactHaptic = UIImpactFeedbackGenerator(style: .medium)
     private var accent: Color { .themeAccent(for: colorScheme) }
+    private var timePillTint: Color {
+        viewModel.isAlarmEnabled ? accent : .clear
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -54,9 +60,13 @@ struct ScheduleView: View {
 
                         RoundedRectangle(cornerRadius: 38, style: .continuous)
                             .fill(Color(white: 0.5).opacity(0.001))
-                            .glassEffect(.regular.interactive().tint(viewModel.isAlarmEnabled ? accent : .clear), in: RoundedRectangle(cornerRadius: 38, style: .continuous))
+                            .glassEffect(
+                                .regular.interactive().tint(timePillTint),
+                                in: RoundedRectangle(cornerRadius: 38, style: .continuous)
+                            )
                             .glassEffectID("timePill", in: glassNamespace)
                             .frame(width: 286, height: 96)
+                            .tourTarget(.clockPill)
                         HStack(spacing: 12) {
                             CustomWheelPicker(selectedValue: $internalHour, range: 0...23, isMinutes: false, isActive: true, isPickerMode: showingWakeTimePicker)
                                 .frame(width: 100)
@@ -120,6 +130,7 @@ struct ScheduleView: View {
                         }
                         .padding(.top, viewModel.isAlarmEnabled ? 12 : 28)
                         .offset(y: daySelectorOffset)
+                        .tourTarget(.daySelector)
                         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
                     }
                     Spacer().frame(height: 60)
@@ -155,6 +166,7 @@ struct ScheduleView: View {
                         .buttonStyle(GlassButtonStyle(isProminent: viewModel.isAlarmEnabledForSelectedDay, tint: accent))
                         .disabled(viewModel.isScheduling)
                         .padding(.bottom, 24)
+                        .tourTarget(.alarmButton)
                         .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     }
                 }
@@ -202,6 +214,12 @@ struct ScheduleView: View {
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+            }
+            .overlay {
+                if showGuidedTour {
+                    GuidedTourView(isPresented: $showGuidedTour)
+                        .transition(.opacity)
+                }
             }
         }
     }

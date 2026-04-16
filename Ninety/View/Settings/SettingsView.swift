@@ -11,7 +11,9 @@ struct SettingsView: View {
     @StateObject private var settingsViewModel = SettingsViewModel()
     @State private var showingAbout = false
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
+    @AppStorage("showGuidedTour") private var showGuidedTour: Bool = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
     
     private var accent: Color { .themeAccent(for: colorScheme) }
     
@@ -123,6 +125,30 @@ struct SettingsView: View {
                                 .labelsHidden()
                                 .tint(.secondary)
                             }
+                            
+                            Divider().padding(.leading, 44)
+                            
+                            Button {
+                                showGuidedTour = true
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 16) {
+                                    Image(systemName: "questionmark.circle.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(.purple)
+                                        .frame(width: 24)
+                                    Text("Replay Tour".localized(for: appLanguage))
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 14)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                             
                             Divider().padding(.leading, 44)
                             

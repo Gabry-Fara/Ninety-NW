@@ -12,6 +12,7 @@ import AppIntents
 struct NinetyApp: App {
     @AppStorage("appTheme") private var selectedTheme: AppTheme = .system
     @StateObject private var scheduleViewModel = ScheduleViewModel()
+    @StateObject private var tourFrameStore = TourFrameStore()
     
     init() {
         // Core initialization to bind WCSession & UNUserNotification delegates immediately on launch.
@@ -26,6 +27,7 @@ struct NinetyApp: App {
             OnboardingView()
                 .preferredColorScheme(selectedTheme.colorScheme)
                 .environmentObject(scheduleViewModel)
+                .environmentObject(tourFrameStore)
         }
     }
 }

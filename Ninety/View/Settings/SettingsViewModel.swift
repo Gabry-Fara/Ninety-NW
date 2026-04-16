@@ -109,6 +109,20 @@ extension String {
         case "Light": return "Chiaro"
         case "Night": return "Notte"
         case "System": return "Sistema"
+        case "Next": return "Avanti"
+        case "Welcome to Ninety": return "Benvenuto in Ninety"
+        case "Ninety uses on-device machine learning to find the ideal moment to wake you — within the time you set.": return "Ninety utilizza il Machine Learning direttamente sul tuo dispositivo per trovare il momento perfetto per svegliarti — entro l'orario che imposti tu."
+        case "Set Your Wake Time": return "Imposta il tuo orario"
+        case "Tap the clock to choose when you need to be up. Ninety wakes you at the best point in your sleep cycle.": return "Tocca l'orologio per scegliere entro quando vuoi essere svegliato. Ninety ti sveglierà nel momento ideale del tuo ciclo di sonno."
+        case "Customize Every Day": return "Personalizza ogni giorno"
+        case "Each day can have its own wake-up time. Tap a day to select it and adjust the schedule.": return "Ogni giorno della settimana può avere un orario diverso. Tocca un giorno per selezionarlo e impostare la sua sveglia."
+        case "On or Off. Your Call.": return "Attiva o disattiva"
+        case "Toggle the alarm for each day independently — keep your weekdays and weekends perfectly balanced.": return "Accendi o spegni la sveglia per ogni singolo giorno in modo indipendente."
+        case "Private by Design": return "100% sul dispositivo"
+        case "Your sleep data never leaves your device. No servers, no cloud — everything runs locally on your iPhone.": return "I tuoi dati sul sonno non lasciano mai il tuo telefono. Nessun server, nessun cloud — solo tu e il tuo dispositivo."
+        case "You're All Set": return "Sei pronto!"
+        case "Everything is set up. Sweet dreams.": return "Tutto è configurato. Sogni d'oro!"
+        case "Replay Tour": return "Ripeti il tutorial"
         default: return nil
         }
     }
@@ -142,6 +156,20 @@ extension String {
         case "Light": return "浅色"
         case "Night": return "夜间"
         case "System": return "系统"
+        case "Next": return "下一步"
+        case "Welcome to Ninety": return "欢迎使用 Ninety"
+        case "Ninety uses on-device machine learning to find the ideal moment to wake you — within the time you set.": return "Ninety 使用设备端机器学习，在您设定的时间内找到最佳唤醒时刻。"
+        case "Set Your Wake Time": return "设置您的时间"
+        case "Tap the clock to choose when you need to be up. Ninety wakes you at the best point in your sleep cycle.": return "点击时钟选择最晚唤醒时间。Ninety 会在您睡眠周期的理想时刻唤醒您。"
+        case "Customize Every Day": return "自定义每一天"
+        case "Each day can have its own wake-up time. Tap a day to select it and adjust the schedule.": return "每天可以设置不同的唤醒时间。点击某天来选择并设置闹钟。"
+        case "On or Off. Your Call.": return "开启或关闭"
+        case "Toggle the alarm for each day independently — keep your weekdays and weekends perfectly balanced.": return "独立开关每一天的闹钟。"
+        case "Private by Design": return "100% 本地运行"
+        case "Your sleep data never leaves your device. No servers, no cloud — everything runs locally on your iPhone.": return "您的睡眠数据永远不会离开手机。没有服务器、没有云端——只有您和您的设备。"
+        case "You're All Set": return "准备就绪！"
+        case "Everything is set up. Sweet dreams.": return "一切已配置完成。祝您好梦！"
+        case "Replay Tour": return "重播教程"
         default: return nil
         }
     }
@@ -175,6 +203,20 @@ extension String {
         case "Light": return "Claro"
         case "Night": return "Noche"
         case "System": return "Sistema"
+        case "Next": return "Siguiente"
+        case "Welcome to Ninety": return "Bienvenido a Ninety"
+        case "Ninety uses on-device machine learning to find the ideal moment to wake you — within the time you set.": return "Ninety usa Machine Learning directamente en tu dispositivo para encontrar el momento perfecto para despertarte — dentro del horario que elijas."
+        case "Set Your Wake Time": return "Configura tu hora"
+        case "Tap the clock to choose when you need to be up. Ninety wakes you at the best point in your sleep cycle.": return "Toca el reloj para elegir la hora límite para despertar. Ninety te despertará en el momento ideal de tu ciclo de sueño."
+        case "Customize Every Day": return "Personaliza cada día"
+        case "Each day can have its own wake-up time. Tap a day to select it and adjust the schedule.": return "Cada día de la semana puede tener un horario diferente. Toca un día para seleccionarlo y configurar su alarma."
+        case "On or Off. Your Call.": return "Activa o desactiva"
+        case "Toggle the alarm for each day independently — keep your weekdays and weekends perfectly balanced.": return "Enciende o apaga la alarma para cada día de forma independiente."
+        case "Private by Design": return "100% en el dispositivo"
+        case "Your sleep data never leaves your device. No servers, no cloud — everything runs locally on your iPhone.": return "Tus datos de sueño nunca salen de tu teléfono. Sin servidores, sin nube — solo tú y tu dispositivo."
+        case "You're All Set": return "¡Listo!"
+        case "Everything is set up. Sweet dreams.": return "Todo está configurado. ¡Dulces sueños!"
+        case "Replay Tour": return "Repetir tutorial"
         default: return nil
         }
     }
@@ -208,6 +250,20 @@ extension String {
         case "Light": return "فاتح"
         case "Night": return "ليلي"
         case "System": return "النظام"
+        case "Next": return "التالي"
+        case "Welcome to Ninety": return "مرحباً بك في Ninety"
+        case "Ninety uses on-device machine learning to find the ideal moment to wake you — within the time you set.": return "يستخدم Ninety تعلم الآلة مباشرة على جهازك للعثور على اللحظة المثالية لإيقاظك — ضمن الوقت الذي تحدده."
+        case "Set Your Wake Time": return "اضبط وقتك"
+        case "Tap the clock to choose when you need to be up. Ninety wakes you at the best point in your sleep cycle.": return "اضغط على الساعة لاختيار الوقت الأقصى للاستيقاظ. سيوقظك Ninety في اللحظة المثالية من دورة نومك."
+        case "Customize Every Day": return "خصّص كل يوم"
+        case "Each day can have its own wake-up time. Tap a day to select it and adjust the schedule.": return "يمكن لكل يوم من أيام الأسبوع أن يكون له وقت مختلف. اضغط على يوم لتحديده وضبط منبهه."
+        case "On or Off. Your Call.": return "تفعيل أو تعطيل"
+        case "Toggle the alarm for each day independently — keep your weekdays and weekends perfectly balanced.": return "قم بتشغيل أو إيقاف المنبه لكل يوم بشكل مستقل."
+        case "Private by Design": return "100% على الجهاز"
+        case "Your sleep data never leaves your device. No servers, no cloud — everything runs locally on your iPhone.": return "بيانات نومك لا تغادر هاتفك أبداً. لا خوادم، لا سحابة — أنت وجهازك فقط."
+        case "You're All Set": return "أنت جاهز!"
+        case "Everything is set up. Sweet dreams.": return "كل شيء مُعدّ. أحلام سعيدة!"
+        case "Replay Tour": return "إعادة الجولة"
         default: return nil
         }
     }
