@@ -13,9 +13,6 @@ struct HorizonBackground: View {
     @Environment(\.colorScheme) var colorScheme
     var isActive: Bool = true
     
-    @State private var isBreathing = false
-    @State private var lightRotation: Double = 0.0
-    
     private var accent: Color { .themeAccent(for: colorScheme) }
     
     var body: some View {
@@ -41,37 +38,27 @@ struct HorizonBackground: View {
                     // Outer glow
                     Ellipse()
                         .fill(isActive
-                              ? accent.opacity(colorScheme == .light ? (isBreathing ? 0.35 : 0.15) : (isBreathing ? 0.45 : 0.2))
+                              ? accent.opacity(colorScheme == .light ? 0.2 : 0.3)
                               : Color.gray.opacity(colorScheme == .light ? 0.05 : 0.1))
                         .frame(width: 600, height: 300)
-                        .blur(radius: isBreathing ? 80 : 50)
-                        .scaleEffect(isActive && isBreathing ? 1.05 : 1.0)
+                        .blur(radius: 60)
                         .offset(y: 150)
                         .animation(.easeInOut(duration: 1.0), value: isActive)
-                        .blendMode(colorScheme == .dark ? .plusLighter : .normal)
                     
-                    // Main arc (Angular Light Sweep)
+                    // Main arc
                     if isActive {
                         Ellipse()
                             .stroke(
-                                AngularGradient(
-                                    gradient: Gradient(colors: [
-                                        .clear,
-                                        accent.opacity(colorScheme == .light ? 0.4 : 0.6),
-                                        Color.white.opacity(colorScheme == .light ? 0.8 : 1.0),
-                                        accent.opacity(colorScheme == .light ? 0.4 : 0.6),
-                                        .clear
-                                    ]),
-                                    center: .center,
-                                    angle: .degrees(lightRotation)
+                                LinearGradient(
+                                    colors: [.clear, accent.opacity(colorScheme == .light ? 0.6 : 0.8), .clear],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
                                 ),
-                                lineWidth: isBreathing ? 3 : 1.5
+                                lineWidth: 3
                             )
                             .frame(width: 500, height: 250)
-                            .scaleEffect(isBreathing ? 1.02 : 1.0)
                             .offset(y: 125)
-                            .blur(radius: isBreathing ? 1.5 : 0.5)
-                            .blendMode(colorScheme == .dark ? .screen : .normal)
+                            .blur(radius: 1)
                             .transition(.opacity)
                     }
                 }
@@ -79,43 +66,9 @@ struct HorizonBackground: View {
             .ignoresSafeArea()
             .animation(.easeInOut(duration: 0.8), value: isActive)
         }
-        .onAppear {
-            if isActive {
-                startBreathing()
-                startRotation()
-            }
-        }
-        .onChange(of: isActive) { _, newValue in
-            if newValue {
-                // Short delay to let the fade-in complete before breathing starts
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    if isActive { 
-                        startBreathing()
-                        startRotation()
-                    }
-                }
-            } else {
-                withAnimation(.easeOut(duration: 0.8)) {
-                    isBreathing = false
-                }
-            }
-        }
-    }
-    
-    private func startBreathing() {
-        withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
-            isBreathing = true
-        }
-    }
-    
-    private func startRotation() {
-        // Ensure starting from 0 to avoid jump
-        lightRotation = 0.0
-        withAnimation(.linear(duration: 7.0).repeatForever(autoreverses: false)) {
-            lightRotation = 360.0
-        }
     }
 }
+
 
 struct GlassPill<Content: View>: View {
     var content: Content
