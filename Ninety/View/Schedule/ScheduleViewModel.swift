@@ -27,6 +27,7 @@ final class ScheduleViewModel: ObservableObject {
     
     @Published var selectedWeekday: Int = Calendar.current.component(.weekday, from: Date()) {
         didSet {
+            logClock("selectedWeekday DID SET to: \(selectedWeekday)")
             updateCurrentWakeUpTime()
         }
     }
@@ -45,6 +46,23 @@ final class ScheduleViewModel: ObservableObject {
     @Published var timeView: TimeView = .week
     @Published var selectedDayHour: Int = 7
     @Published var selectedDayMinute: Int = 0
+    @Published var clockLogs: [String] = []
+    
+    func logClock(_ msg: String) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss.SSS"
+        let timeString = formatter.string(from: Date())
+        let fullMsg = "[\(timeString)] \(msg)"
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.clockLogs.append(fullMsg)
+            if self.clockLogs.count > 100 {
+                self.clockLogs.removeFirst(self.clockLogs.count - 100)
+            }
+            print(fullMsg)
+        }
+    }
 
     init() {
         let storedWakeTimes = UserDefaults.standard.dictionary(forKey: StorageKey.wakeTimesDict) as? [String: TimeInterval] ?? [:]
@@ -89,6 +107,7 @@ final class ScheduleViewModel: ObservableObject {
         lastScheduledSession = nil
         generateSampleSleepData()
         filterSleepData()
+        logClock("INIT ViewModel finished.")
         updateCurrentWakeUpTime()
         lastScheduledSession = nextUpcomingSession
     }
@@ -213,8 +232,11 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     func updateWakeTime(hour: Int, minute: Int) {
+        logClock("updateWakeTime CALLED with \(hour):\(minute) for weekday \(selectedWeekday)")
         let key = String(selectedWeekday)
         wakeTimes[key] = TimeInterval(hour * 3600 + minute * 60).rounded()
+        
+        logClock("wakeTimes[\(key)] updated to \(wakeTimes[key]!)")
         
         selectedDayHour = hour
         selectedDayMinute = minute
@@ -238,6 +260,8 @@ final class ScheduleViewModel: ObservableObject {
         
         let h = totalSecondsInt / 3600
         let m = (totalSecondsInt % 3600) / 60
+        
+        logClock("updateCurrentWakeUpTime CALLED for key \(key). Computed: \(h):\(m). WakeTimes Dict: \(wakeTimes)")
         
         selectedDayHour = h
         selectedDayMinute = m

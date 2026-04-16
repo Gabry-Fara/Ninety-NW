@@ -266,9 +266,12 @@ struct CustomWheelPicker: View {
     let isMinutes: Bool
     let isActive: Bool
     let isPickerMode: Bool
+    
     @State private var viewPosition: Int?
-    @State private var isProgrammaticScroll = false
-    private let multiplier = 100
+    @State private var userDidScroll = false
+    
+    // Lower multiplier because we drop LazyVStack; 10 provides enough loops to feel infinite while maintaining perfect layout bounds
+    private let multiplier = 10
     private var count: Int { range.upperBound - range.lowerBound + 1 }
 
     var body: some View {
@@ -276,13 +279,17 @@ struct CustomWheelPicker: View {
         let blurOpacity = isActive ? 0.3 : 0.1
 
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(spacing: 0) {
+            // Using VStack instead of LazyVStack is the crucial fix! 
+            // It pre-computes all boundaries instantaneously, meaning .scrollPosition programmatic jumps are flawlessly mathematically exact.
+            VStack(spacing: 0) {
                 ForEach(0..<(count * multiplier), id: \.self) { index in
                     let value = range.lowerBound + (index % count)
 
                     Text(String(format: "%02d", value))
-                        .font(.system(size: 76, weight: .light, design: .rounded))
+                        .font(.system(size: 72, weight: .light, design: .rounded))
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                         .frame(height: 96)
                         .foregroundStyle(.primary)
                         .scrollTransition(axis: .vertical) { content, phase in
@@ -299,29 +306,39 @@ struct CustomWheelPicker: View {
         .scrollPosition(id: $viewPosition, anchor: .center)
         .scrollTargetBehavior(.viewAligned)
         .onScrollPhaseChange { _, newPhase in
-            if newPhase == .idle {
-                // Only read back the position if the USER caused the scroll.
-                // Programmatic scrolls can land 1 ID off due to pixel rounding
-                // in SwiftUI's scroll snap, which would corrupt the stored time.
-                if !isProgrammaticScroll, let viewPosition {
-                    selectedValue = range.lowerBound + (viewPosition % count)
+            if newPhase == .interacting {
+                userDidScroll = true
+            } else if newPhase == .idle {
+                if userDidScroll, let pos = viewPosition {
+                    selectedValue = range.lowerBound + (pos % count)
+                    userDidScroll = false
+                } else if let pos = viewPosition {
+                    let currentShownValue = range.lowerBound + (pos % count)
+                    if currentShownValue != selectedValue {
+                        var diff = selectedValue - currentShownValue
+                        let half = count / 2
+                        if diff > half { diff -= count }
+                        else if diff < -half { diff += count }
+                        
+                        DispatchQueue.main.async { viewPosition = pos + diff }
+                    }
                 }
-                isProgrammaticScroll = false
             }
         }
         .onChange(of: selectedValue) { _, newSelected in
             if let currentPos = viewPosition {
                 let currentShownValue = range.lowerBound + (currentPos % count)
                 if currentShownValue != newSelected {
-                    isProgrammaticScroll = true
-                    let midIndexOrigin = (multiplier / 2) * count
-                    let offset = newSelected - range.lowerBound
-                    viewPosition = midIndexOrigin + offset
+                    var diff = newSelected - currentShownValue
+                    let half = count / 2
+                    if diff > half { diff -= count }
+                    else if diff < -half { diff += count }
+                    
+                    viewPosition = currentPos + diff
                 }
             }
         }
         .onAppear {
-            isProgrammaticScroll = true
             let midIndexOrigin = (multiplier / 2) * count
             let offset = selectedValue - range.lowerBound
             viewPosition = midIndexOrigin + offset
