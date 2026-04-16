@@ -62,15 +62,16 @@ final class ScheduleViewModel: ObservableObject {
                 for i in 1...7 { initialWakeTimes[String(i)] = midnightOffset }
             }
         } else {
-            // One-time migration: convert any legacy timeIntervalSince1970 values
-            // to seconds-since-midnight. Legacy values are very large (> 86400).
+            // One-time migration: convert any legacy timestamps to seconds-since-midnight.
+            // Legacy timestamps are either very large (> 86400) or negative.
             var migrated = false
+            let migrationCal = Calendar(identifier: .gregorian)
             for (key, value) in initialWakeTimes {
-                if value > 86400 {
+                if value > 86400 || value < 0 {
                     let legacyDate = Date(timeIntervalSince1970: value)
-                    let cal = Calendar.current
-                    let h = cal.component(.hour, from: legacyDate)
-                    let m = cal.component(.minute, from: legacyDate)
+                    let h = migrationCal.component(.hour, from: legacyDate)
+                    let m = migrationCal.component(.minute, from: legacyDate)
+                    // Ensure we don't carry over corrupted sub-minute precision
                     initialWakeTimes[key] = TimeInterval(h * 3600 + m * 60)
                     migrated = true
                 }
@@ -213,7 +214,7 @@ final class ScheduleViewModel: ObservableObject {
 
     func updateWakeTime(hour: Int, minute: Int) {
         let key = String(selectedWeekday)
-        wakeTimes[key] = TimeInterval(hour * 3600 + minute * 60)
+        wakeTimes[key] = TimeInterval(hour * 3600 + minute * 60).rounded()
         
         selectedDayHour = hour
         selectedDayMinute = minute
@@ -232,9 +233,11 @@ final class ScheduleViewModel: ObservableObject {
     
     private func updateCurrentWakeUpTime() {
         let key = String(selectedWeekday)
-        let totalSeconds = wakeTimes[key] ?? TimeInterval(7 * 3600)
-        let h = Int(totalSeconds) / 3600
-        let m = (Int(totalSeconds) % 3600) / 60
+        let totalSeconds = (wakeTimes[key] ?? TimeInterval(7 * 3600)).rounded()
+        let totalSecondsInt = Int(totalSeconds)
+        
+        let h = totalSecondsInt / 3600
+        let m = (totalSecondsInt % 3600) / 60
         
         selectedDayHour = h
         selectedDayMinute = m
