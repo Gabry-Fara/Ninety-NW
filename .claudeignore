@@ -1,0 +1,10 @@
+.git
+.DS_Store
+Build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+*.xcassets/
+graphify-out/*
+!graphify-out/GRAPH_REPORT.md
+SleepStagesV1.mlmodel
