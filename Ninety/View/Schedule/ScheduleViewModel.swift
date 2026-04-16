@@ -99,35 +99,40 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     var scheduledDayLabel: String {
+        let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
         guard let wakeUpDate = nextUpcomingSession?.wakeUpDate else {
-            return "Pick your days"
+            return "Pick your days".localized(for: preferredLang)
         }
         if Calendar.current.isDateInToday(wakeUpDate) {
-            return "Today"
+            return "Today".localized(for: preferredLang)
         }
         if Calendar.current.isDateInTomorrow(wakeUpDate) {
-            return "Tomorrow"
+            return "Tomorrow".localized(for: preferredLang)
         }
-        return wakeUpDate.formatted(.dateTime.weekday(.wide))
+        let locale = Locale(identifier: preferredLang)
+        return wakeUpDate.formatted(.dateTime.weekday(.wide).locale(locale))
     }
 
     var nextUpcomingLabel: String {
+        let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
         guard let session = nextUpcomingSession else {
-            return "No days selected"
+            return "No days selected".localized(for: preferredLang)
         }
-        let day = session.wakeUpDate.formatted(.dateTime.weekday(.abbreviated))
-        let time = session.wakeUpDate.formatted(date: .omitted, time: .shortened)
+        let locale = Locale(identifier: preferredLang)
+        let day = session.wakeUpDate.formatted(.dateTime.weekday(.abbreviated).locale(locale))
+        let time = session.wakeUpDate.formatted(Date.FormatStyle().locale(locale).hour().minute())
         return "\(day) · \(time)"
     }
 
     var primaryButtonTitle: String {
+        let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
         guard !isScheduling else {
-            return "Updating Plan..."
+            return "Updating Plan...".localized(for: preferredLang)
         }
         guard nextUpcomingSession != nil else {
-            return "Choose Days to Plan"
+            return "Choose Days to Plan".localized(for: preferredLang)
         }
-        return "Next Up · \(nextUpcomingLabel)"
+        return "\("Next Up".localized(for: preferredLang)) · \(nextUpcomingLabel)"
     }
 
     func scheduleSession() async {
@@ -145,7 +150,8 @@ final class ScheduleViewModel: ObservableObject {
 
         let granted = await requestAlarmPermissions()
         guard granted else {
-            schedulingError = "Permissions are required to schedule your weekly wake-up plan."
+            let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
+            schedulingError = "Permissions are required to schedule your weekly wake-up plan.".localized(for: preferredLang)
             return
         }
 
@@ -205,33 +211,35 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     func userFriendlyWatchStatus(from status: String) -> String {
+        let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
         if status.contains("No watch session activity") {
-            return "Not started yet"
+            return "Not started yet".localized(for: preferredLang)
         }
         if status.localizedCaseInsensitiveContains("Queued") {
-            return "Open the Watch app to finish setting up"
+            return "Open the Watch app to finish setting up".localized(for: preferredLang)
         }
         if status.localizedCaseInsensitiveContains("Session Started") {
-            return "Tracking in progress"
+            return "Tracking in progress".localized(for: preferredLang)
         }
         if status.localizedCaseInsensitiveContains("Monitoring Paused") {
-            return "Wake-up delivered"
+            return "Wake-up delivered".localized(for: preferredLang)
         }
         return status
     }
 
     func userFriendlyAlarmStatus(from status: String) -> String {
+        let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
         if status == "No alarms configured." {
-            return "Not scheduled yet"
+            return "No alarms configured.".localized(for: preferredLang)
         }
         if status.localizedCaseInsensitiveContains("Authorized") {
-            return "Ready"
+            return "Ready".localized(for: preferredLang)
         }
         if status.localizedCaseInsensitiveContains("Failsafe Alarm Scheduled") || status.localizedCaseInsensitiveContains("Active Failsafe Alarm Scheduled") {
-            return "Scheduled"
+            return "Scheduled".localized(for: preferredLang)
         }
         if status.localizedCaseInsensitiveContains("DYNAMIC WAKE EVENT") || status.localizedCaseInsensitiveContains("Executed") {
-            return "Wake-up triggered"
+            return "Wake-up triggered".localized(for: preferredLang)
         }
         return status
     }

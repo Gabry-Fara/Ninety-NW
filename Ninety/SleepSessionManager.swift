@@ -13,13 +13,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         case rem = 2
 
         var title: String {
+            let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
             switch self {
             case .wake:
-                return "Wake"
+                return "Wake".localized(for: preferredLang)
             case .nrem:
-                return "NREM"
+                return "NREM".localized(for: preferredLang)
             case .rem:
-                return "REM"
+                return "REM".localized(for: preferredLang)
             }
         }
     }
@@ -64,6 +65,10 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     @Published var officialStageDisplay: String = "Waiting for 10 epochs"
     @Published var latestEpochSummary: String = "No 30-second epoch yet"
     @Published var latestFeatureSummary: String = "No features computed yet"
+    
+    private var preferredLang: String {
+        UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
+    }
 
     private var wcSession: WCSession?
     private var currentBackgroundTask: UIBackgroundTaskIdentifier = .invalid
@@ -110,7 +115,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             log("Direct session request sent to Watch.")
         } else {
             session.transferUserInfo(command)
-            log("Watch unreachable. Request queued (Will fire when Watch wakes).")
+            log("Watch unreachable. Request queued (Will fire when Watch wakes).".localized(for: preferredLang))
         }
     }
 
@@ -159,7 +164,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     private func loadModel() {
         processingQueue.async {
             guard let modelURL = Bundle.main.url(forResource: "SleepStagesV1", withExtension: "mlmodelc") else {
-                self.updateModelStatus("SleepStagesV1.mlmodelc missing from bundle")
+                self.updateModelStatus("SleepStagesV1.mlmodelc missing from bundle".localized(for: self.preferredLang))
                 return
             }
 
@@ -167,9 +172,9 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 let configuration = MLModelConfiguration()
                 let model = try MLModel(contentsOf: modelURL, configuration: configuration)
                 self.stageModel = model
-                self.updateModelStatus("Sleep stage model ready")
+                self.updateModelStatus("Sleep stage model ready".localized(for: self.preferredLang))
             } catch {
-                self.updateModelStatus("Model load failed: \(error.localizedDescription)")
+                self.updateModelStatus("Model load failed: \(error.localizedDescription)".localized(for: self.preferredLang))
             }
         }
     }
@@ -423,10 +428,10 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             self.dynamicAlarmTriggered = false
 
             DispatchQueue.main.async {
-                self.rawStageDisplay = "Waiting for 10 epochs"
-                self.officialStageDisplay = "Waiting for 10 epochs"
-                self.latestEpochSummary = "No 30-second epoch yet"
-                self.latestFeatureSummary = "No features computed yet"
+                self.rawStageDisplay = "Waiting for 10 epochs".localized(for: self.preferredLang)
+                self.officialStageDisplay = "Waiting for 10 epochs".localized(for: self.preferredLang)
+                self.latestEpochSummary = "No 30-second epoch yet".localized(for: self.preferredLang)
+                self.latestFeatureSummary = "No features computed yet".localized(for: self.preferredLang)
             }
         }
     }

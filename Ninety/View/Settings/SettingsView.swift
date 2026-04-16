@@ -10,6 +10,7 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var settingsViewModel = SettingsViewModel()
     @State private var showingAbout = false
+    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     
     var body: some View {
         ScrollView {
@@ -17,9 +18,9 @@ struct SettingsView: View {
                 VStack(spacing: 32) {
                     
                     // Smart Alarm Section
-                    settingsSection("SMART ALARM") {
+                    settingsSection("SMART ALARM".localized(for: appLanguage)) {
                         VStack(spacing: 0) {
-                            settingsRow(icon: "timer", color: .blue, title: "Wake Window") {
+                            settingsRow(icon: "timer", color: .blue, title: "Wake Window".localized(for: appLanguage)) {
                                 Picker("Wake Window", selection: $settingsViewModel.smartWakeWindow) {
                                     Text("15 min").tag(15)
                                     Text("30 min").tag(30)
@@ -32,13 +33,13 @@ struct SettingsView: View {
                             
                             Divider().padding(.leading, 44)
                             
-                            settingsToggleRow(icon: "water.waves", color: .indigo, title: "Haptic Pre-Alarm", isOn: $settingsViewModel.hapticAlarm)
+                            settingsToggleRow(icon: "water.waves", color: .indigo, title: "Haptic Pre-Alarm".localized(for: appLanguage), isOn: $settingsViewModel.hapticAlarm)
                         }
                     }
                     
                     // Appearance Section
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("APPEARANCE")
+                        Text("APPEARANCE".localized(for: appLanguage))
                             .font(.caption.bold())
                             .tracking(2)
                             .foregroundStyle(.secondary)
@@ -78,7 +79,7 @@ struct SettingsView: View {
                             settingsToggleRow(
                                 icon: "circle.lefthalf.filled",
                                 color: .primary,
-                                title: "Automatic",
+                                title: "Automatic".localized(for: appLanguage),
                                 isOn: Binding(
                                     get: { settingsViewModel.selectedTheme == .system },
                                     set: { isOn in
@@ -93,37 +94,52 @@ struct SettingsView: View {
                     }
                     
                     // Permissions Section
-                    settingsSection("PERMISSIONS") {
+                    settingsSection("PERMISSIONS".localized(for: appLanguage)) {
                         VStack(spacing: 0) {
-                            settingsToggleRow(icon: "bell.badge.fill", color: .red, title: "Notifications", isOn: $settingsViewModel.isNotificationsEnabled)
+                            settingsToggleRow(icon: "bell.badge.fill", color: .red, title: "Notifications".localized(for: appLanguage), isOn: $settingsViewModel.isNotificationsEnabled)
                             
                             Divider().padding(.leading, 44)
                             
-                            settingsToggleRow(icon: "heart.text.square.fill", color: .pink, title: "Apple Health", isOn: $settingsViewModel.saveToHealthKit)
+                            settingsToggleRow(icon: "heart.text.square.fill", color: .pink, title: "Apple Health".localized(for: appLanguage), isOn: $settingsViewModel.saveToHealthKit)
                         }
                     }
                     
                     // General Section
-                    settingsSection("GENERAL") {
-                        Button {
-                            showingAbout = true
-                        } label: {
-                            HStack(spacing: 16) {
-                                Image(systemName: "info.circle.fill")
-                                    .font(.title3)
-                                    .foregroundStyle(.blue)
-                                Text("About Ninety")
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                    settingsSection("GENERAL".localized(for: appLanguage)) {
+                        VStack(spacing: 0) {
+                            settingsRow(icon: "globe", color: .blue, title: "Language".localized(for: appLanguage)) {
+                                Picker("Language", selection: $appLanguage) {
+                                    ForEach(AppLanguage.allCases) { lang in
+                                        Text(lang.displayName).tag(lang.rawValue)
+                                    }
+                                }
+                                .labelsHidden()
+                                .tint(.secondary)
                             }
-                            .padding(.horizontal)
-                            .padding(.vertical, 14)
-                            .contentShape(Rectangle())
+                            
+                            Divider().padding(.leading, 44)
+                            
+                            Button {
+                                showingAbout = true
+                            } label: {
+                                HStack(spacing: 16) {
+                                    Image(systemName: "info.circle.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(.blue)
+                                        .frame(width: 24)
+                                    Text("About Ninety".localized(for: appLanguage))
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 14)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding()
@@ -135,7 +151,7 @@ struct SettingsView: View {
             HorizonBackground(isActive: false)
                 .ignoresSafeArea()
         }
-        .navigationTitle("Settings")
+        .navigationTitle("Settings".localized(for: appLanguage))
         .navigationBarTitleDisplayMode(.large)
         .scrollContentBackground(.hidden)
         .containerBackground(.clear, for: .navigation)
@@ -191,6 +207,7 @@ struct SettingsView: View {
 
 private struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -198,54 +215,53 @@ private struct AboutView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                HorizonBackground(isActive: false)
-                    .ignoresSafeArea()
-
-                VStack(spacing: 32) {
-                    Spacer()
-
-                    VStack(spacing: 16) {
+            ScrollView {
+                VStack(spacing: 48) {
+                    // branding
+                    VStack(spacing: 20) {
                         Image("Logo design")
                             .resizable()
                             .scaledToFit()
-                            .frame(height: 80)
+                            .frame(height: 100)
                             .accessibilityHidden(true)
 
-                        VStack(spacing: 4) {
-                            Text("Ninety")
-                                .font(.title.bold())
-                            Text("Version \(appVersion)")
+                        VStack(spacing: 6) {
+                            Text("Ninety".localized(for: appLanguage))
+                                .font(.system(size: 34, weight: .bold, design: .rounded))
+                            Text("\("Version".localized(for: appLanguage)) \(appVersion)")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .padding(.top, 60)
 
+                    // copy
                     VStack(spacing: 0) {
-                        HStack {
-                            Text("Smart sleep tracking powered by on-device ML. Your data stays on your devices.")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding()
-                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
+                        Text("Smart sleep tracking powered by on-device ML. Your data stays on your devices.".localized(for: appLanguage))
+                            .font(.body)
+                            .lineSpacing(8)
+                            .foregroundStyle(.primary.opacity(0.85))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(32)
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 32))
                     }
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 24)
 
-                    Spacer()
+                    Spacer(minLength: 40)
                 }
-                .padding()
             }
-            .navigationTitle("About")
+            .background {
+                HorizonBackground(isActive: false)
+                    .ignoresSafeArea()
+            }
+            .navigationTitle("About Ninety".localized(for: appLanguage))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Done".localized(for: appLanguage)) { dismiss() }
                 }
             }
-            .scrollContentBackground(.hidden)
-            .containerBackground(.clear, for: .navigation)
         }
     }
 }
@@ -253,6 +269,7 @@ private struct AboutView: View {
 private struct ThemePreviewView: View {
     let theme: AppTheme
     let isSelected: Bool
+    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
 
     private var previewBackground: some ShapeStyle {
         switch theme {
@@ -335,7 +352,7 @@ private struct ThemePreviewView: View {
                 }
                 .shadow(color: .black.opacity(theme == .light ? 0.08 : 0.22), radius: 12, y: 6)
 
-            Text(theme.rawValue)
+            Text(theme.rawValue.capitalized.localized(for: appLanguage))
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
         }

@@ -16,6 +16,7 @@ struct ScheduleView: View {
     @Namespace private var glassNamespace
     @State private var internalHour: Int = 0
     @State private var internalMinute: Int = 0
+    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     var body: some View {
         NavigationStack {
             ZStack {
@@ -82,7 +83,7 @@ struct ScheduleView: View {
                         }
                     }
                     if viewModel.isAlarmEnabled && !showingWakeTimePicker {
-                        Text("Next wake-up · \(viewModel.nextUpcomingLabel)")
+                        Text("\("Next Up".localized(for: appLanguage)) · \(viewModel.nextUpcomingLabel)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .padding(.top, 16)
@@ -113,7 +114,7 @@ struct ScheduleView: View {
                                 showingWakeTimePicker = false
                             }
                         } label: {
-                            Text("Select")
+                            Text("Select".localized(for: appLanguage))
                                 .font(.headline)
                                 .padding(.horizontal, 48)
                         }
@@ -126,7 +127,7 @@ struct ScheduleView: View {
                                 viewModel.toggleSelectedDay()
                             }
                         } label: {
-                            Text(viewModel.isAlarmEnabledForSelectedDay ? "Alarm On" : "Alarm Off")
+                            Text((viewModel.isAlarmEnabledForSelectedDay ? "Alarm On" : "Alarm Off").localized(for: appLanguage))
                                 .font(.headline)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.isAlarmEnabledForSelectedDay)
                         }
@@ -144,18 +145,18 @@ struct ScheduleView: View {
                             Button {
                                 showingSettings = true
                             } label: {
-                                Label("Settings", systemImage: "gearshape")
+                                Label("Settings".localized(for: appLanguage), systemImage: "gearshape")
                             }
                             Button {
                                 showingSleepHistory = true
                             } label: {
-                                Label("Sleep History", systemImage: "chart.bar.fill")
+                                Label("Sleep History".localized(for: appLanguage), systemImage: "chart.bar.fill")
                             }
                             Divider()
                             Button {
                                 showingDiagnostics = true
                             } label: {
-                                Label("Diagnostics", systemImage: "ladybug")
+                                Label("Diagnostics".localized(for: appLanguage), systemImage: "ladybug")
                             }
                         } label: {
                             Image(systemName: "slider.horizontal.3")
@@ -167,7 +168,7 @@ struct ScheduleView: View {
                     }
                 }
             }
-            .navigationTitle(showingWakeTimePicker ? "Set Wake Time" : "Ninety")
+            .navigationTitle(showingWakeTimePicker ? "Set Wake Time".localized(for: appLanguage) : "Ninety".localized(for: appLanguage))
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsView()
@@ -180,7 +181,7 @@ struct ScheduleView: View {
                     DiagnosticsView()
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") {
+                                Button("Done".localized(for: appLanguage)) {
                                     showingDiagnostics = false
                                 }
                             }
@@ -203,19 +204,36 @@ private struct DayOfWeekSelector: View {
     let scheduledWeekdays: Set<Int>
     let selectedWeekday: Int
     let onSelect: (Int) -> Void
-    private let weekdaySymbols = ["S", "M", "T", "W", "T", "F", "S"]
+    
+    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
 
+    private struct WeekdayInfo: Identifiable {
+        let id: Int // 1-indexed weekday (1=Sun, 2=Mon...)
+        let symbol: String
+    }
+
+    private var orderedWeekdays: [WeekdayInfo] {
+        var calendar = Calendar.current
+        calendar.locale = Locale(identifier: appLanguage)
+        let symbols = calendar.veryShortWeekdaySymbols
+        let firstWeekday = calendar.firstWeekday // Usually 1 (Sun) or 2 (Mon)
+        
+        return (0..<7).map { i in
+            let index = (firstWeekday - 1 + i) % 7
+            return WeekdayInfo(id: index + 1, symbol: symbols[index])
+        }
+    }
+    
     var body: some View {
         HStack(spacing: 10) {
-            ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
-                let weekday = index + 1
-                let isScheduled = scheduledWeekdays.contains(weekday)
-                let isSelected = selectedWeekday == weekday
+            ForEach(orderedWeekdays) { day in
+                let isScheduled = scheduledWeekdays.contains(day.id)
+                let isSelected = selectedWeekday == day.id
 
                 Button {
-                    onSelect(weekday)
+                    onSelect(day.id)
                 } label: {
-                    Text(symbol)
+                    Text(day.symbol)
                         .font(.footnote.weight(.semibold))
                         .frame(width: 34, height: 34)
                         .foregroundStyle(isScheduled ? Color.white : Color.primary.opacity(0.9))

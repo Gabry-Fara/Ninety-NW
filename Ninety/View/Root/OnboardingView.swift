@@ -9,6 +9,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @AppStorage("isBoarding") var isOnBoarding: Bool = true
+    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
 
     var body: some View {
         if isOnBoarding {
@@ -24,13 +25,13 @@ struct OnboardingView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(height: 160)
-                        .accessibilityLabel("Ninety logo")
+                        .accessibilityLabel("Ninety logo".localized(for: appLanguage))
 
                     VStack(spacing: 12) {
-                        Text("Ninety")
+                        Text("Ninety".localized(for: appLanguage))
                             .font(.largeTitle.bold())
 
-                        Text("Track your sleep pattern and wake up refreshed.")
+                        Text("Track your sleep pattern and wake up refreshed.".localized(for: appLanguage))
                             .font(.body)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.secondary)
@@ -41,7 +42,7 @@ struct OnboardingView: View {
                     Spacer()
 
                     VStack(spacing: 16) {
-                        Button("Get Started") {
+                        Button("Get Started".localized(for: appLanguage)) {
                             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                                 isOnBoarding.toggle()
                             }
@@ -49,9 +50,9 @@ struct OnboardingView: View {
                         .buttonStyle(GlassButtonStyle.glassProminent)
                         .tint(.blue)
                         .controlSize(.large)
-                        .accessibilityHint("Opens the main sleep schedule")
+                        .accessibilityHint("Opens the main sleep schedule".localized(for: appLanguage))
 
-                        Text("By continuing, you agree to Ninety's \n**Terms of Service** and **Privacy Policy.**")
+                        Text("By continuing, you agree to Ninety's \n**Terms of Service** and **Privacy Policy.**".localized(for: appLanguage))
                             .font(.footnote)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
