@@ -15,14 +15,23 @@ struct SleepData: Identifiable {
 final class ScheduleViewModel: ObservableObject {
     private enum StorageKey {
         static let wakeTime = "scheduleWakeTimeInterval"
+        static let wakeTimesDict = "scheduleWakeTimesDict"
         static let scheduledWeekdays = "scheduleWeekdayPlan"
     }
 
-    @Published var wakeUpTime: Date {
+    @Published var wakeTimes: [String: TimeInterval] {
         didSet {
-            UserDefaults.standard.set(wakeUpTime.timeIntervalSince1970, forKey: StorageKey.wakeTime)
+            UserDefaults.standard.set(wakeTimes, forKey: StorageKey.wakeTimesDict)
         }
     }
+    
+    @Published var selectedWeekday: Int = Calendar.current.component(.weekday, from: Date()) {
+        didSet {
+            updateCurrentWakeUpTime()
+        }
+    }
+    
+    @Published var currentWakeUpTime: Date
     @Published var scheduledWeekdays: Set<Int> {
         didSet {
             UserDefaults.standard.set(Array(scheduledWeekdays).sorted(), forKey: StorageKey.scheduledWeekdays)
@@ -36,13 +45,25 @@ final class ScheduleViewModel: ObservableObject {
     @Published var timeView: TimeView = .week
 
     init() {
-        let storedWakeTime = UserDefaults.standard.object(forKey: StorageKey.wakeTime) as? TimeInterval
+        let storedWakeTimes = UserDefaults.standard.dictionary(forKey: StorageKey.wakeTimesDict) as? [String: TimeInterval] ?? [:]
+        
+        // Backward compatibility: migrate old single time if necessary
+        var initialWakeTimes = storedWakeTimes
+        if initialWakeTimes.isEmpty {
+            if let oldStored = UserDefaults.standard.object(forKey: StorageKey.wakeTime) as? TimeInterval {
+                for i in 1...7 { initialWakeTimes[String(i)] = oldStored }
+            }
+        }
+        wakeTimes = initialWakeTimes
+        
+        currentWakeUpTime = ScheduleViewModel.defaultWakeTime
+
         let storedWeekdays = UserDefaults.standard.array(forKey: StorageKey.scheduledWeekdays) as? [Int] ?? []
-        wakeUpTime = storedWakeTime.map(Date.init(timeIntervalSince1970:)) ?? Self.defaultWakeTime
         scheduledWeekdays = Set(storedWeekdays)
         lastScheduledSession = nil
         generateSampleSleepData()
         filterSleepData()
+        updateCurrentWakeUpTime()
         lastScheduledSession = nextUpcomingSession
     }
 
@@ -58,6 +79,10 @@ final class ScheduleViewModel: ObservableObject {
         !scheduledWeekdays.isEmpty
     }
 
+    var isAlarmEnabledForSelectedDay: Bool {
+        scheduledWeekdays.contains(selectedWeekday)
+    }
+
     var projectedSession: SmartAlarmManager.ScheduledSleepSession {
         nextUpcomingSession ?? fallbackProjectedSession
     }
@@ -70,7 +95,7 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     var wakeTimeLabel: String {
-        wakeUpTime.formatted(date: .omitted, time: .shortened)
+        currentWakeUpTime.formatted(date: .omitted, time: .shortened)
     }
 
     var scheduledDayLabel: String {
@@ -150,17 +175,32 @@ final class ScheduleViewModel: ObservableObject {
             }
         }
     }
+    
+    func toggleSelectedDay() {
+        toggleScheduledWeekday(selectedWeekday)
+    }
 
     func updateWakeTime(_ date: Date) {
-        wakeUpTime = date
+        let key = String(selectedWeekday)
+        wakeTimes[key] = date.timeIntervalSince1970
+        currentWakeUpTime = date
         lastScheduledSession = nextUpcomingSession
 
-        guard !scheduledWeekdays.isEmpty else {
+        guard scheduledWeekdays.contains(selectedWeekday) else {
             return
         }
 
         Task {
             await scheduleSession()
+        }
+    }
+    
+    private func updateCurrentWakeUpTime() {
+        let key = String(selectedWeekday)
+        if let interval = wakeTimes[key] {
+            currentWakeUpTime = Date(timeIntervalSince1970: interval)
+        } else {
+            currentWakeUpTime = Self.defaultWakeTime
         }
     }
 
@@ -227,9 +267,14 @@ final class ScheduleViewModel: ObservableObject {
 
         let calendar = Calendar.current
         let now = Date()
-        let wakeComponents = calendar.dateComponents([.hour, .minute], from: wakeUpTime)
 
-        return scheduledWeekdays.compactMap { weekday in
+        return scheduledWeekdays.compactMap { weekday -> Date? in
+            let wakeKey = String(weekday)
+            let timeInterval = wakeTimes[wakeKey]
+            let dayWakeTime = timeInterval != nil ? Date(timeIntervalSince1970: timeInterval!) : Self.defaultWakeTime
+            
+            let wakeComponents = calendar.dateComponents([.hour, .minute], from: dayWakeTime)
+            
             var candidateComponents = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
             candidateComponents.weekday = weekday
             candidateComponents.hour = wakeComponents.hour
@@ -250,7 +295,7 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     private var fallbackProjectedSession: SmartAlarmManager.ScheduledSleepSession {
-        let wakeUpDate = normalizedWakeUpDate(from: wakeUpTime)
+        let wakeUpDate = normalizedWakeUpDate(from: currentWakeUpTime)
         return makeSession(for: wakeUpDate)
     }
 

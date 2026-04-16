@@ -76,7 +76,7 @@ struct ScheduleView: View {
                         }
                     }
                     .onAppear(perform: syncInternalTime)
-                    .onChange(of: viewModel.wakeUpTime) { _, _ in
+                    .onChange(of: viewModel.currentWakeUpTime) { _, _ in
                         if !showingWakeTimePicker {
                             syncInternalTime()
                         }
@@ -89,8 +89,10 @@ struct ScheduleView: View {
                             .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
                     }
                     if !showingWakeTimePicker {
-                        DayOfWeekSelector(scheduledWeekdays: viewModel.scheduledWeekdays) { weekday in
-                            viewModel.toggleScheduledWeekday(weekday)
+                        DayOfWeekSelector(scheduledWeekdays: viewModel.scheduledWeekdays, selectedWeekday: viewModel.selectedWeekday) { weekday in
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                viewModel.selectedWeekday = weekday
+                            }
                         }
                         .padding(.top, viewModel.isAlarmEnabled ? 12 : 28)
                         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
@@ -120,14 +122,16 @@ struct ScheduleView: View {
                         .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     } else {
                         Button {
-                            Task { await viewModel.scheduleSession() }
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                viewModel.toggleSelectedDay()
+                            }
                         } label: {
-                            Text(viewModel.primaryButtonTitle)
+                            Text(viewModel.isAlarmEnabledForSelectedDay ? "Alarm On" : "Alarm Off")
                                 .font(.headline)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.primaryButtonTitle)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.isAlarmEnabledForSelectedDay)
                         }
-                        .buttonStyle(GlassButtonStyle(isProminent: viewModel.isAlarmEnabled, tint: .blue))
-                        .disabled(!viewModel.isAlarmEnabled || viewModel.isScheduling)
+                        .buttonStyle(GlassButtonStyle(isProminent: viewModel.isAlarmEnabledForSelectedDay, tint: .blue))
+                        .disabled(viewModel.isScheduling)
                         .padding(.bottom, 24)
                         .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     }
@@ -190,14 +194,15 @@ struct ScheduleView: View {
 
     private func syncInternalTime() {
         let calendar = Calendar.current
-        internalHour = calendar.component(.hour, from: viewModel.wakeUpTime)
-        internalMinute = calendar.component(.minute, from: viewModel.wakeUpTime)
+        internalHour = calendar.component(.hour, from: viewModel.currentWakeUpTime)
+        internalMinute = calendar.component(.minute, from: viewModel.currentWakeUpTime)
     }
 }
 
 private struct DayOfWeekSelector: View {
     let scheduledWeekdays: Set<Int>
-    let onToggle: (Int) -> Void
+    let selectedWeekday: Int
+    let onSelect: (Int) -> Void
     private let weekdaySymbols = ["S", "M", "T", "W", "T", "F", "S"]
 
     var body: some View {
@@ -205,9 +210,10 @@ private struct DayOfWeekSelector: View {
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                 let weekday = index + 1
                 let isScheduled = scheduledWeekdays.contains(weekday)
+                let isSelected = selectedWeekday == weekday
 
                 Button {
-                    onToggle(weekday)
+                    onSelect(weekday)
                 } label: {
                     Text(symbol)
                         .font(.footnote.weight(.semibold))
@@ -216,7 +222,13 @@ private struct DayOfWeekSelector: View {
                         .background {
                             Circle()
                                 .fill(isScheduled ? Color.blue.opacity(0.25) : Color.white.opacity(0.08))
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(isSelected ? Color.primary.opacity(0.4) : Color.clear, lineWidth: 1.5)
+                                )
                                 .glassEffect(.regular.tint(isScheduled ? .blue : .clear), in: Circle())
+                                .scaleEffect(isSelected ? 1.1 : 1.0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                         }
                 }
                 .buttonStyle(.plain)
