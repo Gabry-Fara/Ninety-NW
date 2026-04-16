@@ -1,8 +1,19 @@
 import SwiftUI
 
+// MARK: - Theme-aware accent color
+
+extension Color {
+    /// Returns `.orange` in light mode, `.blue` in dark mode — matching the settings theme preview.
+    static func themeAccent(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .light ? .orange : .blue
+    }
+}
+
 struct HorizonBackground: View {
     @Environment(\.colorScheme) var colorScheme
     var isActive: Bool = true
+    
+    private var accent: Color { .themeAccent(for: colorScheme) }
     
     var body: some View {
         ZStack {
@@ -22,12 +33,12 @@ struct HorizonBackground: View {
             VStack {
                 Spacer()
                 
-                // The glowing blue arc (The Horizon)
+                // The glowing arc (The Horizon)
                 ZStack {
                     // Outer glow
                     Ellipse()
                         .fill(isActive
-                              ? Color.blue.opacity(colorScheme == .light ? 0.2 : 0.3)
+                              ? accent.opacity(colorScheme == .light ? 0.2 : 0.3)
                               : Color.gray.opacity(colorScheme == .light ? 0.05 : 0.1))
                         .frame(width: 600, height: 300)
                         .blur(radius: 60)
@@ -39,7 +50,7 @@ struct HorizonBackground: View {
                         Ellipse()
                             .stroke(
                                 LinearGradient(
-                                    colors: [.clear, Color.blue.opacity(colorScheme == .light ? 0.6 : 0.8), .clear],
+                                    colors: [.clear, accent.opacity(colorScheme == .light ? 0.6 : 0.8), .clear],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 ),
@@ -86,9 +97,12 @@ struct GlassPill<Content: View>: View {
 }
 
 struct FuturisticButton: View {
+    @Environment(\.colorScheme) var colorScheme
     let title: String
     let action: () -> Void
     var isProminent: Bool = true
+    
+    private var accent: Color { .themeAccent(for: colorScheme) }
     
     var body: some View {
         Button(action: action) {
@@ -100,8 +114,8 @@ struct FuturisticButton: View {
                 .background {
                     if isProminent {
                         Capsule()
-                            .fill(Color.blue.opacity(0.2))
-                            .background(Capsule().stroke(Color.blue.opacity(0.5), lineWidth: 1))
+                            .fill(accent.opacity(0.2))
+                            .background(Capsule().stroke(accent.opacity(0.5), lineWidth: 1))
                             .background(.ultraThinMaterial)
                     } else {
                         Capsule()

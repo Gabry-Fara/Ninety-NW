@@ -10,6 +10,7 @@ import SwiftUI
 struct OnboardingView: View {
     @AppStorage("isBoarding") var isOnBoarding: Bool = true
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         if isOnBoarding {
@@ -48,7 +49,7 @@ struct OnboardingView: View {
                             }
                         }
                         .buttonStyle(GlassButtonStyle.glassProminent)
-                        .tint(.blue)
+                        .tint(Color.themeAccent(for: colorScheme))
                         .controlSize(.large)
                         .accessibilityHint("Opens the main sleep schedule".localized(for: appLanguage))
 

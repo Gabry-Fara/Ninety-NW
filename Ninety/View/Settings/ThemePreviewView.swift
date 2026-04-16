@@ -3,6 +3,9 @@ import SwiftUI
 struct ThemePreviewView: View {
     let theme: AppTheme
     let isSelected: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private var accent: Color { .themeAccent(for: colorScheme) }
 
     private var previewGradient: LinearGradient {
         switch theme {
@@ -36,7 +39,7 @@ struct ThemePreviewView: View {
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.white, .blue)
+                            .foregroundStyle(.white, accent)
                             .padding(8)
                     }
                 }
@@ -62,7 +65,7 @@ struct ThemePreviewView: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .stroke(
-                            isSelected ? Color.blue : Color.white.opacity(0.16),
+                            isSelected ? accent : Color.white.opacity(0.16),
                             lineWidth: isSelected ? 3 : 1
                         )
                 }

@@ -5,6 +5,9 @@ struct DiagnosticsView: View {
     @ObservedObject private var sleepManager = SleepSessionManager.shared
     @ObservedObject private var smartAlarm = SmartAlarmManager.shared
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private var accent: Color { .themeAccent(for: colorScheme) }
     
     var body: some View {
         ScrollView {
@@ -51,7 +54,7 @@ struct DiagnosticsView: View {
                                 sleepManager.startWatchSession()
                             }
                             .buttonStyle(GlassButtonStyle.glassProminent)
-                            .tint(.blue)
+                            .tint(accent)
                             .padding(.top, 5)
                         }
                     }

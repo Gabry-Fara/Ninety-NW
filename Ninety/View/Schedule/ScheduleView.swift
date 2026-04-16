@@ -10,6 +10,7 @@ struct ScheduleView: View {
     private let daySelectorOffset: CGFloat = 18
 
     @EnvironmentObject private var viewModel: ScheduleViewModel
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var smartAlarm = SmartAlarmManager.shared
     @ObservedObject private var sleepManager = SleepSessionManager.shared
     @State private var showingSettings = false
@@ -21,6 +22,7 @@ struct ScheduleView: View {
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
     private let impactHaptic = UIImpactFeedbackGenerator(style: .medium)
+    private var accent: Color { .themeAccent(for: colorScheme) }
     var body: some View {
         NavigationStack {
             ZStack {
@@ -42,7 +44,7 @@ struct ScheduleView: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: 38, style: .continuous)
                             .fill(Color(white: 0.5).opacity(0.001))
-                            .glassEffect(.regular.interactive().tint(viewModel.isAlarmEnabled ? .blue : .clear), in: RoundedRectangle(cornerRadius: 38, style: .continuous))
+                            .glassEffect(.regular.interactive().tint(viewModel.isAlarmEnabled ? accent : .clear), in: RoundedRectangle(cornerRadius: 38, style: .continuous))
                             .glassEffectID("timePill", in: glassNamespace)
                             .frame(width: 286, height: 96)
                         HStack(spacing: 12) {
@@ -126,7 +128,7 @@ struct ScheduleView: View {
                                 .font(.headline)
                                 .padding(.horizontal, 48)
                         }
-                        .buttonStyle(GlassButtonStyle(isProminent: true, tint: .blue))
+                        .buttonStyle(GlassButtonStyle(isProminent: true, tint: accent))
                         .padding(.bottom, 24)
                         .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     } else {
@@ -140,7 +142,7 @@ struct ScheduleView: View {
                                 .font(.headline)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.isAlarmEnabledForSelectedDay)
                         }
-                        .buttonStyle(GlassButtonStyle(isProminent: viewModel.isAlarmEnabledForSelectedDay, tint: .blue))
+                        .buttonStyle(GlassButtonStyle(isProminent: viewModel.isAlarmEnabledForSelectedDay, tint: accent))
                         .disabled(viewModel.isScheduling)
                         .padding(.bottom, 24)
                         .transition(.asymmetric(insertion: .opacity, removal: .opacity))
@@ -206,6 +208,9 @@ private struct DayOfWeekSelector: View {
     let onSelect: (Int) -> Void
     
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private var accent: Color { .themeAccent(for: colorScheme) }
 
     private struct WeekdayInfo: Identifiable {
         let id: Int // 1-indexed weekday (1=Sun, 2=Mon...)
@@ -239,12 +244,12 @@ private struct DayOfWeekSelector: View {
                         .foregroundStyle(isScheduled ? Color.white : Color.primary.opacity(0.9))
                         .background {
                             Circle()
-                                .fill(isScheduled ? Color.blue.opacity(0.25) : Color.white.opacity(0.08))
+                                .fill(isScheduled ? accent.opacity(0.25) : Color.white.opacity(0.08))
                                 .overlay(
                                     Circle()
                                         .strokeBorder(isSelected ? Color.primary.opacity(0.4) : Color.clear, lineWidth: 1.5)
                                 )
-                                .glassEffect(.regular.tint(isScheduled ? .blue : .clear), in: Circle())
+                                .glassEffect(.regular.tint(isScheduled ? accent : .clear), in: Circle())
                                 .scaleEffect(isSelected ? 1.1 : 1.0)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                         }

@@ -11,6 +11,9 @@ struct SettingsView: View {
     @StateObject private var settingsViewModel = SettingsViewModel()
     @State private var showingAbout = false
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private var accent: Color { .themeAccent(for: colorScheme) }
     
     var body: some View {
         ScrollView {
@@ -20,7 +23,7 @@ struct SettingsView: View {
                     // Smart Alarm Section
                     settingsSection("SMART ALARM".localized(for: appLanguage)) {
                         VStack(spacing: 0) {
-                            settingsRow(icon: "timer", color: .blue, title: "Wake Window".localized(for: appLanguage)) {
+                            settingsRow(icon: "timer", color: accent, title: "Wake Window".localized(for: appLanguage)) {
                                 Picker("Wake Window", selection: $settingsViewModel.smartWakeWindow) {
                                     Text("15 min").tag(15)
                                     Text("30 min").tag(30)
@@ -111,7 +114,7 @@ struct SettingsView: View {
                     // General Section
                     settingsSection("GENERAL".localized(for: appLanguage)) {
                         VStack(spacing: 0) {
-                            settingsRow(icon: "globe", color: .blue, title: "Language".localized(for: appLanguage)) {
+                            settingsRow(icon: "globe", color: accent, title: "Language".localized(for: appLanguage)) {
                                 Picker("Language", selection: $appLanguage) {
                                     ForEach(AppLanguage.allCases) { lang in
                                         Text(lang.displayName).tag(lang.rawValue)
@@ -129,7 +132,7 @@ struct SettingsView: View {
                                 HStack(spacing: 16) {
                                     Image(systemName: "info.circle.fill")
                                         .font(.title3)
-                                        .foregroundStyle(.blue)
+                                        .foregroundStyle(accent)
                                         .frame(width: 24)
                                     Text("About Ninety".localized(for: appLanguage))
                                         .foregroundStyle(.primary)
@@ -202,7 +205,7 @@ struct SettingsView: View {
         settingsRow(icon: icon, color: color, title: title) {
             Toggle("", isOn: isOn)
                 .labelsHidden()
-                .tint(.blue)
+                .tint(accent)
         }
     }
 }
@@ -346,13 +349,13 @@ private struct ThemePreviewView: View {
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.white, .blue)
+                            .foregroundStyle(.white, accentColor)
                             .padding(10)
                     }
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 3)
+                        .stroke(isSelected ? accentColor : Color.clear, lineWidth: 3)
                 }
                 .shadow(color: .black.opacity(theme == .light ? 0.08 : 0.22), radius: 12, y: 6)
 
