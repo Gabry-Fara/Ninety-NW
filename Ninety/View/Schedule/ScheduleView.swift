@@ -6,6 +6,9 @@
 //
 import SwiftUI
 struct ScheduleView: View {
+    private let timeBlockOffset: CGFloat = -130
+    private let daySelectorOffset: CGFloat = 18
+
     @EnvironmentObject private var viewModel: ScheduleViewModel
     @ObservedObject private var smartAlarm = SmartAlarmManager.shared
     @ObservedObject private var sleepManager = SleepSessionManager.shared
@@ -68,6 +71,7 @@ struct ScheduleView: View {
                         .disabled(!showingWakeTimePicker)
                     }
                     .frame(width: 286, height: 280)
+                    .offset(y: timeBlockOffset)
                     .contentShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
                     .onTapGesture {
                         if !showingWakeTimePicker {
@@ -88,6 +92,7 @@ struct ScheduleView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .padding(.top, 16)
+                            .offset(y: daySelectorOffset)
                             .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
                     }
                     if !showingWakeTimePicker {
@@ -97,6 +102,7 @@ struct ScheduleView: View {
                             }
                         }
                         .padding(.top, viewModel.isAlarmEnabled ? 12 : 28)
+                        .offset(y: daySelectorOffset)
                         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
                     }
                     Spacer().frame(height: 60)
