@@ -13,6 +13,8 @@ struct HorizonBackground: View {
     @Environment(\.colorScheme) var colorScheme
     var isActive: Bool = true
     
+    @State private var isBreathing = false
+    
     private var accent: Color { .themeAccent(for: colorScheme) }
     
     var body: some View {
@@ -38,10 +40,11 @@ struct HorizonBackground: View {
                     // Outer glow
                     Ellipse()
                         .fill(isActive
-                              ? accent.opacity(colorScheme == .light ? 0.2 : 0.3)
+                              ? accent.opacity(colorScheme == .light ? (isBreathing ? 0.35 : 0.15) : (isBreathing ? 0.45 : 0.2))
                               : Color.gray.opacity(colorScheme == .light ? 0.05 : 0.1))
                         .frame(width: 600, height: 300)
-                        .blur(radius: 60)
+                        .blur(radius: isBreathing ? 80 : 50)
+                        .scaleEffect(isActive && isBreathing ? 1.05 : 1.0)
                         .offset(y: 150)
                         .animation(.easeInOut(duration: 1.0), value: isActive)
                     
@@ -54,17 +57,41 @@ struct HorizonBackground: View {
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 ),
-                                lineWidth: 3
+                                lineWidth: isBreathing ? 4 : 2
                             )
                             .frame(width: 500, height: 250)
+                            .scaleEffect(isBreathing ? 1.02 : 1.0)
                             .offset(y: 125)
-                            .blur(radius: 1)
+                            .blur(radius: isBreathing ? 2 : 1)
                             .transition(.opacity)
                     }
                 }
             }
             .ignoresSafeArea()
             .animation(.easeInOut(duration: 0.8), value: isActive)
+        }
+        .onAppear {
+            if isActive {
+                startBreathing()
+            }
+        }
+        .onChange(of: isActive) { _, newValue in
+            if newValue {
+                // Short delay to let the fade-in complete before breathing starts
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    if isActive { startBreathing() }
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.8)) {
+                    isBreathing = false
+                }
+            }
+        }
+    }
+    
+    private func startBreathing() {
+        withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+            isBreathing = true
         }
     }
 }

@@ -209,7 +209,6 @@ private struct DayOfWeekSelector: View {
     
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     @Environment(\.colorScheme) private var colorScheme
-    @Namespace private var selectionNamespace
     
     private var accent: Color { .themeAccent(for: colorScheme) }
 
@@ -244,27 +243,16 @@ private struct DayOfWeekSelector: View {
                         .frame(width: 34, height: 34)
                         .foregroundStyle(isScheduled ? Color.white : Color.primary.opacity(0.9))
                         .background {
-                            ZStack {
-                                // Base scheduled state (static)
-                                Circle()
-                                    .fill(isScheduled ? accent.opacity(0.25) : Color.white.opacity(0.08))
-                                    .glassEffect(.regular.tint(isScheduled ? accent : .clear), in: Circle())
-                                
-                                // Liquid Glass Selector (slides between days)
-                                if isSelected {
+                            Circle()
+                                .fill(isScheduled ? accent.opacity(0.25) : Color.white.opacity(0.08))
+                                .overlay(
                                     Circle()
-                                        .fill(Color.white.opacity(0.01)) // Invisible base for effect
-                                        .overlay(
-                                            Circle()
-                                                .strokeBorder(Color.primary.opacity(0.4), lineWidth: 1.5)
-                                        )
-                                        .glassEffect(.regular.interactive().tint(isScheduled ? accent : .clear), in: Circle())
-                                        .matchedGeometryEffect(id: "daySelection", in: selectionNamespace)
-                                }
-                            }
+                                        .strokeBorder(isSelected ? Color.primary.opacity(0.4) : Color.clear, lineWidth: 1.5)
+                                )
+                                .glassEffect(.regular.tint(isScheduled ? accent : .clear), in: Circle())
+                                .scaleEffect(isSelected ? 1.1 : 1.0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                         }
-                        .scaleEffect(isSelected ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isSelected)
                 }
                 .buttonStyle(.plain)
             }
