@@ -34,7 +34,7 @@ struct ScheduleView: View {
                         .ignoresSafeArea()
                 }
                 VStack(spacing: 0) {
-                    Spacer().frame(height: 160)
+                    Spacer().frame(height: 20)
                     ZStack {
                         RoundedRectangle(cornerRadius: 38, style: .continuous)
                             .fill(Color(white: 0.5).opacity(0.001))
@@ -82,6 +82,7 @@ struct ScheduleView: View {
                             syncInternalTime()
                         }
                     }
+                    Spacer().frame(height: 40)
                     if viewModel.isAlarmEnabled && !showingWakeTimePicker {
                         Text("\("Next Up".localized(for: appLanguage)) · \(viewModel.nextUpcomingLabel)")
                             .font(.subheadline)
@@ -98,7 +99,7 @@ struct ScheduleView: View {
                         .padding(.top, viewModel.isAlarmEnabled ? 12 : 28)
                         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
                     }
-                    Spacer()
+                    Spacer().frame(height: 60)
                 }
                 VStack {
                     Spacer()
