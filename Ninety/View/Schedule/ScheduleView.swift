@@ -165,7 +165,7 @@ struct ScheduleView: View {
                                 Label("Diagnostics".localized(for: appLanguage), systemImage: "ladybug")
                             }
                         } label: {
-                            Image(systemName: "slider.horizontal.3")
+                            Image(systemName: "ellipsis")
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(.primary)
                                 .font(.title2.weight(.medium))
