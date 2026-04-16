@@ -267,6 +267,7 @@ struct CustomWheelPicker: View {
     let isActive: Bool
     let isPickerMode: Bool
     @State private var viewPosition: Int?
+    @State private var isProgrammaticScroll = false
     private let multiplier = 100
     private var count: Int { range.upperBound - range.lowerBound + 1 }
 
@@ -297,15 +298,22 @@ struct CustomWheelPicker: View {
         .safeAreaPadding(.vertical, 92)
         .scrollPosition(id: $viewPosition, anchor: .center)
         .scrollTargetBehavior(.viewAligned)
-        .onScrollPhaseChange { oldPhase, newPhase in
-            if newPhase == .idle, let viewPosition {
-                selectedValue = range.lowerBound + (viewPosition % count)
+        .onScrollPhaseChange { _, newPhase in
+            if newPhase == .idle {
+                // Only read back the position if the USER caused the scroll.
+                // Programmatic scrolls can land 1 ID off due to pixel rounding
+                // in SwiftUI's scroll snap, which would corrupt the stored time.
+                if !isProgrammaticScroll, let viewPosition {
+                    selectedValue = range.lowerBound + (viewPosition % count)
+                }
+                isProgrammaticScroll = false
             }
         }
         .onChange(of: selectedValue) { _, newSelected in
             if let currentPos = viewPosition {
                 let currentShownValue = range.lowerBound + (currentPos % count)
                 if currentShownValue != newSelected {
+                    isProgrammaticScroll = true
                     let midIndexOrigin = (multiplier / 2) * count
                     let offset = newSelected - range.lowerBound
                     viewPosition = midIndexOrigin + offset
@@ -313,6 +321,7 @@ struct CustomWheelPicker: View {
             }
         }
         .onAppear {
+            isProgrammaticScroll = true
             let midIndexOrigin = (multiplier / 2) * count
             let offset = selectedValue - range.lowerBound
             viewPosition = midIndexOrigin + offset
