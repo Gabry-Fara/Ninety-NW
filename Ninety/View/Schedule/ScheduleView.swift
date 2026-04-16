@@ -15,7 +15,6 @@ struct ScheduleView: View {
     @State private var showingSettings = false
     @State private var showingDiagnostics = false
     @State private var showingWakeTimePicker = false
-    @State private var showingSleepHistory = false
     @Namespace private var glassNamespace
     @State private var internalHour: Int = 0
     @State private var internalMinute: Int = 0
@@ -157,11 +156,6 @@ struct ScheduleView: View {
                             } label: {
                                 Label("Settings".localized(for: appLanguage), systemImage: "gearshape")
                             }
-                            Button {
-                                showingSleepHistory = true
-                            } label: {
-                                Label("Sleep History".localized(for: appLanguage), systemImage: "chart.bar.fill")
-                            }
                             Divider()
                             Button {
                                 showingDiagnostics = true
@@ -182,9 +176,6 @@ struct ScheduleView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showingSettings) {
                 SettingsView()
-            }
-            .navigationDestination(isPresented: $showingSleepHistory) {
-                SleepChartView()
             }
             .sheet(isPresented: $showingDiagnostics) {
                 NavigationStack {

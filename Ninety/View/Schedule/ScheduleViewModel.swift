@@ -1,16 +1,6 @@
 import Foundation
 import SwiftUI
 
-enum TimeView: String, CaseIterable {
-    case day, week, month
-}
-
-struct SleepData: Identifiable {
-    let id = UUID()
-    let date: Date
-    let sleepDuration: Double
-}
-
 @MainActor
 final class ScheduleViewModel: ObservableObject {
     private enum StorageKey {
@@ -41,9 +31,6 @@ final class ScheduleViewModel: ObservableObject {
     @Published var lastScheduledSession: SmartAlarmManager.ScheduledSleepSession?
     @Published var isScheduling = false
     @Published var schedulingError: String?
-    @Published var sleepData: [SleepData] = []
-    @Published var filteredSleepData: [SleepData] = []
-    @Published var timeView: TimeView = .week
     @Published var selectedDayHour: Int = 7
     @Published var selectedDayMinute: Int = 0
     @Published var clockLogs: [String] = []
@@ -105,8 +92,6 @@ final class ScheduleViewModel: ObservableObject {
         let storedWeekdays = UserDefaults.standard.array(forKey: StorageKey.scheduledWeekdays) as? [Int] ?? []
         scheduledWeekdays = Set(storedWeekdays)
         lastScheduledSession = nil
-        generateSampleSleepData()
-        filterSleepData()
         logClock("INIT ViewModel finished.")
         updateCurrentWakeUpTime()
         lastScheduledSession = nextUpcomingSession
@@ -311,30 +296,6 @@ final class ScheduleViewModel: ObservableObject {
         return status
     }
 
-    func filterSleepData() {
-        let calendar = Calendar.current
-        let now = Date()
-
-        switch timeView {
-        case .day:
-            filteredSleepData = sleepData.filter {
-                calendar.isDate($0.date, inSameDayAs: now)
-            }
-        case .week:
-            if let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) {
-                filteredSleepData = sleepData.filter {
-                    $0.date >= weekAgo && $0.date <= now
-                }
-            }
-        case .month:
-            if let monthAgo = calendar.date(byAdding: .month, value: -1, to: now) {
-                filteredSleepData = sleepData.filter {
-                    $0.date >= monthAgo && $0.date <= now
-                }
-            }
-        }
-    }
-
     private var nextUpcomingWakeUpDate: Date? {
         guard !scheduledWeekdays.isEmpty else {
             return nil
@@ -396,15 +357,4 @@ final class ScheduleViewModel: ObservableObject {
         return Calendar.current.date(byAdding: .day, value: 1, to: requestedWakeUpDate) ?? requestedWakeUpDate
     }
 
-    private func generateSampleSleepData() {
-        sleepData = [
-            SleepData(date: Date().addingTimeInterval(-86400 * 6), sleepDuration: 7.0),
-            SleepData(date: Date().addingTimeInterval(-86400 * 5), sleepDuration: 6.5),
-            SleepData(date: Date().addingTimeInterval(-86400 * 4), sleepDuration: 8.0),
-            SleepData(date: Date().addingTimeInterval(-86400 * 3), sleepDuration: 7.5),
-            SleepData(date: Date().addingTimeInterval(-86400 * 2), sleepDuration: 6.0),
-            SleepData(date: Date().addingTimeInterval(-86400), sleepDuration: 7.2),
-            SleepData(date: Date(), sleepDuration: 8.0)
-        ]
-    }
 }
