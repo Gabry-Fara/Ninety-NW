@@ -14,7 +14,6 @@
 		001E1C972F853EB100AD4DC7 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1C962F853EB100AD4DC7 /* DiagnosticsView.swift */; };
 		001E1CBA2F87DF9D00AD4DC7 /* SleepStagesV1.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 001E1CB92F87DF9D00AD4DC7 /* SleepStagesV1.mlmodel */; };
 		001E1CC72F87FA3B00AD4DC7 /* NinetySiriShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1CC62F87FA3B00AD4DC7 /* NinetySiriShortcuts.swift */; };
-		00B643152F7EC58900CC8B51 /* NinetyWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		00B643212F7EC82E00CC8B51 /* AlarmKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643202F7EC82E00CC8B51 /* AlarmKit.framework */; };
 		00B643232F85305E00CC8B51 /* CoreMotion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643222F85305E00CC8B51 /* CoreMotion.framework */; };
 		5B7A310C2C3FDCCB00353790 /* ScheduleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A310B2C3FDCCB00353790 /* ScheduleViewModel.swift */; };
@@ -30,30 +29,6 @@
 		A1B2C3D22C3FDC8200353790 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */; };
 		A1B2C3E12C3FDC8200353790 /* RedesignedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		00B643132F7EC58900CC8B51 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5BB3ED5E2C3AD54600CD4274 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 00B6430A2F7EC58800CC8B51;
-			remoteInfo = "NinetyWatch Watch App";
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		00B643192F7EC58900CC8B51 /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				00B643152F7EC58900CC8B51 /* NinetyWatch Watch App.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		001E1C8E2F853DF500AD4DC7 /* SensorPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorPayload.swift; sourceTree = "<group>"; };
@@ -243,12 +218,10 @@
 				5BB3ED622C3AD54600CD4274 /* Sources */,
 				5BB3ED632C3AD54600CD4274 /* Frameworks */,
 				5BB3ED642C3AD54600CD4274 /* Resources */,
-				00B643192F7EC58900CC8B51 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				00B643142F7EC58900CC8B51 /* PBXTargetDependency */,
 			);
 			name = Ninety;
 			productName = Ninety;
@@ -344,14 +317,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		00B643142F7EC58900CC8B51 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 00B6430A2F7EC58800CC8B51 /* NinetyWatch Watch App */;
-			targetProxy = 00B643132F7EC58900CC8B51 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		00B643172F7EC58900CC8B51 /* Debug */ = {
@@ -564,7 +529,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Ninety/Preview Content\"";
-				DEVELOPMENT_TEAM = AA85423644;
+				DEVELOPMENT_TEAM = SZVMQ2S4RR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Ninety/Info.plist;
@@ -579,7 +544,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety;
+				PRODUCT_BUNDLE_IDENTIFIER = it.michele.com;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -596,7 +561,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Ninety/Preview Content\"";
-				DEVELOPMENT_TEAM = AA85423644;
+				DEVELOPMENT_TEAM = SZVMQ2S4RR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Ninety/Info.plist;
@@ -611,7 +576,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = it.chiscian.Ninety;
+				PRODUCT_BUNDLE_IDENTIFIER = it.michele.com;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

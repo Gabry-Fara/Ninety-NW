@@ -83,6 +83,7 @@ extension String {
         switch self {
         case "SMART ALARM": return "SVEGLIA INTELLIGENTE"
         case "Wake Window": return "Finestra di sveglia"
+        case "Wake up by": return "Sveglia entro"
         case "Haptic Pre-Alarm": return "Pre-sveglia aptica"
         case "APPEARANCE": return "ASPETTO"
         case "Automatic": return "Automatico"
@@ -116,6 +117,7 @@ extension String {
         switch self {
         case "SMART ALARM": return "智能闹钟"
         case "Wake Window": return "唤醒窗口"
+        case "Wake up by": return "最晚唤醒时间"
         case "Haptic Pre-Alarm": return "触觉预闹钟"
         case "APPEARANCE": return "外观"
         case "Automatic": return "自动"
@@ -148,6 +150,7 @@ extension String {
         switch self {
         case "SMART ALARM": return "ALARMA INTELIGENTE"
         case "Wake Window": return "Ventana de despertar"
+        case "Wake up by": return "Despertar antes de"
         case "Haptic Pre-Alarm": return "Prealarma háptica"
         case "APPEARANCE": return "APARIENCIA"
         case "Automatic": return "Automático"
@@ -180,6 +183,7 @@ extension String {
         switch self {
         case "SMART ALARM": return "المنبه الذكي"
         case "Wake Window": return "نافذة الاستيقاظ"
+        case "Wake up by": return "الاستيقاظ قبل"
         case "Haptic Pre-Alarm": return "منبه لمسي مسبق"
         case "APPEARANCE": return "المظهر"
         case "Automatic": return "تلقائي"
