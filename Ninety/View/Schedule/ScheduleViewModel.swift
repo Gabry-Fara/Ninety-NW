@@ -47,11 +47,34 @@ final class ScheduleViewModel: ObservableObject {
     init() {
         let storedWakeTimes = UserDefaults.standard.dictionary(forKey: StorageKey.wakeTimesDict) as? [String: TimeInterval] ?? [:]
         
-        // Backward compatibility: migrate old single time if necessary
+        // Backward compatibility: migrate old single time stored as timeIntervalSince1970
         var initialWakeTimes = storedWakeTimes
         if initialWakeTimes.isEmpty {
             if let oldStored = UserDefaults.standard.object(forKey: StorageKey.wakeTime) as? TimeInterval {
-                for i in 1...7 { initialWakeTimes[String(i)] = oldStored }
+                // Convert legacy timeIntervalSince1970 to seconds-since-midnight
+                let legacyDate = Date(timeIntervalSince1970: oldStored)
+                let cal = Calendar.current
+                let h = cal.component(.hour, from: legacyDate)
+                let m = cal.component(.minute, from: legacyDate)
+                let midnightOffset = TimeInterval(h * 3600 + m * 60)
+                for i in 1...7 { initialWakeTimes[String(i)] = midnightOffset }
+            }
+        } else {
+            // One-time migration: convert any legacy timeIntervalSince1970 values
+            // to seconds-since-midnight. Legacy values are very large (> 86400).
+            var migrated = false
+            for (key, value) in initialWakeTimes {
+                if value > 86400 {
+                    let legacyDate = Date(timeIntervalSince1970: value)
+                    let cal = Calendar.current
+                    let h = cal.component(.hour, from: legacyDate)
+                    let m = cal.component(.minute, from: legacyDate)
+                    initialWakeTimes[key] = TimeInterval(h * 3600 + m * 60)
+                    migrated = true
+                }
+            }
+            if migrated {
+                UserDefaults.standard.set(initialWakeTimes, forKey: StorageKey.wakeTimesDict)
             }
         }
         wakeTimes = initialWakeTimes
@@ -188,8 +211,11 @@ final class ScheduleViewModel: ObservableObject {
 
     func updateWakeTime(_ date: Date) {
         let key = String(selectedWeekday)
-        wakeTimes[key] = date.timeIntervalSince1970
-        currentWakeUpTime = date
+        let cal = Calendar.current
+        let h = cal.component(.hour, from: date)
+        let m = cal.component(.minute, from: date)
+        wakeTimes[key] = TimeInterval(h * 3600 + m * 60)
+        currentWakeUpTime = Self.todayDate(hour: h, minute: m)
         lastScheduledSession = nextUpcomingSession
 
         guard scheduledWeekdays.contains(selectedWeekday) else {
@@ -203,11 +229,22 @@ final class ScheduleViewModel: ObservableObject {
     
     private func updateCurrentWakeUpTime() {
         let key = String(selectedWeekday)
-        if let interval = wakeTimes[key] {
-            currentWakeUpTime = Date(timeIntervalSince1970: interval)
+        if let secondsSinceMidnight = wakeTimes[key] {
+            let h = Int(secondsSinceMidnight) / 3600
+            let m = (Int(secondsSinceMidnight) % 3600) / 60
+            currentWakeUpTime = Self.todayDate(hour: h, minute: m)
         } else {
             currentWakeUpTime = Self.defaultWakeTime
         }
+    }
+
+    /// Builds a Date for today at the given hour and minute.
+    static func todayDate(hour: Int, minute: Int) -> Date {
+        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+        return Calendar.current.date(from: components) ?? .now
     }
 
     func userFriendlyWatchStatus(from status: String) -> String {
@@ -278,15 +315,14 @@ final class ScheduleViewModel: ObservableObject {
 
         return scheduledWeekdays.compactMap { weekday -> Date? in
             let wakeKey = String(weekday)
-            let timeInterval = wakeTimes[wakeKey]
-            let dayWakeTime = timeInterval != nil ? Date(timeIntervalSince1970: timeInterval!) : Self.defaultWakeTime
-            
-            let wakeComponents = calendar.dateComponents([.hour, .minute], from: dayWakeTime)
+            let secondsSinceMidnight = wakeTimes[wakeKey] ?? TimeInterval(7 * 3600) // default 07:00
+            let hour = Int(secondsSinceMidnight) / 3600
+            let minute = (Int(secondsSinceMidnight) % 3600) / 60
             
             var candidateComponents = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
             candidateComponents.weekday = weekday
-            candidateComponents.hour = wakeComponents.hour
-            candidateComponents.minute = wakeComponents.minute
+            candidateComponents.hour = hour
+            candidateComponents.minute = minute
             candidateComponents.second = 0
 
             guard var candidateDate = calendar.date(from: candidateComponents) else {
