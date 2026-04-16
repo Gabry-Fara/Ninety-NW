@@ -297,9 +297,9 @@ struct CustomWheelPicker: View {
         .safeAreaPadding(.vertical, 92)
         .scrollPosition(id: $viewPosition, anchor: .center)
         .scrollTargetBehavior(.viewAligned)
-        .onChange(of: viewPosition) { _, newValue in
-            if let newValue {
-                selectedValue = range.lowerBound + (newValue % count)
+        .onScrollPhaseChange { oldPhase, newPhase in
+            if newPhase == .idle, let viewPosition {
+                selectedValue = range.lowerBound + (viewPosition % count)
             }
         }
         .onChange(of: selectedValue) { _, newSelected in
