@@ -20,6 +20,8 @@ struct ScheduleView: View {
     @State private var internalHour: Int = 0
     @State private var internalMinute: Int = 0
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
+    @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
+    private let impactHaptic = UIImpactFeedbackGenerator(style: .medium)
     var body: some View {
         NavigationStack {
             ZStack {
@@ -72,12 +74,15 @@ struct ScheduleView: View {
                     }
                     .frame(width: 286, height: 280)
                     .offset(y: timeBlockOffset)
-                    .contentShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
-                    .onTapGesture {
+                    .overlay {
                         if !showingWakeTimePicker {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                showingWakeTimePicker = true
-                            }
+                            Color.clear
+                                .contentShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        showingWakeTimePicker = true
+                                    }
+                                }
                         }
                     }
                     .onAppear(perform: syncInternalTime)
@@ -112,6 +117,7 @@ struct ScheduleView: View {
                     Spacer()
                     if showingWakeTimePicker {
                         Button {
+                            if hapticFeedbackEnabled { impactHaptic.impactOccurred() }
                             viewModel.updateWakeTime(hour: internalHour, minute: internalMinute)
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                 showingWakeTimePicker = false
@@ -126,6 +132,7 @@ struct ScheduleView: View {
                         .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     } else {
                         Button {
+                            if hapticFeedbackEnabled { impactHaptic.impactOccurred() }
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                 viewModel.toggleSelectedDay()
                             }
@@ -269,6 +276,9 @@ struct CustomWheelPicker: View {
     
     @State private var viewPosition: Int?
     @State private var userDidScroll = false
+    @State private var lastTickedPosition: Int?
+    @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
+    private let selectionHaptic = UISelectionFeedbackGenerator()
     
     // Lower multiplier because we drop LazyVStack; 10 provides enough loops to feel infinite while maintaining perfect layout bounds
     private let multiplier = 10
@@ -308,9 +318,11 @@ struct CustomWheelPicker: View {
         .onScrollPhaseChange { _, newPhase in
             if newPhase == .interacting {
                 userDidScroll = true
+                if hapticFeedbackEnabled { selectionHaptic.prepare() }
             } else if newPhase == .idle {
                 if userDidScroll, let pos = viewPosition {
-                    selectedValue = range.lowerBound + (pos % count)
+                    let newValue = range.lowerBound + (pos % count)
+                    selectedValue = newValue
                     userDidScroll = false
                 } else if let pos = viewPosition {
                     let currentShownValue = range.lowerBound + (pos % count)
@@ -342,6 +354,17 @@ struct CustomWheelPicker: View {
             let midIndexOrigin = (multiplier / 2) * count
             let offset = selectedValue - range.lowerBound
             viewPosition = midIndexOrigin + offset
+            lastTickedPosition = viewPosition
+        }
+        .onChange(of: viewPosition) { oldPos, newPos in
+            guard userDidScroll, hapticFeedbackEnabled else { return }
+            guard let old = oldPos, let new = newPos, old != new else { return }
+            let oldValue = range.lowerBound + (old % count)
+            let newValue = range.lowerBound + (new % count)
+            if oldValue != newValue {
+                selectionHaptic.selectionChanged()
+                selectionHaptic.prepare()
+            }
         }
     }
 }

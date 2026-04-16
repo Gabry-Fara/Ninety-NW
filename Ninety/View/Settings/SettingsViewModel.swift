@@ -105,6 +105,7 @@ extension String {
         case "Sleep History": return "Cronologia sonno"
         case "Diagnostics": return "Diagnostica"
         case "Set Wake Time": return "Imposta orario"
+        case "Haptic Feedback": return "Feedback aptico"
         case "Light": return "Chiaro"
         case "Night": return "Notte"
         case "System": return "Sistema"
@@ -137,6 +138,7 @@ extension String {
         case "Sleep History": return "睡眠记录"
         case "Diagnostics": return "诊断"
         case "Set Wake Time": return "设置起床时间"
+        case "Haptic Feedback": return "触觉反馈"
         case "Light": return "浅色"
         case "Night": return "夜间"
         case "System": return "系统"
@@ -169,6 +171,7 @@ extension String {
         case "Sleep History": return "Historial de sueño"
         case "Diagnostics": return "Diagnóstico"
         case "Set Wake Time": return "Configurar hora"
+        case "Haptic Feedback": return "Retroalimentación háptica"
         case "Light": return "Claro"
         case "Night": return "Noche"
         case "System": return "Sistema"
@@ -201,6 +204,7 @@ extension String {
         case "Sleep History": return "سجل النوم"
         case "Diagnostics": return "التشخيص"
         case "Set Wake Time": return "ضبط وقت الاستيقاظ"
+        case "Haptic Feedback": return "ردود فعل لمسية"
         case "Light": return "فاتح"
         case "Night": return "ليلي"
         case "System": return "النظام"
@@ -215,6 +219,7 @@ class SettingsViewModel: ObservableObject {
     // Smart Alarm configuration
     @AppStorage("smartWakeWindow") var smartWakeWindow: Int = 30 // minutes before alarm to start sensing
     @AppStorage("hapticAlarm") var hapticAlarm: Bool = true // vibrate gently before ringing
+    @AppStorage("hapticFeedbackEnabled") var hapticFeedbackEnabled: Bool = true // UI haptic feedback
     @AppStorage("saveToHealthKit") var saveToHealthKit: Bool = true // save sleep data
     
     @AppStorage("isNotificationsEnabled") var isNotificationsEnabled: Bool = false {

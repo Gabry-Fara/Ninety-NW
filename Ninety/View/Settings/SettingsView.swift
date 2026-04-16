@@ -34,6 +34,10 @@ struct SettingsView: View {
                             Divider().padding(.leading, 44)
                             
                             settingsToggleRow(icon: "water.waves", color: .indigo, title: "Haptic Pre-Alarm".localized(for: appLanguage), isOn: $settingsViewModel.hapticAlarm)
+                            
+                            Divider().padding(.leading, 44)
+                            
+                            settingsToggleRow(icon: "hand.tap.fill", color: .orange, title: "Haptic Feedback".localized(for: appLanguage), isOn: $settingsViewModel.hapticFeedbackEnabled)
                         }
                     }
                     
