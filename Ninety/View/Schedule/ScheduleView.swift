@@ -42,6 +42,16 @@ struct ScheduleView: View {
                 VStack(spacing: 0) {
                     Spacer().frame(height: 20)
                     ZStack {
+                        if !showingWakeTimePicker {
+                            Text("Wake up by".localized(for: appLanguage))
+                                .font(.system(.subheadline, design: .rounded))
+                                .fontWeight(.medium)
+                                .foregroundStyle(.secondary)
+                                .opacity(0.8)
+                                .offset(y: -64)
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+
                         RoundedRectangle(cornerRadius: 38, style: .continuous)
                             .fill(Color(white: 0.5).opacity(0.001))
                             .glassEffect(.regular.interactive().tint(viewModel.isAlarmEnabled ? accent : .clear), in: RoundedRectangle(cornerRadius: 38, style: .continuous))

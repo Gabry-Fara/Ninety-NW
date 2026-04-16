@@ -108,7 +108,8 @@ private let translations: [String: [String: String]] = [
         "Schedule Failsafe (In +30 min)": "Programma Failsafe (+30 min)",
         "Test Dynamic Sub-Routine": "Test Routine Dinamica",
         "Alarm Trigger": "Innesca Allarme",
-        "No logs yet. Start session on Watch.": "Nessun log. Avvia la sessione sul Watch."
+        "No logs yet. Start session on Watch.": "Nessun log. Avvia la sessione sul Watch.",
+        "Wake up by": "Sveglia entro"
     ],
     "es": [
         "Track your sleep pattern and wake up refreshed.": "Sigue tus horas de sueño y despierta renovado.",
@@ -187,7 +188,8 @@ private let translations: [String: [String: String]] = [
         "Schedule Failsafe (In +30 min)": "Alarma de seguridad (+30 min)",
         "Test Dynamic Sub-Routine": "Probar rutina dinámica",
         "Alarm Trigger": "Activar Alarma",
-        "No logs yet. Start session on Watch.": "Sin registros. Inicia sesión en Watch."
+        "No logs yet. Start session on Watch.": "Sin registros. Inicia sesión en Watch.",
+        "Wake up by": "Despertar antes de"
     ],
     "zh": [
         "Track your sleep pattern and wake up refreshed.": "追踪您的睡眠模式，焕发活力地醒来。",
@@ -266,7 +268,8 @@ private let translations: [String: [String: String]] = [
         "Schedule Failsafe (In +30 min)": "排期备用闹钟（+30分钟）",
         "Test Dynamic Sub-Routine": "测试动态子程序",
         "Alarm Trigger": "触发闹钟",
-        "No logs yet. Start session on Watch.": "暂无日志。请在 Watch 上开始会话。"
+        "No logs yet. Start session on Watch.": "暂无日志。请在 Watch 上开始会话。",
+        "Wake up by": "在此时间前唤醒"
     ],
     "ar": [
         "Track your sleep pattern and wake up refreshed.": "تتبع أنماط نومك واستيقظ منتعشاً.",
@@ -345,6 +348,7 @@ private let translations: [String: [String: String]] = [
         "Schedule Failsafe (In +30 min)": "جدولة منبه احتياطي (+30 دقيقة)",
         "Test Dynamic Sub-Routine": "اختبار روتين ديناميكي",
         "Alarm Trigger": "إطلاق المنبه",
-        "No logs yet. Start session on Watch.": "لا توجد سجلات بعد. ابدأ الجلسة على الساعة."
+        "No logs yet. Start session on Watch.": "لا توجد سجلات بعد. ابدأ الجلسة على الساعة.",
+        "Wake up by": "الاستيقاظ قبل"
     ]
 ]
