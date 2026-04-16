@@ -123,7 +123,16 @@ private let translations: [String: [String: String]] = [
         "Your sleep data never leaves your device. No servers, no cloud — everything runs locally on your iPhone.": "I tuoi dati sul sonno non lasciano mai il tuo telefono. Nessun server, nessun cloud — solo tu e il tuo dispositivo.",
         "You're All Set": "Sei pronto!",
         "Everything is set up. Sweet dreams.": "Tutto è configurato. Sogni d'oro!",
-        "Replay Tour": "Ripeti il tutorial"
+        "Replay Tour": "Ripeti il tutorial",
+        "Haptic Feedback": "Feedback aptico",
+        "Clock Debug Logs": "Log di Debug Orologio",
+        "Copy Clock Logs to Clipboard": "Copia i log negli appunti",
+        "No clock logs yet.": "Nessun log orologio.",
+        "Ninety logo": "Logo Ninety",
+        "Opens the main sleep schedule": "Apre la schermata principale del sonno",
+        "Permissions are required to schedule your weekly wake-up plan.": "I permessi sono necessari per programmare il piano sveglia settimanale.",
+        "Watch unreachable. Request queued (Will fire when Watch wakes).": "Watch non raggiungibile. Richiesta in coda (verrà inviata quando il Watch si risveglia).",
+        "Sleep stage model ready": "Modello fasi del sonno pronto"
     ],
     "es": [
         "Track your sleep pattern and wake up refreshed.": "Sigue tus horas de sueño y despierta renovado.",
@@ -217,7 +226,16 @@ private let translations: [String: [String: String]] = [
         "Your sleep data never leaves your device. No servers, no cloud — everything runs locally on your iPhone.": "Tus datos de sueño nunca salen de tu teléfono. Sin servidores, sin nube — solo tú y tu dispositivo.",
         "You're All Set": "¡Listo!",
         "Everything is set up. Sweet dreams.": "Todo está configurado. ¡Dulces sueños!",
-        "Replay Tour": "Repetir tutorial"
+        "Replay Tour": "Repetir tutorial",
+        "Haptic Feedback": "Retroalimentación háptica",
+        "Clock Debug Logs": "Registros de reloj",
+        "Copy Clock Logs to Clipboard": "Copiar registros al portapapeles",
+        "No clock logs yet.": "Sin registros de reloj.",
+        "Ninety logo": "Logo Ninety",
+        "Opens the main sleep schedule": "Abre la programación principal de sueño",
+        "Permissions are required to schedule your weekly wake-up plan.": "Se requieren permisos para programar tu plan semanal de despertar.",
+        "Watch unreachable. Request queued (Will fire when Watch wakes).": "Watch inaccesible. Solicitud en cola (se enviará cuando el Watch despierte).",
+        "Sleep stage model ready": "Modelo de fases del sueño listo"
     ],
     "zh": [
         "Track your sleep pattern and wake up refreshed.": "追踪您的睡眠模式，焕发活力地醒来。",
@@ -311,7 +329,16 @@ private let translations: [String: [String: String]] = [
         "Your sleep data never leaves your device. No servers, no cloud — everything runs locally on your iPhone.": "您的睡眠数据永远不会离开手机。没有服务器、没有云端——只有您和您的设备。",
         "You're All Set": "准备就绪！",
         "Everything is set up. Sweet dreams.": "一切已配置完成。祝您好梦！",
-        "Replay Tour": "重播教程"
+        "Replay Tour": "重播教程",
+        "Haptic Feedback": "触觉反馈",
+        "Clock Debug Logs": "时钟调试日志",
+        "Copy Clock Logs to Clipboard": "复制时钟日志到剪贴板",
+        "No clock logs yet.": "暂无时钟日志。",
+        "Ninety logo": "Ninety 标志",
+        "Opens the main sleep schedule": "打开主睡眠日程",
+        "Permissions are required to schedule your weekly wake-up plan.": "需要权限来安排您的每周唤醒计划。",
+        "Watch unreachable. Request queued (Will fire when Watch wakes).": "Watch 不可达。请求已排队（Watch 唤醒后将发送）。",
+        "Sleep stage model ready": "睡眠阶段模型已就绪"
     ],
     "ar": [
         "Track your sleep pattern and wake up refreshed.": "تتبع أنماط نومك واستيقظ منتعشاً.",
@@ -405,6 +432,15 @@ private let translations: [String: [String: String]] = [
         "Your sleep data never leaves your device. No servers, no cloud — everything runs locally on your iPhone.": "بيانات نومك لا تغادر هاتفك أبداً. لا خوادم، لا سحابة — أنت وجهازك فقط.",
         "You're All Set": "أنت جاهز!",
         "Everything is set up. Sweet dreams.": "كل شيء مُعدّ. أحلام سعيدة!",
-        "Replay Tour": "إعادة الجولة"
+        "Replay Tour": "إعادة الجولة",
+        "Haptic Feedback": "ردود فعل لمسية",
+        "Clock Debug Logs": "سجلات تصحيح الساعة",
+        "Copy Clock Logs to Clipboard": "نسخ سجلات الساعة إلى الحافظة",
+        "No clock logs yet.": "لا توجد سجلات ساعة بعد.",
+        "Ninety logo": "شعار Ninety",
+        "Opens the main sleep schedule": "يفتح جدول النوم الرئيسي",
+        "Permissions are required to schedule your weekly wake-up plan.": "الأذونات مطلوبة لجدولة خطة الاستيقاظ الأسبوعية.",
+        "Watch unreachable. Request queued (Will fire when Watch wakes).": "الساعة غير قابلة للوصول. تم وضع الطلب في الانتظار.",
+        "Sleep stage model ready": "نموذج مراحل النوم جاهز"
     ]
 ]

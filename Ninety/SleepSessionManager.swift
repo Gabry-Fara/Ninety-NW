@@ -190,16 +190,17 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             let data = try JSONSerialization.data(withJSONObject: payloadDictionary, options: [])
             let payload = try JSONDecoder().decode(SensorPayload.self, from: data)
 
-            guard shouldProcessPayload(withID: payload.id) else {
-                log("Skipped duplicate payload \(payload.id.uuidString.prefix(8))")
-                return
-            }
-
             DispatchQueue.main.async {
                 self.lastPayloadReceived = "Received at \(payload.timestamp.formatted(date: .omitted, time: .standard))"
             }
 
+            // Deduplication and consumption must both run on processingQueue
+            // to avoid data races on recentPayloadIDs and other shared state.
             processingQueue.async {
+                guard self.shouldProcessPayload(withID: payload.id) else {
+                    self.log("Skipped duplicate payload \(payload.id.uuidString.prefix(8))")
+                    return
+                }
                 self.consume(payload: payload)
             }
         } catch {
@@ -503,17 +504,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let calendar = Calendar.current
         let components = calendar.dateComponents([.hour, .minute, .second], from: date)
         
-        // 1. Risolvi gli opzionali in modo isolato (il tipo inferito sarà Int)
         let h = components.hour ?? 0
         let m = components.minute ?? 0
         let s = components.second ?? 0
         
-        // 2. Fai la matematica con gli interi in un passaggio separato
         let totalSeconds = (h * 3600) + (m * 60) + s
         
-        // 3. Converti in Double solo alla fine
         let seconds = Double(totalSeconds)
-        let normalized = seconds / 86_400.0 // Aggiunto .0 per esplicitare il tipo Double
+        let normalized = seconds / 86_400.0
         
         return cos(2 * .pi * normalized)
     }

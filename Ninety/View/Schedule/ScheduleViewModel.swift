@@ -330,7 +330,11 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     private var fallbackProjectedSession: SmartAlarmManager.ScheduledSleepSession {
-        let wakeUpDate = normalizedWakeUpDate(from: currentWakeUpTime)
+        // If the wake-up time is in the past, push it to tomorrow
+        var wakeUpDate = currentWakeUpTime
+        if wakeUpDate <= Date() {
+            wakeUpDate = Calendar.current.date(byAdding: .day, value: 1, to: wakeUpDate) ?? wakeUpDate
+        }
         return makeSession(for: wakeUpDate)
     }
 
@@ -347,14 +351,6 @@ final class ScheduleViewModel: ObservableObject {
                 continuation.resume(returning: granted)
             }
         }
-    }
-
-    private func normalizedWakeUpDate(from requestedWakeUpDate: Date) -> Date {
-        guard requestedWakeUpDate <= Date() else {
-            return requestedWakeUpDate
-        }
-
-        return Calendar.current.date(byAdding: .day, value: 1, to: requestedWakeUpDate) ?? requestedWakeUpDate
     }
 
 }

@@ -72,7 +72,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         if let alarmID = absoluteAlarmID {
             #if canImport(AlarmKit)
             Task {
-                try? await AlarmManager.shared.cancel(id: alarmID)
+                try? AlarmManager.shared.cancel(id: alarmID)
             }
             #endif
             absoluteAlarmID = nil
@@ -90,12 +90,12 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         #if canImport(AlarmKit)
         Task {
             do {
-                // Livello 1 (Failsafe Assoluto)
+                // Layer 1 (Absolute Failsafe)
                 let configuration = AlarmManager.AlarmConfiguration(
                     schedule: .fixed(targetDate), 
                     attributes: createDefaultAttributes()
                 )
-                try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
+                _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
                 self.alarmStatus = "✅ Active Failsafe Alarm Scheduled in System"
             } catch {
                 self.alarmStatus = "System Alarm Schedule failed: \(error)"
@@ -111,11 +111,11 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         self.alarmStatus = "🚨 DYNAMIC WAKE EVENT TRIGGERED VIA ALARMKIT!"
         SleepSessionManager.shared.pauseWatchMonitoring()
         
-        // Pulizia chirurgica della sveglia di Livello 1 dopo che Livello 2 è scattata
+        // Clean up the Layer 1 failsafe alarm after Layer 2 has fired
         if let oldID = absoluteAlarmID {
             #if canImport(AlarmKit)
             Task {
-                try? await AlarmManager.shared.cancel(id: oldID)
+                try? AlarmManager.shared.cancel(id: oldID)
             }
             #endif
             absoluteAlarmID = nil
@@ -124,13 +124,13 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         #if canImport(AlarmKit)
         Task {
             do {
-                // Livello 2 (Trigger Euristico Dinamico) a zero secondi (modifica la precedente/trigger immediato)
-                let targetTime = Date().addingTimeInterval(2) // Devi assegnare almeno qualche secondo nel futuro
+                // Layer 2 (Dynamic Heuristic Trigger) — near-immediate fire
+                let targetTime = Date().addingTimeInterval(2) // AlarmKit requires at least a few seconds in the future
                 let configuration = AlarmManager.AlarmConfiguration(
                     schedule: .fixed(targetTime),
                     attributes: createDefaultAttributes()
                 )
-                try await AlarmManager.shared.schedule(id: UUID(), configuration: configuration)
+                _ = try await AlarmManager.shared.schedule(id: UUID(), configuration: configuration)
                 self.alarmStatus = "✅ Livello 2 Executed! 🔥 Waking User!"
             } catch {
                 self.alarmStatus = "Dynamic execution failed: \(error)"

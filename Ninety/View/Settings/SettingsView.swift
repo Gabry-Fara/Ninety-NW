@@ -375,13 +375,13 @@ private struct ThemePreviewView: View {
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.white, accentColor)
+                            .foregroundStyle(.white, .blue)
                             .padding(10)
                     }
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(isSelected ? accentColor : Color.clear, lineWidth: 3)
+                        .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 3)
                 }
                 .shadow(color: .black.opacity(theme == .light ? 0.08 : 0.22), radius: 12, y: 6)
 
@@ -392,6 +392,7 @@ private struct ThemePreviewView: View {
         .contentShape(Rectangle())
     }
 }
+
 
 #Preview {
     SettingsView()
