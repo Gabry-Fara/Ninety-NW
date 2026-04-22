@@ -11,124 +11,112 @@ import WatchKit
 struct ContentView: View {
     @StateObject private var sensorManager = WatchSensorManager.shared
     
-    var body: some View {
-        TabView {
-            DashboardView(sensorManager: sensorManager)
-                .containerBackground(.background, for: .tabView)
-            ControlsView(sensorManager: sensorManager)
-                .containerBackground(.background, for: .tabView)
-        }
-        .tabViewStyle(.verticalPage)
-        .onAppear {
-            sensorManager.requestHealthPermissions { _ in }
-            // Triggering the extended runtime session init off the main thread prompts user without freezing
-            DispatchQueue.global().async {
-                let preloadSession = WKExtendedRuntimeSession()
-                preloadSession.invalidate()
-            }
-        }
-    }
-}
-
-struct DashboardView: View {
-    @ObservedObject var sensorManager: WatchSensorManager
-
-    private var isInteractiveDeliveryAvailable: Bool {
+    // Abstract indicator of WCSession health to mitigate LOS (Loss of Signal) risk
+    private var isConnected: Bool {
         sensorManager.connectionStatus == "Phone reachable" || sensorManager.connectionStatus.hasPrefix("Syncing")
     }
     
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: isInteractiveDeliveryAvailable ? "link.icloud.fill" : "exclamationmark.icloud.fill")
-                .font(.system(size: 40))
-                .foregroundColor(isInteractiveDeliveryAvailable ? .green : .orange)
-                .symbolEffect(.pulse, isActive: isInteractiveDeliveryAvailable)
-                .accessibilityLabel(isInteractiveDeliveryAvailable ? "Phone reachable" : "Phone unreachable")
+        TabView {
+            minimalistNodeView
+            DebugNodeView(sensorManager: sensorManager)
+        }
+        .tabViewStyle(.verticalPage)
+        .background(Color.black)
+        .onAppear {
+            sensorManager.requestHealthPermissions { _ in }
+            // CoreMotion and permissions handled below
+        }
+    }
+    
+    private var minimalistNodeView: some View {
+        VStack(spacing: 8) {
+            // Minimalist Connectivity Indicator
+            Circle()
+                .fill(isConnected ? Color.green : Color.red)
+                .frame(width: 8, height: 8)
+                .shadow(color: isConnected ? .green : .red, radius: 4)
+                .padding(.bottom, 4)
             
-            Text("Ninety Node")
-                .font(.headline)
-            
-            VStack(spacing: 4) {
-                Text(sensorManager.sessionState)
-                    .font(.caption2.bold())
-                    .foregroundColor(.blue)
-                    .textCase(.uppercase)
-                
-                Text(sensorManager.connectionStatus)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.top, 4)
-
-            if let pendingScheduleDescription = sensorManager.pendingScheduleDescription {
-                VStack(spacing: 4) {
-                    Text("Action Required")
-                        .font(.caption2.bold())
-                        .foregroundStyle(.orange)
-                    Text("\(pendingScheduleDescription)\nKeep the app open to arm Smart Alarm.")
-                        .font(.caption2)
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.secondary)
-                }
-                .padding(8)
-                .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-            }
-
-            if !sensorManager.lastPayloadSent.isEmpty {
-                Text(sensorManager.lastPayloadSent)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondary)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 4)
-                    .accessibilityLabel("Last sensor payload: \(sensorManager.lastPayloadSent)")
-            }
+            // Minimalist Status Text
+            Text(statusMessage)
+                .font(.footnote)
+                .foregroundColor(isConnected ? .white : .secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
     }
+    
+    private var statusMessage: String {
+        // If there's an active session or a queued schedule, display its status cleanly.
+        if sensorManager.hasPendingSchedule, let pending = sensorManager.pendingScheduleDescription {
+            return "Sveglia attiva entro le \(pending)"
+        }
+        
+        // Check for active text
+        let state = sensorManager.sessionState.lowercased()
+        if state.contains("running") || state.contains("active") {
+            return "Monitoraggio ciclo attivo"
+        }
+        
+        return "Ninety in attesa..."
+    }
 }
 
-struct ControlsView: View {
+// MARK: - Debug View
+
+struct DebugNodeView: View {
     @ObservedObject var sensorManager: WatchSensorManager
     
     var body: some View {
-        List {
-            Section(header: Text("Session Control")) {
-                if sensorManager.hasPendingSchedule {
-                    Button(action: {
-                        sensorManager.armPendingScheduleIfPossible()
-                    }) {
-                        HStack {
-                            Image(systemName: "bolt.badge.clock.fill")
-                            Text("Arm Queued Session")
-                        }
-                    }
-                    .listItemTint(.orange)
-                }
-
-                Button(action: {
-                    // Simulating scheduling 5 seconds from now for immediate testing
-                    let futureDate = Date().addingTimeInterval(5)
-                    sensorManager.scheduleSmartAlarmSession(at: futureDate)
-                }) {
-                    HStack {
-                        Image(systemName: "play.circle.fill")
-                        Text("Simulate")
-                    }
-                }
-                .listItemTint(.green)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("🛠 Debug Node")
+                    .font(.headline)
+                    .foregroundColor(.orange)
                 
-                Button(action: {
-                    sensorManager.stopSession()
-                }) {
-                    HStack {
-                        Image(systemName: "stop.circle.fill")
-                        Text("Stop")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Session: \(sensorManager.sessionState)")
+                        .foregroundColor(.blue)
+                    Text("Link: \(sensorManager.connectionStatus)")
+                        .foregroundColor(.secondary)
+                    
+                    if sensorManager.hasPendingSchedule, let pending = sensorManager.pendingScheduleDescription {
+                        Text("Queue: \(pending)")
+                            .foregroundColor(.orange)
                     }
                 }
-                .listItemTint(.red)
+                .font(.caption2)
+                
+                Divider()
+                
+                if !sensorManager.lastPayloadSent.isEmpty {
+                    Text("Last Payload:")
+                        .font(.caption2.bold())
+                    Text(sensorManager.lastPayloadSent)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                }
+                
+                Divider()
+                
+                // Manual overrides for testing routing
+                Group {
+                    Button("Simulate Start (5s)") {
+                        sensorManager.scheduleSmartAlarmSession(at: Date().addingTimeInterval(5))
+                    }
+                    .tint(.green)
+                    
+                    Button("Force Stop Session") {
+                        sensorManager.stopSession()
+                    }
+                    .tint(.red)
+                }
+                .font(.caption)
             }
+            .padding()
         }
     }
 }

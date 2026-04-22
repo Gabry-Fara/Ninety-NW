@@ -8,14 +8,17 @@ import SwiftUI
 
 struct ScheduleView: View {
     private let timeBlockOffset: CGFloat = -130
-    private let daySelectorOffset: CGFloat = 18
+    private let daySelectorOffset: CGFloat = -8
+    private let alarmButtonBottomPadding: CGFloat = 92
 
     @EnvironmentObject private var viewModel: ScheduleViewModel
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var smartAlarm = SmartAlarmManager.shared
     @ObservedObject private var sleepManager = SleepSessionManager.shared
     @State private var showingSettings = false
+    @State private var isSettingsNavigationPending = false
     @State private var showingDiagnostics = false
+    @State private var showingTestMode = false
     @State private var showingWakeTimePicker = false
     @Namespace private var glassNamespace
     @State private var internalHour: Int = 0
@@ -24,15 +27,17 @@ struct ScheduleView: View {
     @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
     @AppStorage("showGuidedTour") private var showGuidedTour: Bool = false
     private let impactHaptic = UIImpactFeedbackGenerator(style: .medium)
-    private var accent: Color { .themeAccent(for: colorScheme) }
+    private var accent: Color { .scheduleAccent(for: colorScheme) }
+    private var isSelectedDayActive: Bool { viewModel.isAlarmEnabledForSelectedDay }
     private var timePillTint: Color {
-        viewModel.isAlarmEnabled ? accent : .clear
+        guard isSelectedDayActive else { return .clear }
+        return accent.opacity(colorScheme == .light ? 0.30 : 0.34)
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                HorizonBackground(isActive: viewModel.isAlarmEnabled)
+                HorizonBackground(isActive: viewModel.isAlarmEnabled, accentOverride: accent)
                     .ignoresSafeArea()
                 if showingWakeTimePicker {
                     Color.clear
@@ -54,7 +59,7 @@ struct ScheduleView: View {
                                 .fontWeight(.medium)
                                 .foregroundStyle(.secondary)
                                 .opacity(0.8)
-                                .offset(y: -64)
+                                .offset(y: -70)
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
 
@@ -68,14 +73,26 @@ struct ScheduleView: View {
                             .frame(width: 286, height: 96)
                             .tourTarget(.clockPill)
                         HStack(spacing: 12) {
-                            CustomWheelPicker(selectedValue: $internalHour, range: 0...23, isMinutes: false, isActive: true, isPickerMode: showingWakeTimePicker)
+                            CustomWheelPicker(
+                                selectedValue: $internalHour,
+                                range: 0...23,
+                                isMinutes: false,
+                                isActive: showingWakeTimePicker || isSelectedDayActive,
+                                isPickerMode: showingWakeTimePicker
+                            )
                                 .frame(width: 100)
                             Text(":")
                                 .font(.system(size: 64, weight: .light, design: .rounded))
                                 .foregroundStyle(.primary)
-                                .opacity(viewModel.isAlarmEnabled ? 0.8 : 0.3)
+                                .opacity((showingWakeTimePicker || isSelectedDayActive) ? 0.8 : 0.3)
                                 .offset(y: -4)
-                            CustomWheelPicker(selectedValue: $internalMinute, range: 0...59, isMinutes: true, isActive: true, isPickerMode: showingWakeTimePicker)
+                            CustomWheelPicker(
+                                selectedValue: $internalMinute,
+                                range: 0...59,
+                                isMinutes: true,
+                                isActive: showingWakeTimePicker || isSelectedDayActive,
+                                isPickerMode: showingWakeTimePicker
+                            )
                                 .frame(width: 100)
                         }
                         .frame(width: 286, height: 280)
@@ -94,9 +111,10 @@ struct ScheduleView: View {
                         .disabled(!showingWakeTimePicker)
                     }
                     .frame(width: 286, height: 280)
+                    .disabled(showGuidedTour)
                     .offset(y: timeBlockOffset)
                     .overlay {
-                        if !showingWakeTimePicker {
+                        if !showingWakeTimePicker && !showGuidedTour {
                             Color.clear
                                 .contentShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
                                 .onTapGesture {
@@ -128,9 +146,10 @@ struct ScheduleView: View {
                                 viewModel.selectedWeekday = weekday
                             }
                         }
+                        .allowsHitTesting(!showGuidedTour)
+                        .tourTarget(.daySelector)
                         .padding(.top, viewModel.isAlarmEnabled ? 12 : 28)
                         .offset(y: daySelectorOffset)
-                        .tourTarget(.daySelector)
                         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
                     }
                     Spacer().frame(height: 60)
@@ -150,7 +169,7 @@ struct ScheduleView: View {
                                 .padding(.horizontal, 48)
                         }
                         .buttonStyle(GlassButtonStyle(isProminent: true, tint: accent))
-                        .padding(.bottom, 24)
+                        .padding(.bottom, alarmButtonBottomPadding)
                         .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     } else {
                         Button {
@@ -164,19 +183,24 @@ struct ScheduleView: View {
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.isAlarmEnabledForSelectedDay)
                         }
                         .buttonStyle(GlassButtonStyle(isProminent: viewModel.isAlarmEnabledForSelectedDay, tint: accent))
-                        .disabled(viewModel.isScheduling)
-                        .padding(.bottom, 24)
+                        .disabled(viewModel.isScheduling || showGuidedTour)
                         .tourTarget(.alarmButton)
+                        .padding(.bottom, alarmButtonBottomPadding)
                         .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     }
                 }
             }
+            .allowsHitTesting(!showGuidedTour)
             .toolbar {
-                if !showingWakeTimePicker {
+                if !showingWakeTimePicker && !showGuidedTour && !isSettingsNavigationPending {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button {
-                                showingSettings = true
+                                isSettingsNavigationPending = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                    isSettingsNavigationPending = false
+                                    showingSettings = true
+                                }
                             } label: {
                                 Label("Settings".localized(for: appLanguage), systemImage: "gearshape")
                             }
@@ -186,13 +210,21 @@ struct ScheduleView: View {
                             } label: {
                                 Label("Diagnostics".localized(for: appLanguage), systemImage: "ladybug")
                             }
+                            Divider()
+                            Button {
+                                showingTestMode = true
+                            } label: {
+                                Label("Test Mode", systemImage: "flask")
+                            }
                         } label: {
                             Image(systemName: "ellipsis")
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(.primary)
                                 .font(.title2.weight(.medium))
+                                .frame(width: 36, height: 36)
+                                .contentShape(Rectangle())
                         }
-                        .glassEffect(.regular.interactive(), in: Circle())
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -215,10 +247,32 @@ struct ScheduleView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
+            .sheet(isPresented: $showingTestMode) {
+                NavigationStack {
+                    TestModeView()
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") {
+                                    showingTestMode = false
+                                }
+                            }
+                        }
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
             .overlay {
                 if showGuidedTour {
-                    GuidedTourView(isPresented: $showGuidedTour)
-                        .transition(.opacity)
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.black.opacity(0.001))
+                            .contentShape(Rectangle())
+                            .ignoresSafeArea()
+                            .onTapGesture {}
+
+                        GuidedTourView(isPresented: $showGuidedTour)
+                            .transition(.opacity)
+                    }
                 }
             }
         }
@@ -238,7 +292,7 @@ private struct DayOfWeekSelector: View {
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     @Environment(\.colorScheme) private var colorScheme
     
-    private var accent: Color { .themeAccent(for: colorScheme) }
+    private var accent: Color { .scheduleAccent(for: colorScheme) }
 
     private struct WeekdayInfo: Identifiable {
         let id: Int // 1-indexed weekday (1=Sun, 2=Mon...)
@@ -313,7 +367,7 @@ struct CustomWheelPicker: View {
         let blurOpacity = isActive ? 0.3 : 0.1
 
         ScrollView(.vertical, showsIndicators: false) {
-            // Using VStack instead of LazyVStack is the crucial fix! 
+            // Using VStack instead of LazyVStack is the crucial fix!
             // It pre-computes all boundaries instantaneously, meaning .scrollPosition programmatic jumps are flawlessly mathematically exact.
             VStack(spacing: 0) {
                 ForEach(0..<(count * multiplier), id: \.self) { index in
@@ -391,4 +445,10 @@ struct CustomWheelPicker: View {
             }
         }
     }
+}
+
+#Preview {
+    ScheduleView()
+        .environmentObject(ScheduleViewModel())
+        .environmentObject(TourFrameStore())
 }

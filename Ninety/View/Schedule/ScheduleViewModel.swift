@@ -168,7 +168,7 @@ final class ScheduleViewModel: ObservableObject {
     func scheduleSession() async {
         guard !isScheduling else { return }
         guard let nextUpcomingSession else {
-            SmartAlarmManager.shared.cancelSession()
+            await SmartAlarmManager.shared.cancelSessionNow()
             lastScheduledSession = nil
             schedulingError = nil
             return
@@ -185,11 +185,12 @@ final class ScheduleViewModel: ObservableObject {
             return
         }
 
-        SmartAlarmManager.shared.scheduleSystemAlarm(for: nextUpcomingSession.wakeUpDate)
+        await SmartAlarmManager.shared.rescheduleSystemAlarm(for: nextUpcomingSession.wakeUpDate)
         lastScheduledSession = nextUpcomingSession
     }
 
     func cancelSession() {
+        SleepSessionManager.shared.log("UI Interaction: Cancelled system scheduled session")
         SmartAlarmManager.shared.cancelSession()
         lastScheduledSession = nil
     }
@@ -202,6 +203,8 @@ final class ScheduleViewModel: ObservableObject {
         }
 
         lastScheduledSession = nextUpcomingSession
+
+        SleepSessionManager.shared.log("UI Interaction: Toggled alarm for weekday \(weekday). Active: \(scheduledWeekdays.contains(weekday))")
 
         Task {
             if scheduledWeekdays.isEmpty {
@@ -221,6 +224,7 @@ final class ScheduleViewModel: ObservableObject {
         let key = String(selectedWeekday)
         wakeTimes[key] = TimeInterval(hour * 3600 + minute * 60).rounded()
         
+        SleepSessionManager.shared.log("UI Interaction: Updated wake time to \(String(format: "%02d:%02d", hour, minute)) for weekday \(selectedWeekday)")
         logClock("wakeTimes[\(key)] updated to \(wakeTimes[key]!)")
         
         selectedDayHour = hour

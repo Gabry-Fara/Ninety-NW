@@ -79,4 +79,6 @@ struct OnboardingView: View {
 
 #Preview {
     OnboardingView()
+        .environmentObject(ScheduleViewModel())
+        .environmentObject(TourFrameStore())
 }

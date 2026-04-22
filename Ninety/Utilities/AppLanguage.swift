@@ -132,7 +132,8 @@ private let translations: [String: [String: String]] = [
         "Opens the main sleep schedule": "Apre la schermata principale del sonno",
         "Permissions are required to schedule your weekly wake-up plan.": "I permessi sono necessari per programmare il piano sveglia settimanale.",
         "Watch unreachable. Request queued (Will fire when Watch wakes).": "Watch non raggiungibile. Richiesta in coda (verrà inviata quando il Watch si risveglia).",
-        "Sleep stage model ready": "Modello fasi del sonno pronto"
+        "Sleep stage model ready": "Modello fasi del sonno pronto",
+        "Clear Logs": "Cancella Log"
     ],
     "es": [
         "Track your sleep pattern and wake up refreshed.": "Sigue tus horas de sueño y despierta renovado.",
@@ -235,7 +236,8 @@ private let translations: [String: [String: String]] = [
         "Opens the main sleep schedule": "Abre la programación principal de sueño",
         "Permissions are required to schedule your weekly wake-up plan.": "Se requieren permisos para programar tu plan semanal de despertar.",
         "Watch unreachable. Request queued (Will fire when Watch wakes).": "Watch inaccesible. Solicitud en cola (se enviará cuando el Watch despierte).",
-        "Sleep stage model ready": "Modelo de fases del sueño listo"
+        "Sleep stage model ready": "Modelo de fases del sueño listo",
+        "Clear Logs": "Borrar registros"
     ],
     "zh": [
         "Track your sleep pattern and wake up refreshed.": "追踪您的睡眠模式，焕发活力地醒来。",
@@ -338,7 +340,8 @@ private let translations: [String: [String: String]] = [
         "Opens the main sleep schedule": "打开主睡眠日程",
         "Permissions are required to schedule your weekly wake-up plan.": "需要权限来安排您的每周唤醒计划。",
         "Watch unreachable. Request queued (Will fire when Watch wakes).": "Watch 不可达。请求已排队（Watch 唤醒后将发送）。",
-        "Sleep stage model ready": "睡眠阶段模型已就绪"
+        "Sleep stage model ready": "睡眠阶段模型已就绪",
+        "Clear Logs": "清除日志"
     ],
     "ar": [
         "Track your sleep pattern and wake up refreshed.": "تتبع أنماط نومك واستيقظ منتعشاً.",
@@ -441,6 +444,7 @@ private let translations: [String: [String: String]] = [
         "Opens the main sleep schedule": "يفتح جدول النوم الرئيسي",
         "Permissions are required to schedule your weekly wake-up plan.": "الأذونات مطلوبة لجدولة خطة الاستيقاظ الأسبوعية.",
         "Watch unreachable. Request queued (Will fire when Watch wakes).": "الساعة غير قابلة للوصول. تم وضع الطلب في الانتظار.",
-        "Sleep stage model ready": "نموذج مراحل النوم جاهز"
+        "Sleep stage model ready": "نموذج مراحل النوم جاهز",
+        "Clear Logs": "مسح السجلات"
     ]
 ]

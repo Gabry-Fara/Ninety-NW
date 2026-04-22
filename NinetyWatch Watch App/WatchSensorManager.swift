@@ -92,6 +92,12 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         self.isMocking = false
         #endif
 
+        if let existing = self.runtimeSession {
+            if existing.state == .running || existing.state == .scheduled {
+                existing.invalidate()
+            }
+        }
+
         self.runtimeSession = WKExtendedRuntimeSession()
         self.runtimeSession?.delegate = self
         self.runtimeSession?.start(at: date)
@@ -115,7 +121,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     func stopSession() {
-        runtimeSession?.invalidate()
+        if runtimeSession?.state == .running || runtimeSession?.state == .scheduled {
+            runtimeSession?.invalidate()
+        }
         runtimeSession = nil
         clearPendingSchedule()
         stopSensors()
@@ -269,8 +277,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func transmit(payload: SensorPayload) {
         guard let session = wcSession else { return }
 
-        if let encoded = try? JSONEncoder().encode(payload),
-           let dict = try? JSONSerialization.jsonObject(with: encoded, options: []) as? [String: Any] {
+        if let encoded = try? JSONEncoder().encode(payload) {
+            let dict: [String: Any] = ["payloadData": encoded]
             session.transferUserInfo(dict)
 
             if session.isReachable {
@@ -368,7 +376,11 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             if action == "startSession" {
                 if let targetInterval = payload["targetDate"] as? TimeInterval {
                     // Start exactly 30 minutes before the target alarm date
-                    let wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
+                    var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
+                    // Ensure the date is never in the past, which would crash WKExtendedRuntimeSession
+                    if wakeWindowStartDate <= Date() {
+                        wakeWindowStartDate = Date().addingTimeInterval(2) // start practically immediately
+                    }
                     DispatchQueue.main.async {
                         self.queueOrScheduleSmartAlarmSession(at: wakeWindowStartDate)
                     }
@@ -385,6 +397,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             } else if action == "pauseMonitoring" {
                 DispatchQueue.main.async {
                     self.pauseMonitoring()
+                }
+            } else if action == "hapticWakeUp" {
+                DispatchQueue.main.async {
+                    HapticWakeUpManager.shared.startGradualWakeUp()
                 }
             }
         }
@@ -413,11 +429,14 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func sendWatchStatusUpdate(_ status: String) {
         guard let session = wcSession, session.activationState == .activated else { return }
 
-        let message: [String: Any] = [
+        var message: [String: Any] = [
             "watchStatus": status,
-            "watchConnectionStatus": connectionStatus,
-            "queuedSchedule": pendingScheduledStartDate?.timeIntervalSince1970 as Any
+            "watchConnectionStatus": connectionStatus
         ]
+        
+        if let queuedSchedule = pendingScheduledStartDate?.timeIntervalSince1970 {
+            message["queuedSchedule"] = queuedSchedule
+        }
 
         if session.isReachable {
             session.sendMessage(message, replyHandler: nil, errorHandler: nil)

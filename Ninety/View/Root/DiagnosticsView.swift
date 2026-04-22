@@ -51,6 +51,7 @@ struct DiagnosticsView: View {
                                 .padding(.top, 4)
                             
                             Button("Start Session on Watch".localized(for: appLanguage)) {
+                                sleepManager.log("UI Interaction: Button tapped -> Start Session on Watch")
                                 sleepManager.startWatchSession()
                             }
                             .buttonStyle(GlassButtonStyle.glassProminent)
@@ -75,22 +76,26 @@ struct DiagnosticsView: View {
                             
                             VStack(spacing: 8) {
                                 Button("Request System Permissions".localized(for: appLanguage)) {
+                                    sleepManager.log("UI Interaction: Button tapped -> Request System Permissions")
                                     smartAlarm.requestPermissions { _ in }
                                 }
                                 .buttonStyle(GlassButtonStyle.glassProminent)
                                 
                                 Button("Schedule Failsafe (In +30 min)".localized(for: appLanguage)) {
+                                    sleepManager.log("UI Interaction: Button tapped -> Schedule Failsafe (+30 min)")
                                     let endOfWindow = Date().addingTimeInterval(30 * 60)
                                     smartAlarm.scheduleSystemAlarm(for: endOfWindow)
                                 }
                                 .buttonStyle(GlassButtonStyle.glass)
                                 
                                 Button("Test Dynamic Sub-Routine".localized(for: appLanguage)) {
+                                    sleepManager.log("UI Interaction: Button tapped -> Test Dynamic Sub-Routine")
                                     smartAlarm.triggerDynamicAlarm()
                                 }
                                 .buttonStyle(GlassButtonStyle.glass)
                                 
                                 Button("Alarm Trigger".localized(for: appLanguage)) {
+                                    sleepManager.log("UI Interaction: Button tapped -> Manual Alarm Trigger")
                                     smartAlarm.triggerDynamicAlarm()
                                 }
                                 .buttonStyle(GlassButtonStyle.glassProminent)
@@ -101,16 +106,24 @@ struct DiagnosticsView: View {
                     }
                     
                     diagnosticSection("Log Stream".localized(for: appLanguage)) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            if sleepManager.logs.isEmpty {
-                                Text("No logs yet. Start session on Watch.".localized(for: appLanguage))
-                                    .foregroundColor(.secondary)
-                            } else {
-                                ForEach(sleepManager.logs, id: \.self) { logMsg in
-                                    Text(logMsg)
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .padding(.bottom, 2)
-                                    Divider()
+                        VStack(alignment: .leading, spacing: 12) {
+                            Button("Clear Logs".localized(for: appLanguage)) {
+                                sleepManager.clearLogs()
+                            }
+                            .buttonStyle(GlassButtonStyle.glass)
+                            .padding(.bottom, 4)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                if sleepManager.logs.isEmpty {
+                                    Text("No logs yet. Start session on Watch.".localized(for: appLanguage))
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    ForEach(sleepManager.logs, id: \.self) { logMsg in
+                                        Text(logMsg)
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .padding(.bottom, 2)
+                                        Divider()
+                                    }
                                 }
                             }
                         }

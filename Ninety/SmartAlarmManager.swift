@@ -19,9 +19,13 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     }
     
     @Published var alarmStatus: String = "No alarms configured."
+    @Published var monitoringCountdown: String = ""
     
     private var absoluteAlarmID: UUID?
     private var audioPlayer: AVAudioPlayer?
+    private var monitoringTimer: Timer?   // fires when the 30-min tracking window opens
+    private var countdownTimer: Timer?    // updates the countdown string every second
+    private let speechSynthesizer = AVSpeechSynthesizer()
     
     override init() {
         super.init()
@@ -69,40 +73,111 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     }
     
     func cancelSession() {
-        if let alarmID = absoluteAlarmID {
-            #if canImport(AlarmKit)
-            Task {
-                try? AlarmManager.shared.cancel(id: alarmID)
-            }
-            #endif
-            absoluteAlarmID = nil
+        Task {
+            await cancelSessionNow()
         }
+    }
+
+    func cancelSessionNow() async {
+        await clearScheduledSession(resetStatus: true)
+    }
+
+    func rescheduleSystemAlarm(for targetDate: Date) async {
+        await clearScheduledSession(resetStatus: false)
+        await scheduleSystemAlarmAfterClearing(for: targetDate)
+    }
+
+    private func clearScheduledSession(resetStatus: Bool) async {
+        monitoringTimer?.invalidate()
+        monitoringTimer = nil
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+        monitoringCountdown = ""
+
+        let previousAlarmID = absoluteAlarmID
+        absoluteAlarmID = nil
+
+        if let alarmID = previousAlarmID {
+            #if canImport(AlarmKit)
+            try? await AlarmManager.shared.cancel(id: alarmID)
+            #endif
+        }
+
         SleepSessionManager.shared.pauseWatchMonitoring()
-        self.alarmStatus = "No alarms configured."
+
+        if resetStatus {
+            self.alarmStatus = "No alarms configured."
+        }
     }
     
     func scheduleSystemAlarm(for targetDate: Date) {
+        Task {
+            await rescheduleSystemAlarm(for: targetDate)
+        }
+    }
+
+    private func scheduleSystemAlarmAfterClearing(for targetDate: Date) async {
         let alarmID = UUID()
         self.absoluteAlarmID = alarmID
-        self.alarmStatus = "Absolute Failsafe Set for \(targetDate.formatted(date: .omitted, time: .shortened))"
-        SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
-        
+
+        let monitoringStart = targetDate.addingTimeInterval(-Self.monitoringLeadTime)
+        let now = Date()
+
+        // Cancel any previous pending monitoring timer
+        monitoringTimer?.invalidate()
+        countdownTimer?.invalidate()
+
+        if monitoringStart <= now {
+            // We're already inside the 30-min window — start immediately
+            self.alarmStatus = "Tracking started (inside window)"
+            SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
+        } else {
+            // Schedule tracking to start when the window opens
+            let delay = monitoringStart.timeIntervalSinceNow
+            self.alarmStatus = "⏳ Monitoring starts at \(monitoringStart.formatted(date: .omitted, time: .shortened))"
+
+            // Live countdown
+            countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                guard let self else { return }
+                let remaining = monitoringStart.timeIntervalSinceNow
+                if remaining <= 0 {
+                    self.countdownTimer?.invalidate()
+                    self.monitoringCountdown = ""
+                } else {
+                    let mins = Int(remaining) / 60
+                    let secs = Int(remaining) % 60
+                    self.monitoringCountdown = String(format: "Monitoring in %02d:%02d", mins, secs)
+                }
+            }
+
+            // Schedule Watch session start
+            monitoringTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+                guard let self else { return }
+                self.alarmStatus = "🟢 Tracking started — monitoring window open"
+                self.monitoringCountdown = ""
+                SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
+            }
+        }
+
+        self.alarmStatus = monitoringStart <= now
+            ? "🟢 Tracking active | Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened))"
+            : "⏳ Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened)) | Monitoring: \(monitoringStart.formatted(date: .omitted, time: .shortened))"
+
         #if canImport(AlarmKit)
-        Task {
-            do {
-                // Layer 1 (Absolute Failsafe)
-                let configuration = AlarmManager.AlarmConfiguration(
-                    schedule: .fixed(targetDate), 
-                    attributes: createDefaultAttributes()
-                )
-                _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
-                self.alarmStatus = "✅ Active Failsafe Alarm Scheduled in System"
-            } catch {
-                self.alarmStatus = "System Alarm Schedule failed: \(error)"
-            }	
+        do {
+            let configuration = AlarmManager.AlarmConfiguration(
+                schedule: .fixed(targetDate),
+                attributes: createDefaultAttributes()
+            )
+            _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
+            self.alarmStatus = self.alarmStatus.contains("🟢")
+                ? "🟢 Tracking active | ✅ Failsafe set: \(targetDate.formatted(date: .omitted, time: .shortened))"
+                : "⏳ ✅ Failsafe set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Monitoring: \(monitoringStart.formatted(date: .omitted, time: .shortened))"
+        } catch {
+            self.alarmStatus = "System Alarm Schedule failed: \(error)"
         }
         #else
-        self.alarmStatus = "[Mock] Failsafe Alarm Scheduled for \(targetDate.formatted(date: .omitted, time: .shortened))"
+        self.alarmStatus = "[Sim] Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened)) | Monitoring: \(monitoringStart.formatted(date: .omitted, time: .shortened))"
         #endif
     }
     
@@ -110,6 +185,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     func triggerDynamicAlarm() {
         self.alarmStatus = "🚨 DYNAMIC WAKE EVENT TRIGGERED VIA ALARMKIT!"
         SleepSessionManager.shared.pauseWatchMonitoring()
+        SleepSessionManager.shared.triggerWatchHapticWakeUp()
         
         // Clean up the Layer 1 failsafe alarm after Layer 2 has fired
         if let oldID = absoluteAlarmID {
@@ -187,6 +263,30 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
             }
         } catch {
             print("Failed to initialize physical alarm audio layer: \(error)")
+        }
+    }
+    
+    // MARK: - Post-Alarm Feedback
+    
+    func playPostAlarmFeedback(minutesSaved: Int) {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
+            try AVAudioSession.sharedInstance().setActive(true)
+            
+            let message = "Buongiorno, ti ho svegliato \(minutesSaved) minuti prima del tuo limite massimo perché il tuo ciclo era al picco di efficienza."
+            let utterance = AVSpeechUtterance(string: message)
+            
+            // Prefer an Italian voice since the dialog is in Italian.
+            if let voice = AVSpeechSynthesisVoice(language: "it-IT") {
+                utterance.voice = voice
+            }
+            
+            utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+            utterance.volume = 1.0
+            
+            speechSynthesizer.speak(utterance)
+        } catch {
+            print("Failed to configure audio session for post-alarm feedback: \(error)")
         }
     }
 

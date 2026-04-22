@@ -236,6 +236,7 @@ struct SettingsView: View {
     }
 }
 
+
 // MARK: - About View
 
 private struct AboutView: View {
