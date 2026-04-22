@@ -26,6 +26,11 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     private var monitoringTimer: Timer?   // fires when the 30-min tracking window opens
     private var countdownTimer: Timer?    // updates the countdown string every second
     private let speechSynthesizer = AVSpeechSynthesizer()
+
+    private var selectedAlarmSoundID: SystemSoundID {
+        let storedSoundID = UserDefaults.standard.object(forKey: "selectedSoundID") as? Int
+        return SystemSoundID(storedSoundID ?? 1005)
+    }
     
     override init() {
         super.init()
@@ -242,30 +247,28 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.duckOthers, .defaultToSpeaker])
             try AVAudioSession.sharedInstance().setActive(true)
-            
-            // If there's an actual specific sound file in bundle, use it. Otherwise, use system vibrate + generic alert
-            if let url = Bundle.main.url(forResource: "WakeUpChime", withExtension: "m4a") ?? Bundle.main.url(forResource: "WakeUpChime", withExtension: "mp3") {
-                audioPlayer = try AVAudioPlayer(contentsOf: url)
-                audioPlayer?.numberOfLoops = -1 // loop infinitely
-                audioPlayer?.play()
-            } else {
-                // Fallback hardware alarm integration when custom audio file isn't present
-                let soundID = UserDefaults.standard.integer(forKey: "selectedSoundID")
-                let finalSoundID = soundID == 0 ? 1005 : soundID
-                AudioServicesPlayAlertSound(SystemSoundID(finalSoundID)) // Use user-selected or default (1005)
-                
-                // Vibrate loop fallback
-                let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                    AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
-                }
-                // Stop after 30 seconds for sanity
-                DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
-                    timer.invalidate()
-                }
+
+            audioPlayer?.stop()
+            audioPlayer = nil
+            AudioServicesPlayAlertSound(selectedAlarmSoundID)
+
+            // Vibrate loop fallback
+            let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+            }
+            // Stop after 30 seconds for sanity
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+                timer.invalidate()
             }
         } catch {
             print("Failed to initialize physical alarm audio layer: \(error)")
         }
+    }
+
+    func playAlarmSoundPreview(soundID: Int) {
+        audioPlayer?.stop()
+        audioPlayer = nil
+        AudioServicesPlaySystemSound(SystemSoundID(soundID))
     }
     
     // MARK: - Post-Alarm Feedback

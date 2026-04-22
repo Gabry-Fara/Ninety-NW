@@ -419,17 +419,19 @@ private struct ThemePreviewView: View {
 private struct SoundPickerView: View {
     @ObservedObject var viewModel: SettingsViewModel
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
+    private let smartAlarmManager = SmartAlarmManager.shared
 
     var body: some View {
         List(AlarmSound.allSounds) { sound in
             Button {
                 viewModel.selectedSoundID = sound.id
+                smartAlarmManager.playAlarmSoundPreview(soundID: sound.id)
             } label: {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(sound.name.localized(for: appLanguage))
                             .foregroundStyle(.primary)
-                        Text("Apple alarm")
+                        Text("Tap to preview")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
