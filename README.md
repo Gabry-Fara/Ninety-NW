@@ -2,8 +2,6 @@
 
 `SwiftUI` `CoreML` `watchOS` `iOS 17+`
 
-![Ninety UI Mockup](ninety_mockup.png)
-
 Ninety is a high-end, privacy-focused sleep tracking and smart alarm system. Unlike traditional alarms that wake you at a fixed time regardless of your sleep state, Ninety leverages **on-device Machine Learning** to detect your optimal wake-up moment during light sleep, ensuring you start your day refreshed and energized.
 
 ## 🧠 The Core Logic: "The 30-Minute Window"
