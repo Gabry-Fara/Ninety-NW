@@ -59,6 +59,22 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
+struct AlarmSound: Identifiable, Hashable {
+    let id: Int
+    let name: String
+    
+    static let allSounds: [AlarmSound] = [
+        AlarmSound(id: 1005, name: "Default"),
+        AlarmSound(id: 1304, name: "Chimes"),
+        AlarmSound(id: 1021, name: "Anticipate"),
+        AlarmSound(id: 1022, name: "Bloom"),
+        AlarmSound(id: 1023, name: "Calypso"),
+        AlarmSound(id: 1026, name: "Fanfare"),
+        AlarmSound(id: 1030, name: "Noir"),
+        AlarmSound(id: 1035, name: "Tiptoe")
+    ]
+}
+
 extension String {
     func localized(for languageCode: String) -> String {
         guard let language = AppLanguage(rawValue: languageCode) else {
@@ -134,6 +150,15 @@ extension String {
         case "On or Off. Your Call.": return "Attiva o disattiva"
         case "Private by Design": return "Privacy integrata"
         case "You're All Set": return "È tutto pronto"
+        case "Sound": return "Suono"
+        case "Default": return "Predefinito"
+        case "Chimes": return "Rintocchi"
+        case "Anticipate": return "Anticipazione"
+        case "Bloom": return "Fioritura"
+        case "Calypso": return "Calypso"
+        case "Fanfare": return "Fanfara"
+        case "Noir": return "Noir"
+        case "Tiptoe": return "Punta di piedi"
         default: return nil
         }
     }
@@ -192,6 +217,8 @@ extension String {
         case "On or Off. Your Call.": return "开或关，由你决定"
         case "Private by Design": return "隐私优先"
         case "You're All Set": return "一切就绪"
+        case "Sound": return "提示音"
+        case "Default": return "默认"
         default: return nil
         }
     }
@@ -250,6 +277,8 @@ extension String {
         case "On or Off. Your Call.": return "Actívalo o desactívalo"
         case "Private by Design": return "Privacidad por diseño"
         case "You're All Set": return "Todo listo"
+        case "Sound": return "Sonido"
+        case "Default": return "Predeterminado"
         default: return nil
         }
     }
@@ -308,6 +337,8 @@ extension String {
         case "On or Off. Your Call.": return "تشغيل أو إيقاف، القرار لك"
         case "Private by Design": return "الخصوصية في الأساس"
         case "You're All Set": return "كل شيء جاهز"
+        case "Sound": return "الصوت"
+        case "Default": return "افتراضي"
         default: return nil
         }
     }
@@ -321,6 +352,7 @@ class SettingsViewModel: ObservableObject {
     @AppStorage("hapticAlarm") var hapticAlarm: Bool = true // vibrate gently before ringing
     @AppStorage("hapticFeedbackEnabled") var hapticFeedbackEnabled: Bool = true // UI haptic feedback
     @AppStorage("saveToHealthKit") var saveToHealthKit: Bool = true // save sleep data
+    @AppStorage("selectedSoundID") var selectedSoundID: Int = 1005 // System Sound ID
     
     /// Guard flag to prevent re-entrant didSet → enableNotifications → didSet loop.
     private var isUpdatingNotifications = false

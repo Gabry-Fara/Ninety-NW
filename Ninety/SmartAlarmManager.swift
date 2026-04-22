@@ -250,7 +250,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
                 audioPlayer?.play()
             } else {
                 // Fallback hardware alarm integration when custom audio file isn't present
-                AudioServicesPlayAlertSound(1005) // Standard iOS Alarm / Calypso Sound
+                let soundID = UserDefaults.standard.integer(forKey: "selectedSoundID")
+                let finalSoundID = soundID == 0 ? 1005 : soundID
+                AudioServicesPlayAlertSound(SystemSoundID(finalSoundID)) // Use user-selected or default (1005)
                 
                 // Vibrate loop fallback
                 let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
