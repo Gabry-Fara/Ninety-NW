@@ -59,22 +59,6 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
-struct AlarmSound: Identifiable, Hashable {
-    let id: Int
-    let name: String
-    
-    static let allSounds: [AlarmSound] = [
-        AlarmSound(id: 1005, name: "Default"),
-        AlarmSound(id: 1304, name: "Chimes"),
-        AlarmSound(id: 1021, name: "Anticipate"),
-        AlarmSound(id: 1022, name: "Bloom"),
-        AlarmSound(id: 1023, name: "Calypso"),
-        AlarmSound(id: 1026, name: "Fanfare"),
-        AlarmSound(id: 1030, name: "Noir"),
-        AlarmSound(id: 1035, name: "Tiptoe")
-    ]
-}
-
 extension String {
     func localized(for languageCode: String) -> String {
         guard let language = AppLanguage(rawValue: languageCode) else {
@@ -352,7 +336,6 @@ class SettingsViewModel: ObservableObject {
     @AppStorage("hapticAlarm") var hapticAlarm: Bool = true // vibrate gently before ringing
     @AppStorage("hapticFeedbackEnabled") var hapticFeedbackEnabled: Bool = true // UI haptic feedback
     @AppStorage("saveToHealthKit") var saveToHealthKit: Bool = true // save sleep data
-    @AppStorage("selectedSoundID") var selectedSoundID: Int = 1005 // System Sound ID
     
     /// Guard flag to prevent re-entrant didSet → enableNotifications → didSet loop.
     private var isUpdatingNotifications = false

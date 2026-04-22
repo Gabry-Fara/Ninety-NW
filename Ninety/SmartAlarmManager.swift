@@ -22,15 +22,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     @Published var monitoringCountdown: String = ""
     
     private var absoluteAlarmID: UUID?
-    private var audioPlayer: AVAudioPlayer?
     private var monitoringTimer: Timer?   // fires when the 30-min tracking window opens
     private var countdownTimer: Timer?    // updates the countdown string every second
     private let speechSynthesizer = AVSpeechSynthesizer()
-
-    private var selectedAlarmSoundID: SystemSoundID {
-        let storedSoundID = UserDefaults.standard.object(forKey: "selectedSoundID") as? Int
-        return SystemSoundID(storedSoundID ?? 1005)
-    }
     
     override init() {
         super.init()
@@ -247,10 +241,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.duckOthers, .defaultToSpeaker])
             try AVAudioSession.sharedInstance().setActive(true)
-
-            audioPlayer?.stop()
-            audioPlayer = nil
-            AudioServicesPlayAlertSound(selectedAlarmSoundID)
+            AudioServicesPlayAlertSound(SystemSoundID(1005))
 
             // Vibrate loop fallback
             let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
@@ -263,12 +254,6 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         } catch {
             print("Failed to initialize physical alarm audio layer: \(error)")
         }
-    }
-
-    func playAlarmSoundPreview(soundID: Int) {
-        audioPlayer?.stop()
-        audioPlayer = nil
-        AudioServicesPlaySystemSound(SystemSoundID(soundID))
     }
     
     // MARK: - Post-Alarm Feedback

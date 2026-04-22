@@ -43,23 +43,6 @@ struct SettingsView: View {
                             Divider().padding(.leading, 44)
                             
                             settingsToggleRow(icon: "hand.tap.fill", color: .orange, title: "Haptic Feedback".localized(for: appLanguage), isOn: $settingsViewModel.hapticFeedbackEnabled)
-
-                            Divider().padding(.leading, 44)
-
-                            settingsRow(icon: "bell.fill", color: .yellow, title: "Sound".localized(for: appLanguage)) {
-                                NavigationLink {
-                                    SoundPickerView(viewModel: settingsViewModel)
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Text((AlarmSound.allSounds.first(where: { $0.id == settingsViewModel.selectedSoundID })?.name ?? "Default").localized(for: appLanguage))
-                                            .foregroundStyle(.secondary)
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
                         }
                     }
                     
@@ -414,46 +397,4 @@ private struct ThemePreviewView: View {
 
 #Preview {
     SettingsView()
-}
-
-private struct SoundPickerView: View {
-    @ObservedObject var viewModel: SettingsViewModel
-    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
-    private let smartAlarmManager = SmartAlarmManager.shared
-
-    var body: some View {
-        List(AlarmSound.allSounds) { sound in
-            Button {
-                viewModel.selectedSoundID = sound.id
-                smartAlarmManager.playAlarmSoundPreview(soundID: sound.id)
-            } label: {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(sound.name.localized(for: appLanguage))
-                            .foregroundStyle(.primary)
-                        Text("Tap to preview")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    if viewModel.selectedSoundID == sound.id {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.blue)
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .listRowBackground(Color.clear)
-        }
-        .scrollContentBackground(.hidden)
-        .background {
-            HorizonBackground(isActive: false)
-                .ignoresSafeArea()
-        }
-        .navigationTitle("Sound".localized(for: appLanguage))
-        .navigationBarTitleDisplayMode(.inline)
-    }
 }
