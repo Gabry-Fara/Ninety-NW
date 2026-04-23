@@ -10,6 +10,7 @@ import WatchKit
 
 struct ContentView: View {
     @StateObject private var sensorManager = WatchSensorManager.shared
+    @StateObject private var hapticManager = HapticWakeUpManager.shared
     
     // Abstract indicator of WCSession health to mitigate LOS (Loss of Signal) risk
     private var isConnected: Bool {
@@ -17,11 +18,19 @@ struct ContentView: View {
     }
     
     var body: some View {
-        TabView {
-            minimalistNodeView
-            DebugNodeView(sensorManager: sensorManager)
+        ZStack {
+            TabView {
+                minimalistNodeView
+                DebugNodeView(sensorManager: sensorManager)
+            }
+            .tabViewStyle(.verticalPage)
+            
+            if hapticManager.isPlaying {
+                AlarmView()
+                    .transition(.move(edge: .bottom))
+                    .zIndex(1)
+            }
         }
-        .tabViewStyle(.verticalPage)
         .background(Color.black)
         .onAppear {
             sensorManager.requestHealthPermissions { _ in }
