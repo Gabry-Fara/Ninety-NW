@@ -42,6 +42,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     // For Mocking
     private var mockTimer: AnyCancellable?
     
+    // Failsafe
+    private var failsafeTimer: Timer?
+    
     override init() {
         super.init()
         setupWatchConnectivity()
@@ -162,6 +165,19 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         sendWatchStatusUpdate(self.sessionState)
     }
 
+    func stopAlarmAndNotifyiPhone() {
+        HapticWakeUpManager.shared.stop()
+        
+        guard let session = wcSession, session.activationState == .activated else { return }
+        let message = ["action": "stopAlarm"]
+        
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(message)
+        }
+    }
+
     func armPendingScheduleIfPossible() {
         guard let date = pendingScheduledStartDate else { return }
 
@@ -177,6 +193,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     func stopSession() {
+        HapticWakeUpManager.shared.stop()
         if runtimeSession?.state == .running || runtimeSession?.state == .scheduled {
             runtimeSession?.invalidate()
         }
@@ -188,6 +205,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     func pauseMonitoring() {
+        HapticWakeUpManager.shared.stop()
         clearAlarmTracking()
         stopSensors()
         sessionState = "Monitoring Paused After Alarm"
@@ -201,6 +219,22 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             self.sessionState = "Session Started"
             self.startSensors()
             self.sendWatchStatusUpdate(self.sessionState)
+            
+            // Local Failsafe: Schedule a timer to trigger haptics at the exact alarm time
+            // in case the iPhone fails to send the trigger message.
+            if let alarmDate = self.nextAlarmDate {
+                let delay = alarmDate.timeIntervalSinceNow
+                if delay > 0 {
+                    self.failsafeTimer?.invalidate()
+                    self.failsafeTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { _ in
+                        DispatchQueue.main.async {
+                            HapticWakeUpManager.shared.startGradualWakeUp()
+                        }
+                    }
+                } else if delay >= -60 {
+                    HapticWakeUpManager.shared.startGradualWakeUp()
+                }
+            }
         }
     }
     
@@ -257,6 +291,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         hrSamplesBuffer.removeAll()
         mockTimer?.cancel()
         mockTimer = nil
+        failsafeTimer?.invalidate()
+        failsafeTimer = nil
     }
     
     private func startRealSensors() {
@@ -478,6 +514,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 DispatchQueue.main.async {
                     self.refreshNextAlarmDate()
                 }
+            } else if action == "stopAlarm" {
+                DispatchQueue.main.async {
+                    HapticWakeUpManager.shared.stop()
+                }
             }
         }
     }
@@ -490,12 +530,16 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func refreshNextAlarmDate() {
         let interval = UserDefaults.standard.double(forKey: Self.actualAlarmTimeKey)
         guard interval > 0 else {
-            nextAlarmDate = nil
+            DispatchQueue.main.async {
+                self.nextAlarmDate = nil
+            }
             return
         }
 
         let storedDate = Date(timeIntervalSince1970: interval)
-        nextAlarmDate = storedDate > Date() ? storedDate : nil
+        DispatchQueue.main.async {
+            self.nextAlarmDate = storedDate > Date() ? storedDate : nil
+        }
     }
 
     private func queueOrScheduleSmartAlarmSession(at date: Date) {
@@ -516,7 +560,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func clearAlarmTracking() {
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
-        nextAlarmDate = nil
+        DispatchQueue.main.async {
+            self.nextAlarmDate = nil
+        }
     }
 
     private func sendWatchStatusUpdate(_ status: String) {
