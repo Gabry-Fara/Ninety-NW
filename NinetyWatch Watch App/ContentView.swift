@@ -56,6 +56,7 @@ struct ContentView: View {
             
             if hapticManager.isPlaying {
                 AlarmView()
+                    .ignoresSafeArea()
                     .transition(.move(edge: .bottom))
                     .zIndex(1)
             }

@@ -11,73 +11,79 @@ struct AlarmView: View {
     
     var body: some View {
         ZStack {
-            // Pulsing background gradient
+            // Solid background to completely hide the view below
+            Color.black.ignoresSafeArea()
+            
+            // Opaque pulsing gradient
             LinearGradient(
-                colors: [.red.opacity(0.8), .orange.opacity(0.6), .red.opacity(0.8)],
+                colors: [.red, .orange, .red],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            .scaleEffect(pulseScale)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                    pulseScale = 1.2
-                }
-            }
+            .opacity(0.95)
             
-            VStack(spacing: 16) {
-                Spacer()
+            VStack(spacing: 0) {
+                // Header-like top spacing
+                Spacer(minLength: 20)
                 
+                // Animated Icon
                 ZStack {
                     Circle()
-                        .fill(.white.opacity(0.2))
-                        .frame(width: 80, height: 80)
-                        .blur(radius: 10)
+                        .fill(.white.opacity(0.15))
+                        .frame(width: 64, height: 64)
+                        .scaleEffect(pulseScale)
                     
                     Image(systemName: "alarm.fill")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 44, height: 44)
+                        .frame(width: 32, height: 32)
                         .foregroundColor(.white)
                         .symbolEffect(.bounce, options: .repeating, value: hapticManager.isPlaying)
                 }
-                
-                VStack(spacing: 4) {
-                    Text(copy.text(.alarm))
-                        .font(.system(.title3, design: .rounded))
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                    
-                    Text(Date().formatted(date: .omitted, time: .shortened))
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.8))
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                        pulseScale = 1.15
+                    }
                 }
                 
-                Spacer()
+                Spacer(minLength: 8)
                 
+                // Text Info
+                VStack(spacing: 2) {
+                    Text(copy.text(.alarm).uppercased())
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .kerning(1)
+                        .foregroundStyle(.white.opacity(0.9))
+                    
+                    Text(Date().formatted(date: .omitted, time: .shortened))
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+                
+                Spacer(minLength: 12)
+                
+                // Action Button
                 Button(action: {
                     WKInterfaceDevice.current().play(.click)
                     WatchSensorManager.shared.stopAlarmAndNotifyiPhone()
                 }) {
                     Text(copy.text(.stop))
-                        .font(.system(.headline, design: .rounded))
-                        .fontWeight(.heavy)
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background {
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .fill(.white.opacity(0.2))
-                                .background(
-                                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                        .strokeBorder(.white.opacity(0.3), lineWidth: 1)
-                                )
-                        }
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule()
+                                .fill(.white)
+                        )
+                        .foregroundColor(.red)
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, 10)
-                .padding(.bottom, 4)
+                .padding(.horizontal, 16)
+                
+                Spacer(minLength: 8)
             }
-            .padding()
+            .ignoresSafeArea()
         }
     }
 }
