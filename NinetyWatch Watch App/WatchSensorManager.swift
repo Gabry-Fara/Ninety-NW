@@ -115,6 +115,17 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
 
         refreshNextAlarmDate()
+        requestAlarmSync()
+    }
+
+    func requestAlarmSync() {
+        guard let session = wcSession, session.activationState == .activated else { return }
+        let message = ["action": "requestAlarmSync"]
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(message)
+        }
     }
     
     func requestHealthPermissions(completion: @escaping (Bool) -> Void) {
@@ -399,12 +410,18 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async {
             self.refreshConnectionStatus()
+            if activationState == .activated {
+                self.requestAlarmSync()
+            }
         }
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
         DispatchQueue.main.async {
             self.refreshConnectionStatus()
+            if session.isReachable {
+                self.requestAlarmSync()
+            }
         }
     }
     
@@ -426,17 +443,14 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 if let targetInterval = payload["targetDate"] as? TimeInterval {
                     UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
                     refreshNextAlarmDate()
-                    // Start exactly 30 minutes before the target alarm date
                     var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
-                    // Ensure the date is never in the past, which would crash WKExtendedRuntimeSession
                     if wakeWindowStartDate <= Date() {
-                        wakeWindowStartDate = Date().addingTimeInterval(2) // start practically immediately
+                        wakeWindowStartDate = Date().addingTimeInterval(2)
                     }
                     DispatchQueue.main.async {
                         self.queueOrScheduleSmartAlarmSession(at: wakeWindowStartDate)
                     }
                 } else {
-                    // Fallback to instant mock start
                     DispatchQueue.main.async {
                         self.queueOrScheduleSmartAlarmSession(at: Date().addingTimeInterval(5))
                     }
@@ -456,8 +470,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             } else if action == "syncAlarmState" {
                 if let targetInterval = payload["targetDate"] as? TimeInterval {
                     UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
+                    print("WATCH: Received syncAlarmState for \(Date(timeIntervalSince1970: targetInterval))")
                 } else {
                     UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
+                    print("WATCH: Received syncAlarmState (clear)")
                 }
                 DispatchQueue.main.async {
                     self.refreshNextAlarmDate()
@@ -472,7 +488,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     private func refreshNextAlarmDate() {
-        guard let interval = UserDefaults.standard.object(forKey: Self.actualAlarmTimeKey) as? TimeInterval else {
+        let interval = UserDefaults.standard.double(forKey: Self.actualAlarmTimeKey)
+        guard interval > 0 else {
             nextAlarmDate = nil
             return
         }
