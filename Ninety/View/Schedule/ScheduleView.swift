@@ -72,43 +72,53 @@ struct ScheduleView: View {
                             .glassEffectID("timePill", in: glassNamespace)
                             .frame(width: 286, height: 96)
                             .tourTarget(.clockPill)
-                        HStack(spacing: 12) {
-                            CustomWheelPicker(
-                                selectedValue: $internalHour,
-                                range: 0...23,
-                                isMinutes: false,
-                                isActive: showingWakeTimePicker || isSelectedDayActive,
-                                isPickerMode: showingWakeTimePicker
+                        if showingWakeTimePicker {
+                            HStack(spacing: 12) {
+                                CustomWheelPicker(
+                                    selectedValue: $internalHour,
+                                    range: 0...23,
+                                    isMinutes: false,
+                                    isActive: true,
+                                    isPickerMode: true
+                                )
+                                    .frame(width: 100)
+                                Text(":")
+                                    .font(.system(size: 64, weight: .light, design: .rounded))
+                                    .foregroundStyle(.primary)
+                                    .opacity(0.8)
+                                    .offset(y: -4)
+                                CustomWheelPicker(
+                                    selectedValue: $internalMinute,
+                                    range: 0...59,
+                                    isMinutes: true,
+                                    isActive: true,
+                                    isPickerMode: true
+                                )
+                                    .frame(width: 100)
+                            }
+                            .frame(width: 286, height: 280)
+                            .mask(
+                                LinearGradient(
+                                    stops: [
+                                        .init(color: .clear, location: 0),
+                                        .init(color: .black, location: 0.28),
+                                        .init(color: .black, location: 0.72),
+                                        .init(color: .clear, location: 1)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
                             )
-                                .frame(width: 100)
-                            Text(":")
-                                .font(.system(size: 64, weight: .light, design: .rounded))
-                                .foregroundStyle(.primary)
-                                .opacity((showingWakeTimePicker || isSelectedDayActive) ? 0.8 : 0.3)
-                                .offset(y: -4)
-                            CustomWheelPicker(
-                                selectedValue: $internalMinute,
-                                range: 0...59,
-                                isMinutes: true,
-                                isActive: showingWakeTimePicker || isSelectedDayActive,
-                                isPickerMode: showingWakeTimePicker
+                            .transaction { transaction in
+                                transaction.animation = nil
+                            }
+                        } else {
+                            IdleTimeDisplay(
+                                hour: internalHour,
+                                minute: internalMinute,
+                                isActive: isSelectedDayActive
                             )
-                                .frame(width: 100)
                         }
-                        .frame(width: 286, height: 280)
-                        .mask(
-                            LinearGradient(
-                                stops: [
-                                    .init(color: .clear, location: 0),
-                                    .init(color: .black, location: 0.28),
-                                    .init(color: .black, location: 0.72),
-                                    .init(color: .clear, location: 1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .disabled(!showingWakeTimePicker)
                     }
                     .frame(width: 286, height: 280)
                     .disabled(showGuidedTour)
@@ -284,6 +294,44 @@ struct ScheduleView: View {
     }
 }
 
+private struct IdleTimeDisplay: View {
+    let hour: Int
+    let minute: Int
+    let isActive: Bool
+
+    private var hourText: String { String(format: "%02d", hour) }
+    private var minuteText: String { String(format: "%02d", minute) }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(hourText)
+                .font(.system(size: 72, weight: .light, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(width: 100, height: 96)
+                .foregroundStyle(.primary)
+                .opacity(isActive ? 1.0 : 0.4)
+
+            Text(":")
+                .font(.system(size: 64, weight: .light, design: .rounded))
+                .foregroundStyle(.primary)
+                .opacity(isActive ? 0.8 : 0.3)
+                .offset(y: -4)
+
+            Text(minuteText)
+                .font(.system(size: 72, weight: .light, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(width: 100, height: 96)
+                .foregroundStyle(.primary)
+                .opacity(isActive ? 1.0 : 0.4)
+        }
+        .frame(width: 286, height: 280)
+    }
+}
+
 private struct DayOfWeekSelector: View {
     let scheduledWeekdays: Set<Int>
     let selectedWeekday: Int
@@ -354,12 +402,11 @@ struct CustomWheelPicker: View {
     
     @State private var viewPosition: Int?
     @State private var userDidScroll = false
-    @State private var lastTickedPosition: Int?
     @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
     private let selectionHaptic = UISelectionFeedbackGenerator()
     
-    // Lower multiplier because we drop LazyVStack; 10 provides enough loops to feel infinite while maintaining perfect layout bounds
-    private let multiplier = 10
+    // Keep enough repeated rows to feel infinite without paying for an oversized subtree on open.
+    private let multiplier = 6
     private var count: Int { range.upperBound - range.lowerBound + 1 }
 
     var body: some View {
@@ -432,7 +479,6 @@ struct CustomWheelPicker: View {
             let midIndexOrigin = (multiplier / 2) * count
             let offset = selectedValue - range.lowerBound
             viewPosition = midIndexOrigin + offset
-            lastTickedPosition = viewPosition
         }
         .onChange(of: viewPosition) { oldPos, newPos in
             guard userDidScroll, hapticFeedbackEnabled else { return }
