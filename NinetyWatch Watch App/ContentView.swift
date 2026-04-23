@@ -28,6 +28,7 @@ private enum WatchCopyKey {
     case attention
     case openWatchToArm
     case synced
+    case queued
     case watchOnly
 }
 
@@ -62,6 +63,7 @@ private struct WatchCopy {
             case .attention: return "Attenzione"
             case .openWatchToArm: return "Apri l'app su Watch per attivarla"
             case .synced: return "Sincronizzato"
+            case .queued: return "Connesso"
             case .watchOnly: return "Solo Watch"
             }
         case "es":
@@ -78,6 +80,7 @@ private struct WatchCopy {
             case .attention: return "Atención"
             case .openWatchToArm: return "Abre la app en el Watch para activarla"
             case .synced: return "Sincronizado"
+            case .queued: return "Conectado"
             case .watchOnly: return "Solo Watch"
             }
         case "zh-Hans":
@@ -94,6 +97,7 @@ private struct WatchCopy {
             case .attention: return "注意"
             case .openWatchToArm: return "打开 Watch App 以激活"
             case .synced: return "已同步"
+            case .queued: return "已连接"
             case .watchOnly: return "仅 Watch"
             }
         case "ar":
@@ -110,6 +114,7 @@ private struct WatchCopy {
             case .attention: return "تنبيه"
             case .openWatchToArm: return "افتح التطبيق على الساعة لتفعيله"
             case .synced: return "تمت المزامنة"
+            case .queued: return "متصل"
             case .watchOnly: return "الساعة فقط"
             }
         default:
@@ -126,6 +131,7 @@ private struct WatchCopy {
             case .attention: return "Attention"
             case .openWatchToArm: return "Open the Watch app to arm it"
             case .synced: return "Synced"
+            case .queued: return "Connected"
             case .watchOnly: return "Watch only"
             }
         }
@@ -156,10 +162,6 @@ struct ContentView: View {
         }
 
         return .idle
-    }
-
-    private var isConnected: Bool {
-        sensorManager.connectionStatus == "Phone reachable" || sensorManager.connectionStatus.hasPrefix("Syncing")
     }
 
     var body: some View {
@@ -196,15 +198,9 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: stateSymbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(stateColor)
-                .frame(width: 26, height: 26)
-                .background(stateColor.opacity(0.16), in: Circle())
-
-            Text(screenTitle)
-                .font(.system(.headline, design: .rounded, weight: .semibold))
+        HStack {
+            Text(copy.text(.appName))
+                .font(.system(.headline, design: .default, weight: .semibold))
                 .foregroundStyle(.primary)
 
             Spacer(minLength: 0)
@@ -245,54 +241,15 @@ struct ContentView: View {
     private var footerStatus: some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(isConnected ? Color.green : Color.orange)
+                .fill(footerStatusColor)
                 .frame(width: 6, height: 6)
 
-            Text(isConnected ? copy.text(.synced) : copy.text(.watchOnly))
+            Text(footerStatusLabel)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.top, 2)
-    }
-
-    private var screenTitle: String {
-        switch currentState {
-        case .idle:
-            return copy.text(.appName)
-        case .scheduled:
-            return copy.text(.scheduled)
-        case .active:
-            return copy.text(.monitoring)
-        case .error:
-            return copy.text(.attention)
-        }
-    }
-
-    private var stateSymbol: String {
-        switch currentState {
-        case .idle:
-            return "bed.double.fill"
-        case .scheduled:
-            return "alarm.fill"
-        case .active:
-            return "waveform.path.ecg"
-        case .error:
-            return "exclamationmark.triangle.fill"
-        }
-    }
-
-    private var stateColor: Color {
-        switch currentState {
-        case .idle:
-            return .gray
-        case .scheduled:
-            return .orange
-        case .active:
-            return .green
-        case .error:
-            return .red
-        }
     }
 
     private var nextAlarmPrimaryText: String {
@@ -342,6 +299,28 @@ struct ContentView: View {
             .month()
 
         return (time, date.formatted(dayFormatter))
+    }
+
+    private var footerStatusLabel: String {
+        switch sensorManager.connectivityState {
+        case .synced:
+            return copy.text(.synced)
+        case .queued:
+            return copy.text(.queued)
+        case .watchOnly:
+            return copy.text(.watchOnly)
+        }
+    }
+
+    private var footerStatusColor: Color {
+        switch sensorManager.connectivityState {
+        case .synced:
+            return .green
+        case .queued:
+            return .yellow
+        case .watchOnly:
+            return .orange
+        }
     }
 }
 

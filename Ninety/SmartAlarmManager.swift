@@ -102,6 +102,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
             #endif
         }
 
+        SleepSessionManager.shared.syncAlarmState(targetDate: nil)
         SleepSessionManager.shared.pauseWatchMonitoring()
 
         if resetStatus {
@@ -118,6 +119,8 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     private func scheduleSystemAlarmAfterClearing(for targetDate: Date) async {
         let alarmID = UUID()
         self.absoluteAlarmID = alarmID
+
+        SleepSessionManager.shared.syncAlarmState(targetDate: targetDate)
 
         let monitoringStart = targetDate.addingTimeInterval(-Self.monitoringLeadTime)
         let now = Date()
