@@ -168,16 +168,15 @@ struct ContentView: View {
         ZStack {
             TabView {
                 // Tab 1: Main Status UI
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        header
-                        nextAlarmCard
-                        footerStatus
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                    Spacer()
+                    nextAlarmCard
+                    Spacer()
+                    footerStatus
                 }
-                .scrollIndicators(.hidden)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 
                 // Tab 2: Debug Node
                 DebugNodeView(sensorManager: sensorManager)

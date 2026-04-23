@@ -416,6 +416,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         processIncomingCommand(userInfo)
     }
     
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        processIncomingCommand(applicationContext)
+    }
+    
     private func processIncomingCommand(_ payload: [String: Any]) {
         if let action = payload["action"] as? String {
             if action == "startSession" {
