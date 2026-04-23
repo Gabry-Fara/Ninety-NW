@@ -292,13 +292,18 @@ struct ContentView: View {
             return ("\(copy.text(.tomorrow)) · \(time)", nil)
         }
 
-        let dayFormatter = Date.FormatStyle()
+        let weekdayFormatter = Date.FormatStyle()
             .locale(locale)
-            .weekday(.abbreviated)
+            .weekday(.wide)
+            
+        let dayName = date.formatted(weekdayFormatter).capitalized
+        
+        let dateSecondaryFormatter = Date.FormatStyle()
+            .locale(locale)
             .day()
             .month()
 
-        return (time, date.formatted(dayFormatter))
+        return ("\(dayName) · \(time)", date.formatted(dateSecondaryFormatter))
     }
 
     private var footerStatusLabel: String {
