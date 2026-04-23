@@ -7,8 +7,46 @@ import Combine
 
 class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDelegate, WCSessionDelegate {
     private static let pendingScheduleKey = "pendingSmartAlarmSchedule"
+    private static let armedScheduleKey = "armedSmartAlarmSchedule"
     private let payloadInterval: TimeInterval = 5
     private let motionThreshold = 0.08
+    private let maxPendingPayloads = 12_000
+    private let backlogReplayBatchSize = 24
+    private let minimumBacklogFlushInterval: TimeInterval = 8
+
+    private enum WatchPipelineState: String, Codable {
+        case idle
+        case scheduled
+        case recording
+        case deliveringBacklog
+        case completed
+        case failed
+
+        var label: String {
+            switch self {
+            case .idle:
+                return "Idle"
+            case .scheduled:
+                return "Scheduled"
+            case .recording:
+                return "Recording"
+            case .deliveringBacklog:
+                return "Delivering backlog"
+            case .completed:
+                return "Completed"
+            case .failed:
+                return "Failed"
+            }
+        }
+    }
+
+    private struct PendingPayloadEnvelope: Codable {
+        let payload: SensorPayload
+        let enqueuedAt: Date
+        var lastAttemptAt: Date?
+        var deliveryAttempts: Int
+        var deferredDeliveryQueued: Bool
+    }
     
     static let shared = WatchSensorManager()
     
@@ -18,13 +56,19 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     @Published var isMocking: Bool = false
     
     private var runtimeSession: WKExtendedRuntimeSession?
+    private var suppressNextRuntimeInvalidation = false
     private let healthStore = HKHealthStore()
     private let motionManager = CMMotionManager()
     private var wcSession: WCSession?
+    private var pendingPayloads: [PendingPayloadEnvelope] = []
+    private var lastBacklogFlushDate: Date?
+    private var pipelineState: WatchPipelineState = .idle
+    private var replayStatusText: String = "No backlog activity"
     
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
     private var payloadTimer: AnyCancellable?
+    private var sensorsRunning = false
     
     // CoreMotion background anchors
     private var motionDeviationSamples: [Double] = []
@@ -36,6 +80,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     override init() {
         super.init()
+        restorePendingPayloadQueue()
         setupWatchConnectivity()
     }
 
@@ -46,6 +91,15 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     var pendingScheduleDescription: String? {
         guard let date = pendingScheduledStartDate else { return nil }
         return "Queued for \(date.formatted(date: .omitted, time: .shortened))"
+    }
+
+    var hasArmedSchedule: Bool {
+        armedScheduledStartDate != nil
+    }
+
+    var armedScheduleDescription: String? {
+        guard let date = armedScheduledStartDate else { return nil }
+        return "Armed for \(date.formatted(date: .omitted, time: .shortened))"
     }
 
     func setupWatchConnectivity() {
@@ -69,7 +123,29 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             return
         }
 
-        connectionStatus = session.isReachable ? "Phone reachable" : "Phone unavailable, queued delivery"
+        if session.isReachable {
+            connectionStatus = pendingPayloads.isEmpty ? "Phone reachable" : "Phone reachable, pending \(pendingPayloads.count)"
+        } else {
+            connectionStatus = pendingPayloads.isEmpty ? "Phone unavailable, queued delivery" : "Phone unavailable, pending \(pendingPayloads.count)"
+        }
+        sendWatchStatusUpdate(sessionState)
+        flushPendingPayloadsIfNeeded(force: session.isReachable)
+    }
+
+    func retryPendingPayloadDelivery() {
+        refreshConnectionStatus()
+        flushPendingPayloadsIfNeeded(force: true)
+    }
+
+    func resumeScheduledSession(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
+        runtimeSession = extendedRuntimeSession
+        runtimeSession?.delegate = self
+        clearPendingSchedule()
+        clearArmedSchedule()
+        updatePipelineState(.recording, detail: "Session resumed by system")
+        if extendedRuntimeSession.state == .running {
+            startSensors()
+        }
         sendWatchStatusUpdate(sessionState)
     }
     
@@ -94,6 +170,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
         if let existing = self.runtimeSession {
             if existing.state == .running || existing.state == .scheduled {
+                suppressNextRuntimeInvalidation = true
                 existing.invalidate()
             }
         }
@@ -101,9 +178,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         self.runtimeSession = WKExtendedRuntimeSession()
         self.runtimeSession?.delegate = self
         self.runtimeSession?.start(at: date)
+        storeArmedSchedule(date)
         clearPendingSchedule()
-        self.sessionState = "Scheduled for \(date.formatted(date: .omitted, time: .shortened))"
-        sendWatchStatusUpdate(self.sessionState)
+        updatePipelineState(.scheduled, detail: "Armed for \(date.formatted(date: .omitted, time: .shortened))")
+        sendWatchStatusUpdate("Smart Alarm armed on Apple Watch")
     }
 
     func armPendingScheduleIfPossible() {
@@ -111,9 +189,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
         guard WKExtension.shared().applicationState == .active else {
             DispatchQueue.main.async {
-                self.sessionState = "Open watch app to arm smart alarm"
+                self.updatePipelineState(.scheduled, detail: "Open Ninety to arm tonight's alarm")
             }
-            sendWatchStatusUpdate("Watch app must be opened to arm Smart Alarm")
+            sendWatchStatusUpdate("Open Ninety on Apple Watch to arm Smart Alarm")
             return
         }
 
@@ -122,19 +200,24 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     func stopSession() {
         if runtimeSession?.state == .running || runtimeSession?.state == .scheduled {
+            suppressNextRuntimeInvalidation = true
             runtimeSession?.invalidate()
         }
         runtimeSession = nil
         clearPendingSchedule()
+        clearArmedSchedule()
         stopSensors()
-        sessionState = "Manually Stopped"
+        clearPendingPayloadQueue()
+        updatePipelineState(.completed, detail: "Manually Stopped")
         sendWatchStatusUpdate(sessionState)
     }
 
     func pauseMonitoring() {
         clearPendingSchedule()
+        clearArmedSchedule()
         stopSensors()
-        sessionState = "Monitoring Paused After Alarm"
+        clearPendingPayloadQueue()
+        updatePipelineState(.completed, detail: "Monitoring Paused After Alarm")
         sendWatchStatusUpdate(sessionState)
     }
     
@@ -142,7 +225,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     func extendedRuntimeSessionDidStart(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
         DispatchQueue.main.async {
-            self.sessionState = "Session Started"
+            self.runtimeSession = extendedRuntimeSession
+            self.clearArmedSchedule()
+            self.updatePipelineState(.recording, detail: "Session Started")
             self.startSensors()
             self.sendWatchStatusUpdate(self.sessionState)
         }
@@ -150,13 +235,20 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     func extendedRuntimeSessionWillExpire(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
         DispatchQueue.main.async {
-            self.sessionState = "Session Expiring Soon"
+            self.updatePipelineState(.recording, detail: "Session Expiring Soon")
             self.sendWatchStatusUpdate(self.sessionState)
         }
     }
     
     func extendedRuntimeSession(_ extendedRuntimeSession: WKExtendedRuntimeSession, didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason, error: Error?) {
         DispatchQueue.main.async {
+            if self.suppressNextRuntimeInvalidation {
+                self.suppressNextRuntimeInvalidation = false
+                return
+            }
+
+            self.runtimeSession = nil
+            self.clearArmedSchedule()
             if
                 let nsError = error as NSError?,
                 nsError.domain == WKExtendedRuntimeSessionErrorDomain,
@@ -164,14 +256,14 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             {
                 switch wkErrorCode {
                 case .scheduledTooFarInAdvance:
-                    self.sessionState = "Error: Scheduled >36h ahead"
+                    self.updatePipelineState(.failed, detail: "Error: Scheduled >36h ahead")
                 case .mustBeActiveToStartOrSchedule:
-                    self.sessionState = "Error: Must be in foreground"
+                    self.updatePipelineState(.failed, detail: "Error: Must be in foreground")
                 default:
-                    self.sessionState = "Invalidated: \(wkErrorCode.rawValue)"
+                    self.updatePipelineState(.failed, detail: "Invalidated: \(wkErrorCode.rawValue)")
                 }
             } else {
-                self.sessionState = "Session Invalidated"
+                self.updatePipelineState(.failed, detail: "Session Invalidated")
             }
             self.sendWatchStatusUpdate(self.sessionState)
             self.stopSensors()
@@ -181,6 +273,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     // MARK: - Sensor Acquisition
     
     private func startSensors() {
+        guard !sensorsRunning else { return }
+        sensorsRunning = true
         #if targetEnvironment(simulator)
         startMockDataStream()
         #else
@@ -189,6 +283,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     private func stopSensors() {
+        sensorsRunning = false
         motionManager.stopAccelerometerUpdates()
         if let query = hrQuery {
             healthStore.stop(query)
@@ -275,30 +370,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     private func transmit(payload: SensorPayload) {
-        guard let session = wcSession else { return }
+        enqueuePendingPayload(payload)
+        if let lastIndex = pendingPayloads.indices.last {
+            sendPendingPayloads(at: [lastIndex], reason: "Live delivery")
+        }
 
-        if let encoded = try? JSONEncoder().encode(payload) {
-            let dict: [String: Any] = ["payloadData": encoded]
-            session.transferUserInfo(dict)
-
-            if session.isReachable {
-                session.sendMessage(dict, replyHandler: nil) { [weak self] error in
-                    DispatchQueue.main.async {
-                        self?.connectionStatus = "Send failed: \(error.localizedDescription)"
-                    }
-                }
-                DispatchQueue.main.async {
-                    self.connectionStatus = "Phone reachable"
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.connectionStatus = "Phone unavailable, queued delivery"
-                }
-            }
-
-            DispatchQueue.main.async {
-                self.lastPayloadSent = "Sent at \(payload.timestamp.formatted(date: .omitted, time: .standard)), HR count: \(payload.hrSamples.count)"
-            }
+        DispatchQueue.main.async {
+            self.lastPayloadSent = "Captured at \(payload.timestamp.formatted(date: .omitted, time: .standard)), HR count: \(payload.hrSamples.count), pending: \(self.pendingPayloads.count)"
         }
     }
     
@@ -354,12 +432,14 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async {
             self.refreshConnectionStatus()
+            self.flushPendingPayloadsIfNeeded(force: true)
         }
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
         DispatchQueue.main.async {
             self.refreshConnectionStatus()
+            self.flushPendingPayloadsIfNeeded(force: session.isReachable)
         }
     }
     
@@ -373,7 +453,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     private func processIncomingCommand(_ payload: [String: Any]) {
         if let action = payload["action"] as? String {
-            if action == "startSession" {
+            if action == "ackPayloads" {
+                let idStrings = payload["ids"] as? [String] ?? []
+                DispatchQueue.main.async {
+                    self.acknowledgePayloads(withIDs: idStrings.compactMap(UUID.init(uuidString:)))
+                }
+            } else if action == "startSession" {
+                prepareForNewSession()
                 if let targetInterval = payload["targetDate"] as? TimeInterval {
                     // Start exactly 30 minutes before the target alarm date
                     var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
@@ -406,16 +492,209 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
     }
 
+    // MARK: - Reliable Payload Delivery
+
+    private var pendingPayloadsURL: URL? {
+        guard let supportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+
+        let directory = supportDirectory.appendingPathComponent("Ninety", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent("watch_pending_payloads.json")
+    }
+
+    private func restorePendingPayloadQueue() {
+        guard let url = pendingPayloadsURL else { return }
+
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+
+        guard
+            let data = try? Data(contentsOf: url),
+            let restored = try? JSONDecoder().decode([PendingPayloadEnvelope].self, from: data)
+        else {
+            try? FileManager.default.removeItem(at: url)
+            return
+        }
+
+        pendingPayloads = Array(restored.suffix(maxPendingPayloads))
+        if !pendingPayloads.isEmpty {
+            replayStatusText = "Recovered \(pendingPayloads.count) pending payloads"
+            updatePipelineState(.deliveringBacklog, detail: "Recovered \(pendingPayloads.count) pending payloads")
+        }
+    }
+
+    private func prepareForNewSession() {
+        clearArmedSchedule()
+        clearPendingPayloadQueue()
+        replayStatusText = "No backlog activity"
+        updatePipelineState(.idle)
+    }
+
+    private func enqueuePendingPayload(_ payload: SensorPayload) {
+        guard !pendingPayloads.contains(where: { $0.payload.id == payload.id }) else { return }
+
+        pendingPayloads.append(
+            PendingPayloadEnvelope(
+                payload: payload,
+                enqueuedAt: Date(),
+                lastAttemptAt: nil,
+                deliveryAttempts: 0,
+                deferredDeliveryQueued: false
+            )
+        )
+
+        if pendingPayloads.count > maxPendingPayloads {
+            pendingPayloads.removeFirst(pendingPayloads.count - maxPendingPayloads)
+        }
+
+        savePendingPayloadQueue()
+        sendWatchStatusUpdate(sessionState)
+    }
+
+    private func acknowledgePayloads(withIDs ids: [UUID]) {
+        guard !ids.isEmpty else { return }
+
+        let acknowledgedIDs = Set(ids)
+        let previousCount = pendingPayloads.count
+        pendingPayloads.removeAll { acknowledgedIDs.contains($0.payload.id) }
+
+        guard pendingPayloads.count != previousCount else { return }
+
+        savePendingPayloadQueue()
+        let removedCount = previousCount - pendingPayloads.count
+        replayStatusText = "Acked \(removedCount), pending \(pendingPayloads.count)"
+        connectionStatus = pendingPayloads.isEmpty ? "Phone reachable" : "Phone reachable, pending \(pendingPayloads.count)"
+
+        if pendingPayloads.isEmpty {
+            if runtimeSession?.state == .running {
+                updatePipelineState(.recording, detail: "Recording")
+            } else if pendingScheduledStartDate != nil {
+                updatePipelineState(.scheduled, detail: "Scheduled")
+            } else {
+                updatePipelineState(.idle)
+            }
+        }
+
+        sendWatchStatusUpdate(sessionState)
+    }
+
+    private func flushPendingPayloadsIfNeeded(force: Bool = false) {
+        guard !pendingPayloads.isEmpty else { return }
+        guard let session = wcSession, session.activationState == .activated else { return }
+
+        let now = Date()
+        if
+            !force,
+            let lastBacklogFlushDate,
+            now.timeIntervalSince(lastBacklogFlushDate) < minimumBacklogFlushInterval
+        {
+            return
+        }
+
+        let batchCount = min(backlogReplayBatchSize, pendingPayloads.count)
+        let indices = Array(pendingPayloads.indices.prefix(batchCount))
+        guard !indices.isEmpty else { return }
+
+        lastBacklogFlushDate = now
+        updatePipelineState(.deliveringBacklog, detail: "Replaying \(batchCount)/\(pendingPayloads.count) payloads")
+        replayStatusText = "Replaying \(batchCount)/\(pendingPayloads.count) payloads"
+        sendPendingPayloads(at: indices, reason: "Backlog replay")
+    }
+
+    private func sendPendingPayloads(at indices: [Int], reason: String) {
+        guard let session = wcSession, session.activationState == .activated else { return }
+        guard !indices.isEmpty else { return }
+
+        let reachable = session.isReachable
+        let now = Date()
+        var queueDidChange = false
+        var sentCount = 0
+
+        for index in indices {
+            guard pendingPayloads.indices.contains(index) else { continue }
+            guard let encoded = try? JSONEncoder().encode(pendingPayloads[index].payload) else { continue }
+
+            pendingPayloads[index].lastAttemptAt = now
+            pendingPayloads[index].deliveryAttempts += 1
+            queueDidChange = true
+
+            let dict: [String: Any] = ["payloadData": encoded]
+            if !pendingPayloads[index].deferredDeliveryQueued {
+                session.transferUserInfo(dict)
+                pendingPayloads[index].deferredDeliveryQueued = true
+            }
+
+            if reachable {
+                session.sendMessage(dict, replyHandler: nil) { [weak self] error in
+                    DispatchQueue.main.async {
+                        self?.connectionStatus = "Live send failed: \(error.localizedDescription)"
+                    }
+                }
+            }
+
+            sentCount += 1
+        }
+
+        if queueDidChange {
+            savePendingPayloadQueue()
+        }
+
+        connectionStatus = reachable ? "Phone reachable, pending \(pendingPayloads.count)" : "Phone unavailable, pending \(pendingPayloads.count)"
+        replayStatusText = "\(reason): sent \(sentCount), pending \(pendingPayloads.count)"
+        lastPayloadSent = "\(reason): sent \(sentCount), pending \(pendingPayloads.count)"
+        sendWatchStatusUpdate(sessionState)
+    }
+
+    private func savePendingPayloadQueue() {
+        guard let url = pendingPayloadsURL else { return }
+
+        if pendingPayloads.isEmpty {
+            try? FileManager.default.removeItem(at: url)
+            return
+        }
+
+        do {
+            let data = try JSONEncoder().encode(pendingPayloads)
+            try data.write(to: url, options: [.atomic])
+        } catch {
+            connectionStatus = "Queue save failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func clearPendingPayloadQueue() {
+        pendingPayloads.removeAll()
+        savePendingPayloadQueue()
+    }
+
+    private func updatePipelineState(_ newState: WatchPipelineState, detail: String? = nil) {
+        pipelineState = newState
+        let display = detail ?? newState.label
+        if Thread.isMainThread {
+            sessionState = display
+        } else {
+            DispatchQueue.main.async {
+                self.sessionState = display
+            }
+        }
+    }
+
     private var pendingScheduledStartDate: Date? {
         let interval = UserDefaults.standard.object(forKey: Self.pendingScheduleKey) as? TimeInterval
+        return interval.map(Date.init(timeIntervalSince1970:))
+    }
+
+    private var armedScheduledStartDate: Date? {
+        let interval = UserDefaults.standard.object(forKey: Self.armedScheduleKey) as? TimeInterval
         return interval.map(Date.init(timeIntervalSince1970:))
     }
 
     private func queueOrScheduleSmartAlarmSession(at date: Date) {
         guard WKExtension.shared().applicationState == .active else {
             UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.pendingScheduleKey)
-            sessionState = "Queued. Open watch app to arm session"
-            sendWatchStatusUpdate("Queued on watch. Open the watch app to arm Smart Alarm.")
+            clearArmedSchedule()
+            updatePipelineState(.scheduled, detail: "Queued. Open Ninety to arm tonight's alarm")
+            sendWatchStatusUpdate("Open Ninety on Apple Watch to arm Smart Alarm")
             return
         }
 
@@ -426,16 +705,31 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
     }
 
+    private func storeArmedSchedule(_ date: Date) {
+        UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.armedScheduleKey)
+    }
+
+    private func clearArmedSchedule() {
+        UserDefaults.standard.removeObject(forKey: Self.armedScheduleKey)
+    }
+
     private func sendWatchStatusUpdate(_ status: String) {
         guard let session = wcSession, session.activationState == .activated else { return }
 
         var message: [String: Any] = [
             "watchStatus": status,
-            "watchConnectionStatus": connectionStatus
+            "watchConnectionStatus": connectionStatus,
+            "pendingPayloadCount": pendingPayloads.count,
+            "replayStatus": replayStatusText,
+            "pipelineState": pipelineState.rawValue
         ]
         
         if let queuedSchedule = pendingScheduledStartDate?.timeIntervalSince1970 {
             message["queuedSchedule"] = queuedSchedule
+        }
+
+        if let armedSchedule = armedScheduledStartDate?.timeIntervalSince1970 {
+            message["armedSchedule"] = armedSchedule
         }
 
         if session.isReachable {

@@ -50,14 +50,16 @@ struct ContentView: View {
     }
     
     private var statusMessage: String {
-        // If there's an active session or a queued schedule, display its status cleanly.
         if sensorManager.hasPendingSchedule, let pending = sensorManager.pendingScheduleDescription {
-            return "Sveglia attiva entro le \(pending)"
+            return "Apri Ninety una volta prima di dormire. \(pending)"
+        }
+
+        if sensorManager.hasArmedSchedule, let armed = sensorManager.armedScheduleDescription {
+            return "Smart Alarm pronta. \(armed)"
         }
         
-        // Check for active text
         let state = sensorManager.sessionState.lowercased()
-        if state.contains("running") || state.contains("active") {
+        if state.contains("recording") || state.contains("started") || state.contains("running") || state.contains("active") {
             return "Monitoraggio ciclo attivo"
         }
         
@@ -86,6 +88,11 @@ struct DebugNodeView: View {
                     if sensorManager.hasPendingSchedule, let pending = sensorManager.pendingScheduleDescription {
                         Text("Queue: \(pending)")
                             .foregroundColor(.orange)
+                    }
+
+                    if sensorManager.hasArmedSchedule, let armed = sensorManager.armedScheduleDescription {
+                        Text("Armed: \(armed)")
+                            .foregroundColor(.green)
                     }
                 }
                 .font(.caption2)
@@ -121,6 +128,8 @@ struct DebugNodeView: View {
     }
 }
 
-#Preview {
-    ContentView()
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
 }

@@ -16,14 +16,21 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
     func applicationDidBecomeActive() {
         WatchSensorManager.shared.refreshConnectionStatus()
         WatchSensorManager.shared.armPendingScheduleIfPossible()
+        WatchSensorManager.shared.retryPendingPayloadDelivery()
+    }
+
+    func handle(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
+        WatchSensorManager.shared.resumeScheduledSession(extendedRuntimeSession)
     }
 
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
         for task in backgroundTasks {
             switch task {
             case let connectivityTask as WKWatchConnectivityRefreshBackgroundTask:
+                WatchSensorManager.shared.retryPendingPayloadDelivery()
                 connectivityTask.setTaskCompletedWithSnapshot(false)
             case let applicationTask as WKApplicationRefreshBackgroundTask:
+                WatchSensorManager.shared.retryPendingPayloadDelivery()
                 applicationTask.setTaskCompletedWithSnapshot(false)
             case let snapshotTask as WKSnapshotRefreshBackgroundTask:
                 snapshotTask.setTaskCompleted(

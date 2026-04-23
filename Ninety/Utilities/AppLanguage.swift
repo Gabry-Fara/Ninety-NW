@@ -133,7 +133,16 @@ private let translations: [String: [String: String]] = [
         "Permissions are required to schedule your weekly wake-up plan.": "I permessi sono necessari per programmare il piano sveglia settimanale.",
         "Watch unreachable. Request queued (Will fire when Watch wakes).": "Watch non raggiungibile. Richiesta in coda (verrà inviata quando il Watch si risveglia).",
         "Sleep stage model ready": "Modello fasi del sonno pronto",
-        "Clear Logs": "Cancella Log"
+        "Clear Logs": "Cancella Log",
+        "Arm on Apple Watch": "Attiva su Apple Watch",
+        "Open Ninety once on your Apple Watch before sleep. No extra tap is needed after that. Tracking starts at %@.": "Apri Ninety una volta sul tuo Apple Watch prima di dormire. Dopo non serve nessun altro tocco. Il monitoraggio inizia alle %@.",
+        "Smart Alarm armed": "Smart Alarm armata",
+        "Apple Watch will start sleep tracking at %@.": "Apple Watch inizierà il monitoraggio del sonno alle %@.",
+        "Tracking active on Apple Watch": "Monitoraggio attivo su Apple Watch",
+        "The sleep window is running on Apple Watch now.": "La finestra di monitoraggio è attiva ora su Apple Watch.",
+        "Open Ninety on Apple Watch once before sleep to arm Smart Alarm. After that it starts automatically.": "Apri Ninety su Apple Watch una volta prima di dormire per armare la Smart Alarm. Dopo partirà automaticamente.",
+        "Watch queued for:": "Watch in coda per:",
+        "Watch armed for:": "Watch armato per:"
     ],
     "es": [
         "Track your sleep pattern and wake up refreshed.": "Sigue tus horas de sueño y despierta renovado.",

@@ -25,6 +25,8 @@ struct DiagnosticsView: View {
                     diagnosticSection("Status".localized(for: appLanguage)) {
                         VStack(spacing: 12) {
                             diagnosticRow("Alarm:".localized(for: appLanguage), viewModel.userFriendlyAlarmStatus(from: smartAlarm.alarmStatus))
+                            diagnosticRow("Session recovery:".localized(for: appLanguage), sleepManager.sessionRecoveryStatus)
+                            diagnosticRow("Pipeline:".localized(for: appLanguage), sleepManager.sessionStateDisplay)
 
                             if !smartAlarm.monitoringCountdown.isEmpty {
                                 HStack {
@@ -56,7 +58,16 @@ struct DiagnosticsView: View {
                         VStack(spacing: 12) {
                             diagnosticRow("Connection:".localized(for: appLanguage), sleepManager.watchConnectionStatus)
                             diagnosticRow("Watch status:".localized(for: appLanguage), sleepManager.watchStatus)
+                            if let queuedStart = sleepManager.watchQueuedStartDate {
+                                diagnosticRow("Watch queued for:".localized(for: appLanguage), queuedStart.formatted(date: .abbreviated, time: .shortened))
+                            }
+                            if let armedStart = sleepManager.watchArmedStartDate {
+                                diagnosticRow("Watch armed for:".localized(for: appLanguage), armedStart.formatted(date: .abbreviated, time: .shortened))
+                            }
                             diagnosticRow("Last payload:".localized(for: appLanguage), sleepManager.lastPayloadReceived)
+                            diagnosticRow("Pending on Watch:".localized(for: appLanguage), "\(sleepManager.watchPendingPayloadCount)")
+                            diagnosticRow("Replay:".localized(for: appLanguage), sleepManager.replayStatus)
+                            diagnosticRow("Ack:".localized(for: appLanguage), sleepManager.ackStatus)
                             diagnosticRow("Current epoch:".localized(for: appLanguage), sleepManager.latestEpochSummary)
 
                             Divider()
@@ -109,6 +120,10 @@ struct DiagnosticsView: View {
                     diagnosticSection("AlarmKit Constraints".localized(for: appLanguage)) {
                         VStack(spacing: 12) {
                             diagnosticRow("Status:".localized(for: appLanguage), smartAlarm.alarmStatus)
+                            Text("Open Ninety on Apple Watch once before sleep to arm Smart Alarm. After that it starts automatically.")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .padding(.top, 2)
                             
                             VStack(spacing: 8) {
                                 Button("Request System Permissions".localized(for: appLanguage)) {

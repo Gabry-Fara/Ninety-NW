@@ -271,8 +271,13 @@ final class ScheduleViewModel: ObservableObject {
         if status.contains("No watch session activity") {
             return "Not started yet".localized(for: preferredLang)
         }
-        if status.localizedCaseInsensitiveContains("Queued") {
+        if status.localizedCaseInsensitiveContains("Open Ninety on Apple Watch to arm Smart Alarm") ||
+            status.localizedCaseInsensitiveContains("Queued")
+        {
             return "Open the Watch app to finish setting up".localized(for: preferredLang)
+        }
+        if status.localizedCaseInsensitiveContains("armed") {
+            return "Scheduled".localized(for: preferredLang)
         }
         if status.localizedCaseInsensitiveContains("Session Started") {
             return "Tracking in progress".localized(for: preferredLang)

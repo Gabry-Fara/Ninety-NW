@@ -7,6 +7,13 @@
 import SwiftUI
 
 struct ScheduleView: View {
+    private struct WatchSetupSummary {
+        let title: String
+        let message: String
+        let symbol: String
+        let tint: Color
+    }
+
     private let timeBlockOffset: CGFloat = -130
     private let daySelectorOffset: CGFloat = -8
     private let alarmButtonBottomPadding: CGFloat = 92
@@ -29,9 +36,51 @@ struct ScheduleView: View {
     private let impactHaptic = UIImpactFeedbackGenerator(style: .medium)
     private var accent: Color { .scheduleAccent(for: colorScheme) }
     private var isSelectedDayActive: Bool { viewModel.isAlarmEnabledForSelectedDay }
+    private var effectiveScheduledSession: SmartAlarmManager.ScheduledSleepSession? {
+        viewModel.lastScheduledSession ?? viewModel.nextUpcomingSession
+    }
     private var timePillTint: Color {
         guard isSelectedDayActive else { return .clear }
         return accent.opacity(colorScheme == .light ? 0.30 : 0.34)
+    }
+    private var watchSetupSummary: WatchSetupSummary? {
+        guard viewModel.isAlarmEnabled, let scheduledSession = effectiveScheduledSession else {
+            return nil
+        }
+
+        if sleepManager.sessionStateDisplay == "Recording" || sleepManager.sessionStateDisplay == "Delivering backlog" {
+            return WatchSetupSummary(
+                title: "Tracking active on Apple Watch".localized(for: appLanguage),
+                message: "The sleep window is running on Apple Watch now.".localized(for: appLanguage),
+                symbol: "waveform.path.ecg",
+                tint: .green
+            )
+        }
+
+        if let armedStartDate = sleepManager.watchArmedStartDate {
+            let formatted = armedStartDate.formatted(date: .omitted, time: .shortened)
+            return WatchSetupSummary(
+                title: "Smart Alarm armed".localized(for: appLanguage),
+                message: String(
+                    format: "Apple Watch will start sleep tracking at %@.".localized(for: appLanguage),
+                    formatted
+                ),
+                symbol: "checkmark.circle.fill",
+                tint: .green
+            )
+        }
+
+        let pendingStartDate = sleepManager.watchQueuedStartDate ?? scheduledSession.monitoringStartDate
+        let formatted = pendingStartDate.formatted(date: .omitted, time: .shortened)
+        return WatchSetupSummary(
+            title: "Arm on Apple Watch".localized(for: appLanguage),
+            message: String(
+                format: "Open Ninety once on your Apple Watch before sleep. No extra tap is needed after that. Tracking starts at %@.".localized(for: appLanguage),
+                formatted
+            ),
+            symbol: "applewatch",
+            tint: accent
+        )
     }
 
     var body: some View {
@@ -139,6 +188,12 @@ struct ScheduleView: View {
                             .padding(.top, 16)
                             .offset(y: daySelectorOffset)
                             .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                    }
+                    if let watchSetupSummary, !showingWakeTimePicker {
+                        watchSetupBanner(watchSetupSummary)
+                            .padding(.top, viewModel.isAlarmEnabled ? 14 : 0)
+                            .offset(y: daySelectorOffset)
+                            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
                     }
                     if !showingWakeTimePicker {
                         DayOfWeekSelector(scheduledWeekdays: viewModel.scheduledWeekdays, selectedWeekday: viewModel.selectedWeekday) { weekday in
@@ -275,6 +330,37 @@ struct ScheduleView: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func watchSetupBanner(_ summary: WatchSetupSummary) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: summary.symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(summary.tint)
+                .frame(width: 22, height: 22)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(summary.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Text(summary.message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .frame(maxWidth: 320, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(summary.tint.opacity(0.22), lineWidth: 1)
         }
     }
 

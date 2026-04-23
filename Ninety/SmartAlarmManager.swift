@@ -66,7 +66,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
 
     func scheduleSleepSession(endingAt requestedWakeUpDate: Date) -> ScheduledSleepSession {
         let wakeUpDate = normalizedWakeUpDate(from: requestedWakeUpDate)
-        let monitoringStartDate = wakeUpDate.addingTimeInterval(-Self.monitoringLeadTime)
+        let monitoringStartDate = monitoringStartDate(for: wakeUpDate)
         scheduleSystemAlarm(for: wakeUpDate)
         return ScheduledSleepSession(wakeUpDate: wakeUpDate, monitoringStartDate: monitoringStartDate)
     }
@@ -98,7 +98,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
 
         if let alarmID = previousAlarmID {
             #if canImport(AlarmKit)
-            try? await AlarmManager.shared.cancel(id: alarmID)
+            try? AlarmManager.shared.cancel(id: alarmID)
             #endif
         }
 
@@ -119,48 +119,54 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         let alarmID = UUID()
         self.absoluteAlarmID = alarmID
 
-        let monitoringStart = targetDate.addingTimeInterval(-Self.monitoringLeadTime)
+        let monitoringStart = monitoringStartDate(for: targetDate)
         let now = Date()
 
         // Cancel any previous pending monitoring timer
         monitoringTimer?.invalidate()
         countdownTimer?.invalidate()
 
+        SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
+
         if monitoringStart <= now {
             // We're already inside the 30-min window — start immediately
-            self.alarmStatus = "Tracking started (inside window)"
-            SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
+            self.alarmStatus = "Tracking window open on Apple Watch"
         } else {
-            // Schedule tracking to start when the window opens
+            // The watch is armed immediately; the phone keeps a local countdown
+            // so the user can still see when the monitoring window opens.
             let delay = monitoringStart.timeIntervalSinceNow
-            self.alarmStatus = "⏳ Monitoring starts at \(monitoringStart.formatted(date: .omitted, time: .shortened))"
+            self.alarmStatus = "Open Ninety on Apple Watch once before sleep to arm Smart Alarm"
 
             // Live countdown
             countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 guard let self else { return }
                 let remaining = monitoringStart.timeIntervalSinceNow
-                if remaining <= 0 {
-                    self.countdownTimer?.invalidate()
-                    self.monitoringCountdown = ""
-                } else {
-                    let mins = Int(remaining) / 60
-                    let secs = Int(remaining) % 60
-                    self.monitoringCountdown = String(format: "Monitoring in %02d:%02d", mins, secs)
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if remaining <= 0 {
+                        self.countdownTimer?.invalidate()
+                        self.monitoringCountdown = ""
+                    } else {
+                        let mins = Int(remaining) / 60
+                        let secs = Int(remaining) % 60
+                        self.monitoringCountdown = String(format: "Monitoring in %02d:%02d", mins, secs)
+                    }
                 }
             }
 
             // Schedule Watch session start
             monitoringTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-                guard let self else { return }
-                self.alarmStatus = "🟢 Tracking started — monitoring window open"
-                self.monitoringCountdown = ""
-                SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.alarmStatus = "🟢 Tracking window open on Apple Watch"
+                    self.monitoringCountdown = ""
+                }
             }
         }
 
         self.alarmStatus = monitoringStart <= now
-            ? "🟢 Tracking active | Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened))"
-            : "⏳ Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened)) | Monitoring: \(monitoringStart.formatted(date: .omitted, time: .shortened))"
+            ? "🟢 Tracking window open | Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened))"
+            : "⏳ Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
 
         #if canImport(AlarmKit)
         do {
@@ -170,13 +176,13 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
             )
             _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
             self.alarmStatus = self.alarmStatus.contains("🟢")
-                ? "🟢 Tracking active | ✅ Failsafe set: \(targetDate.formatted(date: .omitted, time: .shortened))"
-                : "⏳ ✅ Failsafe set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Monitoring: \(monitoringStart.formatted(date: .omitted, time: .shortened))"
+                ? "🟢 Tracking window open | ✅ Failsafe set: \(targetDate.formatted(date: .omitted, time: .shortened))"
+                : "⏳ ✅ Failsafe set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
         } catch {
             self.alarmStatus = "System Alarm Schedule failed: \(error)"
         }
         #else
-        self.alarmStatus = "[Sim] Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened)) | Monitoring: \(monitoringStart.formatted(date: .omitted, time: .shortened))"
+        self.alarmStatus = "[Sim] Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
         #endif
     }
     
@@ -286,5 +292,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         }
 
         return Calendar.current.date(byAdding: .day, value: 1, to: requestedWakeUpDate) ?? requestedWakeUpDate
+    }
+
+    private func monitoringStartDate(for wakeUpDate: Date) -> Date {
+        wakeUpDate.addingTimeInterval(-Self.monitoringLeadTime)
     }
 }

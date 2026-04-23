@@ -9,7 +9,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     // MARK: - Sleep Stage Classification
     // Model output: 0=Wake, 1=N1/N2(light), 2=N3(deep), 3=REM
-    enum SleepStage: Int, CaseIterable {
+    enum SleepStage: Int, CaseIterable, Codable {
         case wake = 0
         case light = 1   // N1/N2 light sleep — TRIGGERS alarm
         case deep = 2    // N3 deep sleep — do NOT trigger
@@ -32,7 +32,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     // MARK: - Per-Epoch Aggregate
     // Stores all raw data needed for feature engineering across rolling windows.
-    private struct EpochAggregate {
+    private struct EpochAggregate: Codable {
         let timestamp: Date
         let heartRateMean: Double
         let heartRateStd: Double
@@ -42,6 +42,68 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let motionJerk: Double        // |current_motion - previous_motion|
     }
 
+    private enum AnalysisSessionState: String, Codable {
+        case idle
+        case scheduled
+        case recording
+        case deliveringBacklog
+        case completed
+        case failed
+
+        var label: String {
+            switch self {
+            case .idle:
+                return "Idle"
+            case .scheduled:
+                return "Scheduled"
+            case .recording:
+                return "Recording"
+            case .deliveringBacklog:
+                return "Delivering backlog"
+            case .completed:
+                return "Completed"
+            case .failed:
+                return "Failed"
+            }
+        }
+    }
+
+    private struct PersistedSessionState: Codable {
+        let savedAt: Date
+        let lastAcceptedPayloadAt: Date?
+        let activeWakeTargetDate: Date?
+        let dynamicAlarmTriggered: Bool
+        let sessionStartDate: Date?
+        let sessionState: AnalysisSessionState
+        let lastHRJumpEpochIndex: Int
+        let processedPayloadIDs: [UUID]
+        let currentEpochPayloads: [SensorPayload]
+        let epochHistory: [EpochAggregate]
+        let rawPredictionWindow: [SleepStage]
+        let rawPredictionHistory: [SleepStage]
+        let smoothedPredictionHistory: [SleepStage]
+        let confirmationBuffer: [SleepStage]
+        let isConfirming: Bool
+        let lastPayloadReceived: String
+        let watchStatus: String
+        let watchConnectionStatus: String
+        let watchQueuedStartDate: Date?
+        let watchArmedStartDate: Date?
+        let watchPendingPayloadCount: Int
+        let replayStatus: String
+        let ackStatus: String
+        let engineLog: String
+        let logs: [String]
+        let modelStatus: String
+        let rawStageDisplay: String
+        let officialStageDisplay: String
+        let latestEpochSummary: String
+        let latestFeatureSummary: String
+        let confirmationProgress: String
+        let sessionRecoveryStatus: String
+        let sessionStateDisplay: String
+    }
+
     private struct PredictionSnapshot {
         let rawStage: SleepStage
         let smoothedStage: SleepStage
@@ -49,18 +111,29 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     // MARK: - Configuration
-    private let maxTrackedPayloadIDs = 200
+    private let maxTrackedPayloadIDs = 12_000
+    private let maxStoredPredictionHistory = 1_000
     private let epochDuration: TimeInterval = 30
     /// 10-minute window = 20 epochs of 30s each. We need at least this many for
     /// the widest rolling window (hist10m) in the model's feature set.
     private let minimumEpochsForFeatures = 5
     private let smoothingWindowSize = 5
     private let processingQueue = DispatchQueue(label: "Ninety.SleepSessionManager.processing")
+    private let persistenceQueue = DispatchQueue(label: "Ninety.SleepSessionManager.persistence")
+    private let processingQueueKey = DispatchSpecificKey<UInt8>()
+    private let processingQueueToken: UInt8 = 1
+    private let persistedSessionMaxAge: TimeInterval = 15 * 60
+    private let persistedScheduledSessionGrace: TimeInterval = 10 * 60
 
     // MARK: - Published UI State
     @Published var lastPayloadReceived: String = "No data received"
     @Published var watchStatus: String = "No watch session activity"
     @Published var watchConnectionStatus: String = "No connectivity status"
+    @Published var watchQueuedStartDate: Date?
+    @Published var watchArmedStartDate: Date?
+    @Published var watchPendingPayloadCount: Int = 0
+    @Published var replayStatus: String = "No backlog activity"
+    @Published var ackStatus: String = "No acknowledgements yet"
     @Published var engineLog: String = "Idle"
     @Published var logs: [String] = []
     @Published var modelStatus: String = "Loading model"
@@ -69,6 +142,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     @Published var latestEpochSummary: String = "No 30-second epoch yet"
     @Published var latestFeatureSummary: String = "No features computed yet"
     @Published var confirmationProgress: String = "Idle"
+    @Published var sessionRecoveryStatus: String = "Session restarted"
+    @Published var sessionStateDisplay: String = "Idle"
     @Published var isTestModeRunning: Bool = false
     @Published var testModeProgress: String = ""
 
@@ -89,14 +164,19 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Internal State
     private var wcSession: WCSession?
     private var currentBackgroundTask: UIBackgroundTaskIdentifier = .invalid
-    private var recentPayloadIDs: [UUID] = []
+    private var processedPayloadIDs: [UUID] = []
+    private var processedPayloadIDSet: Set<UUID> = []
     private var currentEpochPayloads: [SensorPayload] = []
     private var epochHistory: [EpochAggregate] = []
     private var rawPredictions: [SleepStage] = []
+    private var rawPredictionHistory: [SleepStage] = []
+    private var smoothedPredictionHistory: [SleepStage] = []
     private var stageModel: MLModel?
     private var activeWakeTargetDate: Date?
     private var dynamicAlarmTriggered = false
     private var sessionStartDate: Date?
+    private var lastAcceptedPayloadAt: Date?
+    private var sessionState: AnalysisSessionState = .idle
     /// Tracks the last epoch where HR jumped significantly, for the
     /// `minutes_since_last_hr_jump_log1p` feature.
     private var lastHRJumpEpochIndex: Int = 0
@@ -107,7 +187,9 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     override init() {
         super.init()
+        processingQueue.setSpecific(key: processingQueueKey, value: processingQueueToken)
         setupWatchConnectivity()
+        restorePersistedSessionIfValid()
         loadModel()
     }
 
@@ -126,6 +208,24 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         activeWakeTargetDate = targetDate
         dynamicAlarmTriggered = false
         sessionStartDate = Date()
+        lastAcceptedPayloadAt = nil
+        setSessionState(targetDate == nil ? .recording : .scheduled)
+        updateSessionRecoveryStatus("Session restarted")
+
+        if let targetDate {
+            let applyQueuedState = {
+                self.watchQueuedStartDate = self.scheduledMonitoringStartDate(for: targetDate)
+                self.watchArmedStartDate = nil
+                self.watchStatus = "Open Ninety on Apple Watch to arm Smart Alarm"
+            }
+            if Thread.isMainThread {
+                applyQueuedState()
+            } else {
+                DispatchQueue.main.async(execute: applyQueuedState)
+            }
+        }
+
+        requestPersistedSessionSave()
 
         guard let session = wcSession else { return }
 
@@ -148,6 +248,21 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     func stopWatchSession() {
         activeWakeTargetDate = nil
         dynamicAlarmTriggered = false
+        sessionStartDate = nil
+        lastAcceptedPayloadAt = nil
+        setSessionState(.completed)
+        updateSessionRecoveryStatus("Session restarted")
+        let clearWatchSchedulingState = {
+            self.watchQueuedStartDate = nil
+            self.watchArmedStartDate = nil
+            self.watchStatus = "No watch session activity"
+        }
+        if Thread.isMainThread {
+            clearWatchSchedulingState()
+        } else {
+            DispatchQueue.main.async(execute: clearWatchSchedulingState)
+        }
+        clearPersistedSessionState()
         guard let session = wcSession else { return }
         let command = ["action": "stopSession"]
         if session.isReachable {
@@ -160,6 +275,21 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     func pauseWatchMonitoring() {
         activeWakeTargetDate = nil
         dynamicAlarmTriggered = false
+        sessionStartDate = nil
+        lastAcceptedPayloadAt = nil
+        setSessionState(.completed)
+        updateSessionRecoveryStatus("Session restarted")
+        let clearWatchSchedulingState = {
+            self.watchQueuedStartDate = nil
+            self.watchArmedStartDate = nil
+            self.watchStatus = "No watch session activity"
+        }
+        if Thread.isMainThread {
+            clearWatchSchedulingState()
+        } else {
+            DispatchQueue.main.async(execute: clearWatchSchedulingState)
+        }
+        clearPersistedSessionState()
         guard let session = wcSession else { return }
         let command = ["action": "pauseMonitoring"]
         if session.isReachable {
@@ -240,18 +370,24 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 let data = try JSONSerialization.data(withJSONObject: payloadDictionary, options: [])
                 payload = try JSONDecoder().decode(SensorPayload.self, from: data)
             }
-
-            DispatchQueue.main.async {
-                self.lastPayloadReceived = "Received at \(payload.timestamp.formatted(date: .omitted, time: .standard))"
-            }
+            let backlogPending = (payloadDictionary["pendingPayloadCount"] as? Int ?? 0) > 0
 
             // Deduplication and consumption must both run on processingQueue
-            // to avoid data races on recentPayloadIDs and other shared state.
+            // to avoid data races on processed payload IDs and other shared state.
             processingQueue.async {
                 guard self.shouldProcessPayload(withID: payload.id) else {
+                    self.sendPayloadAcknowledgement(for: [payload.id], outcome: "Duplicate payload acknowledged")
                     return
                 }
+
+                self.lastAcceptedPayloadAt = payload.timestamp
+                self.setSessionState(backlogPending ? .deliveringBacklog : .recording)
+                DispatchQueue.main.async {
+                    self.lastPayloadReceived = "Received at \(payload.timestamp.formatted(date: .omitted, time: .standard))"
+                }
+
                 self.consume(payload: payload)
+                self.sendPayloadAcknowledgement(for: [payload.id], outcome: "Acked \(payload.id.uuidString.prefix(8))")
             }
         } catch {
             log("Decode Error: \(error.localizedDescription)")
@@ -263,25 +399,76 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return false
         }
 
-        let queuedSchedule = (payloadDictionary["queuedSchedule"] as? TimeInterval).map {
-            Date(timeIntervalSince1970: $0).formatted(date: .omitted, time: .shortened)
-        }
+        let queuedScheduleDate = (payloadDictionary["queuedSchedule"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
+        let armedScheduleDate = (payloadDictionary["armedSchedule"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
         let connectionStatus = payloadDictionary["watchConnectionStatus"] as? String
+        let pendingPayloadCount = payloadDictionary["pendingPayloadCount"] as? Int
+        let replayStatus = payloadDictionary["replayStatus"] as? String
+        let pipelineStateRaw = payloadDictionary["pipelineState"] as? String
 
         DispatchQueue.main.async {
-            if let queuedSchedule {
-                self.watchStatus = "\(status) (\(queuedSchedule))"
-            } else {
-                self.watchStatus = status
-            }
+            self.watchStatus = status
 
             if let connectionStatus {
                 self.watchConnectionStatus = connectionStatus
             }
+
+            self.watchQueuedStartDate = queuedScheduleDate
+            self.watchArmedStartDate = armedScheduleDate
+
+            if let pendingPayloadCount {
+                self.watchPendingPayloadCount = pendingPayloadCount
+            }
+
+            if let replayStatus {
+                self.replayStatus = replayStatus
+            }
         }
+
+        if let pendingPayloadCount, pendingPayloadCount > 0 {
+            setSessionState(.deliveringBacklog)
+        } else if let pipelineStateRaw, let pipelineState = AnalysisSessionState(rawValue: pipelineStateRaw) {
+            setSessionState(pipelineState)
+        } else if activeWakeTargetDate != nil || sessionStartDate != nil {
+            setSessionState(.recording)
+        }
+
+        requestPersistedSessionSave()
 
         log("Watch: \(status)")
         return true
+    }
+
+    private func sendPayloadAcknowledgement(for ids: [UUID], outcome: String) {
+        guard let session = wcSession, session.activationState == .activated, !ids.isEmpty else {
+            return
+        }
+
+        let message: [String: Any] = [
+            "action": "ackPayloads",
+            "ids": ids.map(\.uuidString)
+        ]
+
+        DispatchQueue.main.async {
+            self.ackStatus = outcome
+        }
+
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil) { error in
+                DispatchQueue.main.async {
+                    self.ackStatus = "Ack queued for \(ids.count) payload(s)"
+                }
+                session.transferUserInfo(message)
+                self.log("Ack send failed: \(error.localizedDescription)")
+            }
+        } else {
+            DispatchQueue.main.async {
+                self.ackStatus = "Ack queued for \(ids.count) payload(s)"
+            }
+            session.transferUserInfo(message)
+        }
+
+        requestPersistedSessionSave()
     }
 
     // MARK: - Cross-Device Intent Handlers
@@ -320,6 +507,10 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Epoch Aggregation
 
     private func consume(payload: SensorPayload) {
+        defer {
+            requestPersistedSessionSave()
+        }
+
         // 1. Inactivity Timeout: If the gap is > 5 minutes, reset buffers
         if let lastTimestamp = currentEpochPayloads.last?.timestamp ?? epochHistory.last?.timestamp {
             let gap = payload.timestamp.timeIntervalSince(lastTimestamp)
@@ -327,6 +518,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 log("⚠️ Large data gap (\(Int(gap/60)) min). Resetting model history.")
                 epochHistory.removeAll()
                 rawPredictions.removeAll()
+                rawPredictionHistory.removeAll()
+                smoothedPredictionHistory.removeAll()
                 currentEpochPayloads.removeAll()
                 lastHRJumpEpochIndex = 0 // Critical precision fix: must reset this tracking index too!
                 
@@ -552,6 +745,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             }
 
             let smoothedStage = modeStage(from: rawPredictions) ?? rawStage
+            rawPredictionHistory.append(rawStage)
+            if rawPredictionHistory.count > maxStoredPredictionHistory {
+                rawPredictionHistory.removeFirst(rawPredictionHistory.count - maxStoredPredictionHistory)
+            }
+            smoothedPredictionHistory.append(smoothedStage)
+            if smoothedPredictionHistory.count > maxStoredPredictionHistory {
+                smoothedPredictionHistory.removeFirst(smoothedPredictionHistory.count - maxStoredPredictionHistory)
+            }
             return PredictionSnapshot(rawStage: rawStage, smoothedStage: smoothedStage, epoch: epoch)
         } catch {
             log("Prediction failed: \(error.localizedDescription)")
@@ -697,21 +898,266 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         DispatchQueue.main.async {
             self.confirmationProgress = status
         }
+        requestPersistedSessionSave()
+    }
+
+    // MARK: - Session State
+
+    private func setSessionState(_ newState: AnalysisSessionState, detail: String? = nil) {
+        sessionState = newState
+        let display = detail ?? newState.label
+        if Thread.isMainThread {
+            sessionStateDisplay = display
+        } else {
+            DispatchQueue.main.async {
+                self.sessionStateDisplay = display
+            }
+        }
+    }
+
+    private func updateSessionRecoveryStatus(_ status: String) {
+        if Thread.isMainThread {
+            sessionRecoveryStatus = status
+        } else {
+            DispatchQueue.main.async {
+                self.sessionRecoveryStatus = status
+            }
+        }
+    }
+
+    // MARK: - Session Persistence
+
+    private var persistedSessionURL: URL? {
+        guard let supportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+
+        let directory = supportDirectory.appendingPathComponent("Ninety", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent("active_sleep_session.json")
+    }
+
+    private func requestPersistedSessionSave() {
+        if Thread.isMainThread {
+            persistSessionStateOnMainThread()
+        } else {
+            DispatchQueue.main.async {
+                self.persistSessionStateOnMainThread()
+            }
+        }
+    }
+
+    private func persistSessionStateOnMainThread() {
+        guard let snapshot = buildPersistedSessionStateOnMainThread() else { return }
+
+        persistenceQueue.async {
+            guard let url = self.persistedSessionURL else { return }
+
+            do {
+                let data = try JSONEncoder().encode(snapshot)
+                try data.write(to: url, options: [.atomic])
+            } catch {
+                DispatchQueue.main.async {
+                    self.engineLog = "Session persistence failed: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func buildPersistedSessionStateOnMainThread() -> PersistedSessionState? {
+        let publishedState = (
+            lastPayloadReceived: lastPayloadReceived,
+            watchStatus: watchStatus,
+            watchConnectionStatus: watchConnectionStatus,
+            watchQueuedStartDate: watchQueuedStartDate,
+            watchArmedStartDate: watchArmedStartDate,
+            watchPendingPayloadCount: watchPendingPayloadCount,
+            replayStatus: replayStatus,
+            ackStatus: ackStatus,
+            engineLog: engineLog,
+            logs: logs,
+            modelStatus: modelStatus,
+            rawStageDisplay: rawStageDisplay,
+            officialStageDisplay: officialStageDisplay,
+            latestEpochSummary: latestEpochSummary,
+            latestFeatureSummary: latestFeatureSummary,
+            confirmationProgress: confirmationProgress,
+            sessionRecoveryStatus: sessionRecoveryStatus,
+            sessionStateDisplay: sessionStateDisplay
+        )
+
+        return performOnProcessingQueueSync {
+            guard hasRestorableSession else { return nil }
+
+            return PersistedSessionState(
+                savedAt: Date(),
+                lastAcceptedPayloadAt: lastAcceptedPayloadAt,
+                activeWakeTargetDate: activeWakeTargetDate,
+                dynamicAlarmTriggered: dynamicAlarmTriggered,
+                sessionStartDate: sessionStartDate,
+                sessionState: sessionState,
+                lastHRJumpEpochIndex: lastHRJumpEpochIndex,
+                processedPayloadIDs: processedPayloadIDs,
+                currentEpochPayloads: currentEpochPayloads,
+                epochHistory: epochHistory,
+                rawPredictionWindow: rawPredictions,
+                rawPredictionHistory: rawPredictionHistory,
+                smoothedPredictionHistory: smoothedPredictionHistory,
+                confirmationBuffer: confirmationBuffer,
+                isConfirming: isConfirming,
+                lastPayloadReceived: publishedState.lastPayloadReceived,
+                watchStatus: publishedState.watchStatus,
+                watchConnectionStatus: publishedState.watchConnectionStatus,
+                watchQueuedStartDate: publishedState.watchQueuedStartDate,
+                watchArmedStartDate: publishedState.watchArmedStartDate,
+                watchPendingPayloadCount: publishedState.watchPendingPayloadCount,
+                replayStatus: publishedState.replayStatus,
+                ackStatus: publishedState.ackStatus,
+                engineLog: publishedState.engineLog,
+                logs: publishedState.logs,
+                modelStatus: publishedState.modelStatus,
+                rawStageDisplay: publishedState.rawStageDisplay,
+                officialStageDisplay: publishedState.officialStageDisplay,
+                latestEpochSummary: publishedState.latestEpochSummary,
+                latestFeatureSummary: publishedState.latestFeatureSummary,
+                confirmationProgress: publishedState.confirmationProgress,
+                sessionRecoveryStatus: publishedState.sessionRecoveryStatus,
+                sessionStateDisplay: publishedState.sessionStateDisplay
+            )
+        }
+    }
+
+    private func restorePersistedSessionIfValid() {
+        guard let url = persistedSessionURL else {
+            updateSessionRecoveryStatus("Session restarted")
+            return
+        }
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            updateSessionRecoveryStatus("Session restarted")
+            return
+        }
+
+        guard let data = try? Data(contentsOf: url) else {
+            clearPersistedSessionState()
+            updateSessionRecoveryStatus("Session restarted")
+            return
+        }
+
+        guard let persisted = try? JSONDecoder().decode(PersistedSessionState.self, from: data) else {
+            clearPersistedSessionState()
+            updateSessionRecoveryStatus("Session restarted")
+            return
+        }
+
+        guard shouldRestore(persisted) else {
+            clearPersistedSessionState()
+            updateSessionRecoveryStatus("Session restarted")
+            return
+        }
+
+        applyRestoredSession(persisted)
+        updateSessionRecoveryStatus("Session restored")
+        log("Restored active sleep analysis from disk.")
+    }
+
+    private func applyRestoredSession(_ persisted: PersistedSessionState) {
+        performOnProcessingQueueSync {
+            activeWakeTargetDate = persisted.activeWakeTargetDate
+            dynamicAlarmTriggered = persisted.dynamicAlarmTriggered
+            sessionStartDate = persisted.sessionStartDate
+            sessionState = persisted.sessionState
+            lastAcceptedPayloadAt = persisted.lastAcceptedPayloadAt
+            lastHRJumpEpochIndex = persisted.lastHRJumpEpochIndex
+            processedPayloadIDs = Array(persisted.processedPayloadIDs.suffix(maxTrackedPayloadIDs))
+            processedPayloadIDSet = Set(processedPayloadIDs)
+            currentEpochPayloads = persisted.currentEpochPayloads
+            epochHistory = persisted.epochHistory
+            rawPredictions = Array(persisted.rawPredictionWindow.suffix(smoothingWindowSize))
+            rawPredictionHistory = Array(persisted.rawPredictionHistory.suffix(maxStoredPredictionHistory))
+            smoothedPredictionHistory = Array(persisted.smoothedPredictionHistory.suffix(maxStoredPredictionHistory))
+            confirmationBuffer = persisted.confirmationBuffer
+            isConfirming = persisted.isConfirming
+        }
+
+        lastPayloadReceived = persisted.lastPayloadReceived
+        watchStatus = persisted.watchStatus
+        watchConnectionStatus = persisted.watchConnectionStatus
+        watchQueuedStartDate = persisted.watchQueuedStartDate
+        watchArmedStartDate = persisted.watchArmedStartDate
+        watchPendingPayloadCount = persisted.watchPendingPayloadCount
+        replayStatus = persisted.replayStatus
+        ackStatus = persisted.ackStatus
+        engineLog = persisted.engineLog
+        logs = persisted.logs
+        modelStatus = persisted.modelStatus
+        rawStageDisplay = persisted.rawStageDisplay
+        officialStageDisplay = persisted.officialStageDisplay
+        latestEpochSummary = persisted.latestEpochSummary
+        latestFeatureSummary = persisted.latestFeatureSummary
+        confirmationProgress = persisted.confirmationProgress
+        sessionRecoveryStatus = persisted.sessionRecoveryStatus
+        sessionStateDisplay = persisted.sessionStateDisplay
+    }
+
+    private func shouldRestore(_ persisted: PersistedSessionState) -> Bool {
+        let now = Date()
+        if let targetDate = persisted.activeWakeTargetDate {
+            return now <= targetDate.addingTimeInterval(persistedScheduledSessionGrace)
+        }
+
+        let lastDataDate = persisted.lastAcceptedPayloadAt ??
+            persisted.currentEpochPayloads.last?.timestamp ??
+            persisted.epochHistory.last?.timestamp ??
+            persisted.sessionStartDate ??
+            persisted.savedAt
+
+        return now.timeIntervalSince(lastDataDate) <= persistedSessionMaxAge
+    }
+
+    private func clearPersistedSessionState() {
+        persistenceQueue.async {
+            guard let url = self.persistedSessionURL else { return }
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    private var hasRestorableSession: Bool {
+        activeWakeTargetDate != nil ||
+            sessionStartDate != nil ||
+            lastAcceptedPayloadAt != nil ||
+            !currentEpochPayloads.isEmpty ||
+            !epochHistory.isEmpty
+    }
+
+    private func performOnProcessingQueueSync<T>(_ block: () -> T) -> T {
+        if DispatchQueue.getSpecific(key: processingQueueKey) == processingQueueToken {
+            return block()
+        }
+
+        return processingQueue.sync(execute: block)
     }
 
     // MARK: - Session Reset
 
     private func resetSession() {
-        processingQueue.async {
+        performOnProcessingQueueSync {
             self.currentEpochPayloads.removeAll()
             self.epochHistory.removeAll()
             self.rawPredictions.removeAll()
-            self.recentPayloadIDs.removeAll()
+            self.rawPredictionHistory.removeAll()
+            self.smoothedPredictionHistory.removeAll()
+            self.processedPayloadIDSet.removeAll()
+            self.processedPayloadIDs.removeAll()
+            self.activeWakeTargetDate = nil
             self.dynamicAlarmTriggered = false
             self.isConfirming = false
             self.confirmationBuffer.removeAll()
             self.lastHRJumpEpochIndex = 0
             self.sessionStartDate = nil
+            self.lastAcceptedPayloadAt = nil
+            self.sessionState = .idle
+            self.clearPersistedSessionState()
 
             DispatchQueue.main.async {
                 self.rawStageDisplay = "Warming up (5 epochs)".localized(for: self.preferredLang)
@@ -719,6 +1165,12 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 self.latestEpochSummary = "No 30-second epoch yet".localized(for: self.preferredLang)
                 self.latestFeatureSummary = "No features computed yet".localized(for: self.preferredLang)
                 self.confirmationProgress = "Idle"
+                self.replayStatus = "No backlog activity"
+                self.ackStatus = "No acknowledgements yet"
+                self.watchQueuedStartDate = nil
+                self.watchArmedStartDate = nil
+                self.watchPendingPayloadCount = 0
+                self.sessionStateDisplay = AnalysisSessionState.idle.label
             }
         }
     }
@@ -726,15 +1178,27 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Utilities
 
     private func shouldProcessPayload(withID id: UUID) -> Bool {
-        guard !recentPayloadIDs.contains(id) else {
+        guard !processedPayloadIDSet.contains(id) else {
             return false
         }
 
-        recentPayloadIDs.append(id)
-        if recentPayloadIDs.count > maxTrackedPayloadIDs {
-            recentPayloadIDs.removeFirst(recentPayloadIDs.count - maxTrackedPayloadIDs)
+        processedPayloadIDs.append(id)
+        processedPayloadIDSet.insert(id)
+        if processedPayloadIDs.count > maxTrackedPayloadIDs {
+            let overflowCount = processedPayloadIDs.count - maxTrackedPayloadIDs
+            let removedIDs = processedPayloadIDs.prefix(overflowCount)
+            processedPayloadIDs.removeFirst(overflowCount)
+            removedIDs.forEach { processedPayloadIDSet.remove($0) }
         }
         return true
+    }
+
+    private func scheduledMonitoringStartDate(for wakeTargetDate: Date) -> Date {
+        let requestedStart = wakeTargetDate.addingTimeInterval(-30 * 60)
+        if requestedStart <= Date() {
+            return Date().addingTimeInterval(2)
+        }
+        return requestedStart
     }
 
     func log(_ message: String) {
@@ -744,6 +1208,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 self.logs.removeLast()
             }
             self.engineLog = message
+            self.requestPersistedSessionSave()
         }
     }
 
@@ -751,6 +1216,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         DispatchQueue.main.async {
             self.logs.removeAll()
             self.engineLog = "Logs cleared"
+            self.requestPersistedSessionSave()
         }
     }
 
@@ -821,7 +1287,6 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
 
         let header = lines[0].replacingOccurrences(of: "\r", with: "").components(separatedBy: ",")
-        let featureNames = header.filter { $0 != "target" }
 
         var rows: [[String: Double]] = []
         var labels: [Int] = []
@@ -852,6 +1317,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         activeWakeTargetDate = Date().addingTimeInterval(3600) // fake target
         dynamicAlarmTriggered = false
         rawPredictions.removeAll()
+        rawPredictionHistory.removeAll()
+        smoothedPredictionHistory.removeAll()
+        sessionStartDate = Date()
+        setSessionState(.recording, detail: "Recording (test mode)")
+        updateSessionRecoveryStatus("Session restarted")
 
         testModeRows = rows
         testModeLabels = labels
@@ -864,6 +1334,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         log("🧪 TEST MODE started — \(rows.count) epochs from test6.csv")
         log("🧪 Feeding pre-computed features directly to modello25 at 0.5s/epoch")
+        requestPersistedSessionSave()
 
         // Start timer on main thread (0.5s per epoch = ~60× real-time)
         DispatchQueue.main.async {
@@ -930,6 +1401,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 rawPredictions.removeFirst(rawPredictions.count - smoothingWindowSize)
             }
             let smoothed = modeStage(from: rawPredictions) ?? rawStage
+            rawPredictionHistory.append(rawStage)
+            if rawPredictionHistory.count > maxStoredPredictionHistory {
+                rawPredictionHistory.removeFirst(rawPredictionHistory.count - maxStoredPredictionHistory)
+            }
+            smoothedPredictionHistory.append(smoothed)
+            if smoothedPredictionHistory.count > maxStoredPredictionHistory {
+                smoothedPredictionHistory.removeFirst(smoothedPredictionHistory.count - maxStoredPredictionHistory)
+            }
 
             // Match indicator
             let match = rawStage.rawValue == groundTruth ? "✅" : "❌"

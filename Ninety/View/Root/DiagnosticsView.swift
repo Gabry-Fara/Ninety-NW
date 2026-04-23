@@ -25,6 +25,8 @@ struct DiagnosticsView: View {
                     diagnosticSection("Status".localized(for: appLanguage)) {
                         VStack(spacing: 12) {
                             diagnosticRow("Alarm:".localized(for: appLanguage), viewModel.userFriendlyAlarmStatus(from: smartAlarm.alarmStatus))
+                            diagnosticRow("Session recovery:".localized(for: appLanguage), sleepManager.sessionRecoveryStatus)
+                            diagnosticRow("Pipeline:".localized(for: appLanguage), sleepManager.sessionStateDisplay)
                             
                             if let scheduledSession = viewModel.lastScheduledSession {
                                 diagnosticRow("Scheduled For:".localized(for: appLanguage), scheduledSession.wakeUpDate.formatted(date: .abbreviated, time: .shortened))
@@ -44,8 +46,17 @@ struct DiagnosticsView: View {
                             diagnosticRow("Last Payload:".localized(for: appLanguage), sleepManager.lastPayloadReceived)
                             diagnosticRow("Watch Session:".localized(for: appLanguage), sleepManager.watchStatus)
                             diagnosticRow("Delivery:".localized(for: appLanguage), sleepManager.watchConnectionStatus)
+                            if let queuedStart = sleepManager.watchQueuedStartDate {
+                                diagnosticRow("Watch queued for:".localized(for: appLanguage), queuedStart.formatted(date: .abbreviated, time: .shortened))
+                            }
+                            if let armedStart = sleepManager.watchArmedStartDate {
+                                diagnosticRow("Watch armed for:".localized(for: appLanguage), armedStart.formatted(date: .abbreviated, time: .shortened))
+                            }
+                            diagnosticRow("Pending on Watch:".localized(for: appLanguage), "\(sleepManager.watchPendingPayloadCount)")
+                            diagnosticRow("Replay:".localized(for: appLanguage), sleepManager.replayStatus)
+                            diagnosticRow("Ack:".localized(for: appLanguage), sleepManager.ackStatus)
                             
-                            Text("If the watch app is not foregrounded, the start request is queued and the user must open the watch app to arm Smart Alarm.".localized(for: appLanguage))
+                            Text("Open Ninety on Apple Watch once before sleep to arm Smart Alarm. After that it starts automatically.".localized(for: appLanguage))
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                                 .padding(.top, 4)
