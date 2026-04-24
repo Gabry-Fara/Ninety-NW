@@ -175,10 +175,7 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .background {
-            HorizonBackground(isActive: false)
-                .ignoresSafeArea()
-        }
+        .background(Color.clear)
         .navigationTitle("Settings".localized(for: appLanguage))
         .navigationBarTitleDisplayMode(.large)
         .scrollContentBackground(.hidden)
