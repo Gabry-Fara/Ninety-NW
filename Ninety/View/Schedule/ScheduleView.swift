@@ -22,9 +22,9 @@ struct ScheduleView: View {
         let tint: Color
     }
 
-    private let timeBlockOffset: CGFloat = -130
-    private let daySelectorOffset: CGFloat = -8
-    private let alarmButtonBottomPadding: CGFloat = 92
+    private let timeBlockOffset: CGFloat = -60
+    private let daySelectorOffset: CGFloat = 70
+    private let alarmButtonBottomPadding: CGFloat = 64
     private let watchBannerSlotHeight: CGFloat = 190
 
     @EnvironmentObject private var viewModel: ScheduleViewModel
@@ -41,6 +41,7 @@ struct ScheduleView: View {
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
     @AppStorage("showGuidedTour") private var showGuidedTour: Bool = false
+    @State private var showingWatchDetails = false
     private let impactHaptic = UIImpactFeedbackGenerator(style: .medium)
     private var accent: Color { .scheduleAccent(for: colorScheme) }
     private var isSelectedDayActive: Bool { viewModel.isAlarmEnabledForSelectedDay }
@@ -114,7 +115,7 @@ struct ScheduleView: View {
                         .ignoresSafeArea()
                 }
                 VStack(spacing: 0) {
-                    Spacer().frame(height: 20)
+                    Spacer().frame(height: 60)
                     ZStack {
                         if !showingWakeTimePicker {
                             Text("Wake up by".localized(for: appLanguage))
@@ -176,11 +177,48 @@ struct ScheduleView: View {
                                 transaction.animation = nil
                             }
                         } else {
-                            IdleTimeDisplay(
-                                hour: internalHour,
-                                minute: internalMinute,
-                                isActive: isSelectedDayActive
-                            )
+                            VStack(spacing: 0) {
+                                IdleTimeDisplay(
+                                    hour: internalHour,
+                                    minute: internalMinute,
+                                    isActive: isSelectedDayActive
+                                )
+                                
+                                if let summary = watchSetupSummary, isSelectedDayActive {
+                                    Button {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                            showingWatchDetails.toggle()
+                                        }
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Circle()
+                                                .fill(summary.tint)
+                                                .frame(width: 8, height: 8)
+                                            
+                                            Text(summary.badge)
+                                                .font(.system(.subheadline, design: .rounded))
+                                                .fontWeight(.medium)
+                                            
+                                            Image(systemName: "chevron.up.circle.fill")
+                                                .font(.caption2)
+                                                .opacity(0.3)
+                                                .rotationEffect(.degrees(showingWatchDetails ? 180 : 0))
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background {
+                                            Capsule()
+                                                .fill(.ultraThinMaterial)
+                                                .overlay {
+                                                    Capsule()
+                                                        .strokeBorder(.white.opacity(0.1), lineWidth: 1)
+                                                }
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.top, -80) // Pull it closer to the clock
+                                }
+                            }
                         }
                     }
                     .frame(width: 286, height: 280)
@@ -225,7 +263,7 @@ struct ScheduleView: View {
                         .offset(y: daySelectorOffset)
                         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
                     }
-                    if viewModel.isAlarmEnabled && !showingWakeTimePicker {
+                    if viewModel.isAlarmEnabled && !showingWakeTimePicker && showingWatchDetails {
                         watchSetupBannerSlot
                             .padding(.top, 14)
                             .offset(y: daySelectorOffset)
