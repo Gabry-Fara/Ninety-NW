@@ -32,10 +32,6 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     }
     
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        // Trigger Watch haptics when failsafe alarm fires on iPhone
-        Task { @MainActor in
-            SleepSessionManager.shared.triggerWatchHapticWakeUp()
-        }
         completionHandler([.banner, .sound])
     }
     
@@ -108,7 +104,6 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
 
         SleepSessionManager.shared.syncAlarmState(targetDate: nil)
         SleepSessionManager.shared.pauseWatchMonitoring()
-        SleepSessionManager.shared.stopWatchAlarm()
 
         if resetStatus {
             self.alarmStatus = "No alarms configured."

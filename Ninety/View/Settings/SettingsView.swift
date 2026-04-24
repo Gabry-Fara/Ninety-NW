@@ -25,16 +25,16 @@ struct SettingsView: View {
                     // Smart Alarm Section
                     settingsSection("SMART ALARM".localized(for: appLanguage)) {
                         VStack(spacing: 0) {
-//                            settingsRow(icon: "timer", color: accent, title: "Wake Window".localized(for: appLanguage)) {
-//                                Picker("Wake Window", selection: $settingsViewModel.smartWakeWindow) {
-//                                    Text("15 min").tag(15)
-//                                    Text("30 min").tag(30)
-//                                    Text("45 min").tag(45)
-//                                    Text("60 min").tag(60)
-//                                }
-//                                .labelsHidden()
-//                                .tint(.secondary)
-//                            }
+                            settingsRow(icon: "timer", color: accent, title: "Wake Window".localized(for: appLanguage)) {
+                                Picker("Wake Window", selection: $settingsViewModel.smartWakeWindow) {
+                                    Text("15 min").tag(15)
+                                    Text("30 min").tag(30)
+                                    Text("45 min").tag(45)
+                                    Text("60 min").tag(60)
+                                }
+                                .labelsHidden()
+                                .tint(.secondary)
+                            }
                             
                             Divider().padding(.leading, 44)
                             
@@ -47,10 +47,14 @@ struct SettingsView: View {
                     }
                     
                     // Appearance Section
-                    settingsSection("APPEARANCE".localized(for: appLanguage)) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("APPEARANCE".localized(for: appLanguage))
+                            .font(.caption.bold())
+                            .tracking(2)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 8)
+                        
                         VStack(spacing: 0) {
-                            Divider().padding(.leading, 44)
-                            
                             // Visual Previews
                             HStack(spacing: 40) {
                                 Spacer()
@@ -76,9 +80,9 @@ struct SettingsView: View {
                                 Spacer()
                             }
                             .padding(.vertical, 24)
-                            // .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
-
-                            Divider().padding(.leading, 44)
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
+                            
+                            Spacer().frame(height: 16)
 
                             // Automatic Toggle
                             settingsToggleRow(
@@ -94,6 +98,7 @@ struct SettingsView: View {
                                     }
                                 )
                             )
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
                         }
                     }
                     
@@ -175,7 +180,10 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .background(Color.clear)
+        .background {
+            HorizonBackground(isActive: false)
+                .ignoresSafeArea()
+        }
         .navigationTitle("Settings".localized(for: appLanguage))
         .navigationBarTitleDisplayMode(.large)
         .scrollContentBackground(.hidden)
