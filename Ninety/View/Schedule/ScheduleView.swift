@@ -9,7 +9,7 @@ import SwiftUI
 struct ScheduleView: View {
     private enum WatchSetupState: Int {
         case needsAction = 1
-        case armed = 2
+        case ready = 2
         case active = 3
     }
 
@@ -68,11 +68,11 @@ struct ScheduleView: View {
             )
         }
 
-        if let armedStartDate = sleepManager.watchArmedStartDate {
-            let formatted = armedStartDate.formatted(date: .omitted, time: .shortened)
+        if let readyStartDate = sleepManager.watchReadyStartDate {
+            let formatted = readyStartDate.formatted(date: .omitted, time: .shortened)
             return WatchSetupSummary(
-                state: .armed,
-                title: "Smart Alarm armed".localized(for: appLanguage),
+                state: .ready,
+                title: "Smart Alarm ready".localized(for: appLanguage),
                 message: String(
                     format: "Apple Watch will start sleep tracking at %@.".localized(for: appLanguage),
                     formatted
@@ -478,7 +478,7 @@ struct ScheduleView: View {
                 style: .complete,
                 tint: accent
             )
-            watchSetupConnector(isActive: summary.state.rawValue >= WatchSetupState.armed.rawValue, tint: summary.tint)
+            watchSetupConnector(isActive: summary.state.rawValue >= WatchSetupState.ready.rawValue, tint: summary.tint)
             watchSetupProgressNode(
                 label: "Open Watch".localized(for: appLanguage),
                 symbol: summary.state == .needsAction ? "applewatch" : "checkmark",

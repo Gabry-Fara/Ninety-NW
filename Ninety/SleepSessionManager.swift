@@ -88,7 +88,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let watchStatus: String
         let watchConnectionStatus: String
         let watchQueuedStartDate: Date?
-        let watchArmedStartDate: Date?
+        let watchReadyStartDate: Date?
         let watchPendingPayloadCount: Int
         let replayStatus: String
         let ackStatus: String
@@ -130,7 +130,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     @Published var watchStatus: String = "No watch session activity"
     @Published var watchConnectionStatus: String = "No connectivity status"
     @Published var watchQueuedStartDate: Date?
-    @Published var watchArmedStartDate: Date?
+    @Published var watchReadyStartDate: Date?
     @Published var watchPendingPayloadCount: Int = 0
     @Published var replayStatus: String = "No backlog activity"
     @Published var ackStatus: String = "No acknowledgements yet"
@@ -218,8 +218,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         let applyQueuedState = {
             self.watchQueuedStartDate = self.scheduledMonitoringStartDate(for: targetDate)
-            self.watchArmedStartDate = nil
-            self.watchStatus = "Open Ninety on Apple Watch to arm Smart Alarm"
+            self.watchReadyStartDate = nil
+            self.watchStatus = "Open Ninety on Apple Watch to set Smart Alarm"
         }
         if Thread.isMainThread {
             applyQueuedState()
@@ -256,7 +256,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         updateSessionRecoveryStatus("Session restarted")
         let clearWatchSchedulingState = {
             self.watchQueuedStartDate = nil
-            self.watchArmedStartDate = nil
+            self.watchReadyStartDate = nil
             self.watchStatus = "No watch session activity"
         }
         if Thread.isMainThread {
@@ -283,7 +283,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         updateSessionRecoveryStatus("Session restarted")
         let clearWatchSchedulingState = {
             self.watchQueuedStartDate = nil
-            self.watchArmedStartDate = nil
+            self.watchReadyStartDate = nil
             self.watchStatus = "No watch session activity"
         }
         if Thread.isMainThread {
@@ -432,7 +432,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
 
         let queuedScheduleDate = (payloadDictionary["queuedSchedule"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
-        let armedScheduleDate = (payloadDictionary["armedSchedule"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
+        let readyScheduleDate = (payloadDictionary["readySchedule"] as? TimeInterval).map(Date.init(timeIntervalSince1970:))
         let connectionStatus = payloadDictionary["watchConnectionStatus"] as? String
         let pendingPayloadCount = payloadDictionary["pendingPayloadCount"] as? Int
         let replayStatus = payloadDictionary["replayStatus"] as? String
@@ -446,7 +446,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             }
 
             self.watchQueuedStartDate = queuedScheduleDate
-            self.watchArmedStartDate = armedScheduleDate
+            self.watchReadyStartDate = readyScheduleDate
 
             if let pendingPayloadCount {
                 self.watchPendingPayloadCount = pendingPayloadCount
@@ -1002,7 +1002,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             watchStatus: watchStatus,
             watchConnectionStatus: watchConnectionStatus,
             watchQueuedStartDate: watchQueuedStartDate,
-            watchArmedStartDate: watchArmedStartDate,
+            watchReadyStartDate: watchReadyStartDate,
             watchPendingPayloadCount: watchPendingPayloadCount,
             replayStatus: replayStatus,
             ackStatus: ackStatus,
@@ -1018,7 +1018,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             sessionStateDisplay: sessionStateDisplay
         )
 
-        return performOnProcessingQueueSync {
+        return performOnProcessingQueueSync { () -> PersistedSessionState? in
             guard hasRestorableSession else { return nil }
 
             return PersistedSessionState(
@@ -1041,7 +1041,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 watchStatus: publishedState.watchStatus,
                 watchConnectionStatus: publishedState.watchConnectionStatus,
                 watchQueuedStartDate: publishedState.watchQueuedStartDate,
-                watchArmedStartDate: publishedState.watchArmedStartDate,
+                watchReadyStartDate: publishedState.watchReadyStartDate,
                 watchPendingPayloadCount: publishedState.watchPendingPayloadCount,
                 replayStatus: publishedState.replayStatus,
                 ackStatus: publishedState.ackStatus,
@@ -1116,7 +1116,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         watchStatus = persisted.watchStatus
         watchConnectionStatus = persisted.watchConnectionStatus
         watchQueuedStartDate = persisted.watchQueuedStartDate
-        watchArmedStartDate = persisted.watchArmedStartDate
+        watchReadyStartDate = persisted.watchReadyStartDate
         watchPendingPayloadCount = persisted.watchPendingPayloadCount
         replayStatus = persisted.replayStatus
         ackStatus = persisted.ackStatus
@@ -1200,7 +1200,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 self.replayStatus = "No backlog activity"
                 self.ackStatus = "No acknowledgements yet"
                 self.watchQueuedStartDate = nil
-                self.watchArmedStartDate = nil
+                self.watchReadyStartDate = nil
                 self.watchPendingPayloadCount = 0
                 self.sessionStateDisplay = AnalysisSessionState.idle.label
             }

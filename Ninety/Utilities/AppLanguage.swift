@@ -131,15 +131,15 @@ private let translations: [String: [String: String]] = [
         "Alarm saved": "Sveglia salvata",
         "Open Watch": "Apri Watch",
         "Tracking": "Monitoraggio",
-        "Arm on Apple Watch": "Attiva su Apple Watch",
+        "Arm on Apple Watch": "Imposta su Apple Watch",
         "Open Ninety once on your Apple Watch before sleep. No extra tap is needed after that. Tracking starts at %@.": "Apri Ninety una volta sul tuo Apple Watch prima di dormire. Dopo non serve nessun altro tocco. Il monitoraggio inizia alle %@.",
-        "Smart Alarm armed": "Smart Alarm armata",
+        "Smart Alarm ready": "Smart Alarm pronta",
         "Apple Watch will start sleep tracking at %@.": "Apple Watch inizierà il monitoraggio del sonno alle %@.",
         "Tracking active on Apple Watch": "Monitoraggio attivo su Apple Watch",
         "The sleep window is running on Apple Watch now.": "La finestra di monitoraggio è attiva ora su Apple Watch.",
-        "Open Ninety on Apple Watch once before sleep to arm Smart Alarm. After that it starts automatically.": "Apri Ninety su Apple Watch una volta prima di dormire per armare la Smart Alarm. Dopo partirà automaticamente.",
+        "Open Ninety on Apple Watch once before sleep to set Smart Alarm. After that it starts automatically.": "Apri Ninety su Apple Watch una volta prima di dormire per impostare la Smart Alarm. Dopo partirà automaticamente.",
         "Watch queued for:": "Watch in coda per:",
-        "Watch armed for:": "Watch armato per:"
+        "Watch ready for:": "Watch pronto per:"
     ],
     "es": [
         "Track your sleep pattern and wake up refreshed.": "Sigue tus horas de sueño y despierta renovado.",

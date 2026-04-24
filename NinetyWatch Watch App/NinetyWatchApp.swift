@@ -15,7 +15,7 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
 
     func applicationDidBecomeActive() {
         WatchSensorManager.shared.refreshConnectionStatus()
-        WatchSensorManager.shared.armPendingScheduleIfPossible()
+        WatchSensorManager.shared.setPendingScheduleIfPossible()
         WatchSensorManager.shared.retryPendingPayloadDelivery()
     }
 

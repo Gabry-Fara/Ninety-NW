@@ -13,7 +13,7 @@ enum WatchConnectivityState {
 
 class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDelegate, WCSessionDelegate {
     private static let pendingScheduleKey = "pendingSmartAlarmSchedule"
-    private static let armedScheduleKey = "armedSmartAlarmSchedule"
+    private static let readyScheduleKey = "readySmartAlarmSchedule"
     private static let actualAlarmTimeKey = "actualSmartAlarmTime"
     private let payloadInterval: TimeInterval = 5
     private let motionThreshold = 0.08
@@ -102,13 +102,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         return "Queued for \(date.formatted(date: .omitted, time: .shortened))"
     }
 
-    var hasArmedSchedule: Bool {
-        armedScheduledStartDate != nil
+    var hasReadySchedule: Bool {
+        readyScheduledStartDate != nil
     }
 
-    var armedScheduleDescription: String? {
-        guard let date = armedScheduledStartDate else { return nil }
-        return "Armed for \(date.formatted(date: .omitted, time: .shortened))"
+    var readyScheduleDescription: String? {
+        guard let date = readyScheduledStartDate else { return nil }
+        return "Ready for \(date.formatted(date: .omitted, time: .shortened))"
     }
 
     var connectivityState: WatchConnectivityState {
@@ -166,7 +166,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         runtimeSession = extendedRuntimeSession
         runtimeSession?.delegate = self
         clearPendingSchedule()
-        clearArmedSchedule()
+        clearReadySchedule()
         updatePipelineState(.recording, detail: "Session resumed by system")
         if extendedRuntimeSession.state == .running {
             startSensors()
@@ -233,21 +233,21 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         self.runtimeSession = WKExtendedRuntimeSession()
         self.runtimeSession?.delegate = self
         self.runtimeSession?.start(at: date)
-        storeArmedSchedule(date)
+        storeReadySchedule(date)
         clearPendingSchedule()
         refreshNextAlarmDate()
-        updatePipelineState(.scheduled, detail: "Armed for \(date.formatted(date: .omitted, time: .shortened))")
+        updatePipelineState(.scheduled, detail: "Ready for \(date.formatted(date: .omitted, time: .shortened))")
         sendWatchStatusUpdate(sessionState)
     }
 
-    func armPendingScheduleIfPossible() {
+    func setPendingScheduleIfPossible() {
         guard let date = pendingScheduledStartDate else { return }
 
         guard WKExtension.shared().applicationState == .active else {
             DispatchQueue.main.async {
-                self.updatePipelineState(.scheduled, detail: "Open Ninety to arm tonight's alarm")
+                self.updatePipelineState(.scheduled, detail: "Open Ninety to set tonight's alarm")
             }
-            sendWatchStatusUpdate("Open Ninety on Apple Watch to arm Smart Alarm")
+            sendWatchStatusUpdate("Open Ninety on Apple Watch to set Smart Alarm")
             return
         }
 
@@ -280,7 +280,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     func extendedRuntimeSessionDidStart(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
         DispatchQueue.main.async {
             self.runtimeSession = extendedRuntimeSession
-            self.clearArmedSchedule()
+            self.clearReadySchedule()
             self.updatePipelineState(.recording, detail: "Session Started")
             self.startSensors()
             self.sendWatchStatusUpdate(self.sessionState)
@@ -302,7 +302,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             }
 
             self.runtimeSession = nil
-            self.clearArmedSchedule()
+            self.clearReadySchedule()
             if
                 let nsError = error as NSError?,
                 nsError.domain == WKExtendedRuntimeSessionErrorDomain,
@@ -310,7 +310,15 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             {
                 switch wkErrorCode {
                 case .scheduledTooFarInAdvance:
-                    self.updatePipelineState(.failed, detail: "Error: Scheduled >36h ahead")
+                    // future day (>36h away). Re-queue it so the Watch sets it automatically
+                    // when opened closer to bedtime.
+                    if let startDate = self.pendingScheduledStartDate ?? self.readyScheduledStartDate {
+                        UserDefaults.standard.set(startDate.timeIntervalSince1970, forKey: Self.pendingScheduleKey)
+                        let formatted = startDate.formatted(date: .abbreviated, time: .shortened)
+                        self.updatePipelineState(.scheduled, detail: "Next alarm: \(formatted)")
+                    } else {
+                        self.updatePipelineState(.idle, detail: "Open Ninety to set alarm")
+                    }
                 case .mustBeActiveToStartOrSchedule:
                     self.updatePipelineState(.failed, detail: "Error: Must be in foreground")
                 default:
@@ -637,8 +645,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         if pendingPayloads.isEmpty {
             if runtimeSession?.state == .running {
                 updatePipelineState(.recording, detail: "Recording")
-            } else if armedScheduledStartDate != nil {
-                updatePipelineState(.scheduled, detail: armedScheduleDescription ?? "Scheduled")
+            } else if readyScheduledStartDate != nil {
+                updatePipelineState(.scheduled, detail: readyScheduleDescription ?? "Scheduled")
             } else if pendingScheduledStartDate != nil {
                 updatePipelineState(.scheduled, detail: pendingScheduleDescription ?? "Scheduled")
             } else {
@@ -754,8 +762,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         return interval.map(Date.init(timeIntervalSince1970:))
     }
 
-    private var armedScheduledStartDate: Date? {
-        let interval = UserDefaults.standard.object(forKey: Self.armedScheduleKey) as? TimeInterval
+    private var readyScheduledStartDate: Date? {
+        let interval = UserDefaults.standard.object(forKey: Self.readyScheduleKey) as? TimeInterval
         return interval.map(Date.init(timeIntervalSince1970:))
     }
 
@@ -782,9 +790,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func queueOrScheduleSmartAlarmSession(at date: Date) {
         guard WKExtension.shared().applicationState == .active else {
             UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.pendingScheduleKey)
-            clearArmedSchedule()
-            updatePipelineState(.scheduled, detail: "Queued. Open Ninety to arm tonight's alarm")
-            sendWatchStatusUpdate("Open Ninety on Apple Watch to arm Smart Alarm")
+            clearReadySchedule()
+            updatePipelineState(.scheduled, detail: "Queued. Open Ninety to set tonight's alarm")
+            sendWatchStatusUpdate("Open Ninety on Apple Watch to set Smart Alarm")
             return
         }
 
@@ -795,17 +803,17 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
     }
 
-    private func storeArmedSchedule(_ date: Date) {
-        UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.armedScheduleKey)
+    private func storeReadySchedule(_ date: Date) {
+        UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.readyScheduleKey)
     }
 
-    private func clearArmedSchedule() {
-        UserDefaults.standard.removeObject(forKey: Self.armedScheduleKey)
+    private func clearReadySchedule() {
+        UserDefaults.standard.removeObject(forKey: Self.readyScheduleKey)
     }
 
     private func clearAlarmTracking() {
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
-        UserDefaults.standard.removeObject(forKey: Self.armedScheduleKey)
+        UserDefaults.standard.removeObject(forKey: Self.readyScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
         if Thread.isMainThread {
             nextAlarmDate = nil
@@ -831,8 +839,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             message["queuedSchedule"] = queuedSchedule
         }
 
-        if let armedSchedule = armedScheduledStartDate?.timeIntervalSince1970 {
-            message["armedSchedule"] = armedSchedule
+        if let readySchedule = readyScheduledStartDate?.timeIntervalSince1970 {
+            message["readySchedule"] = readySchedule
         }
 
         if session.isReachable {

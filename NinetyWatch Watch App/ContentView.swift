@@ -26,7 +26,7 @@ private enum WatchCopyKey {
     case scheduled
     case waiting
     case attention
-    case openWatchToArm
+    case openWatchToSet
     case synced
     case queued
     case watchOnly
@@ -61,7 +61,7 @@ private struct WatchCopy {
             case .scheduled: return "Sveglia programmata"
             case .waiting: return "In attesa della prossima sveglia"
             case .attention: return "Attenzione"
-            case .openWatchToArm: return "Apri l'app su Watch per attivarla"
+            case .openWatchToSet: return "Apri l'app su Watch per impostarla"
             case .synced: return "Sincronizzato"
             case .queued: return "Connesso"
             case .watchOnly: return "Solo Watch"
@@ -78,7 +78,7 @@ private struct WatchCopy {
             case .scheduled: return "Alarma programada"
             case .waiting: return "Esperando la próxima alarma"
             case .attention: return "Atención"
-            case .openWatchToArm: return "Abre la app en el Watch para activarla"
+            case .openWatchToSet: return "Abre la app en el Watch para configurarla"
             case .synced: return "Sincronizado"
             case .queued: return "Conectado"
             case .watchOnly: return "Solo Watch"
@@ -95,7 +95,7 @@ private struct WatchCopy {
             case .scheduled: return "闹钟已安排"
             case .waiting: return "等待下一次闹钟"
             case .attention: return "注意"
-            case .openWatchToArm: return "打开 Watch App 以激活"
+            case .openWatchToSet: return "打开 Watch App 以设置"
             case .synced: return "已同步"
             case .queued: return "已连接"
             case .watchOnly: return "仅 Watch"
@@ -112,7 +112,7 @@ private struct WatchCopy {
             case .scheduled: return "المنبه مجدول"
             case .waiting: return "بانتظار المنبه التالي"
             case .attention: return "تنبيه"
-            case .openWatchToArm: return "افتح التطبيق على الساعة لتفعيله"
+            case .openWatchToSet: return "افتح التطبيق على الساعة لضبطه"
             case .synced: return "تمت المزامنة"
             case .queued: return "متصل"
             case .watchOnly: return "الساعة فقط"
@@ -129,7 +129,7 @@ private struct WatchCopy {
             case .scheduled: return "Alarm scheduled"
             case .waiting: return "Waiting for the next alarm"
             case .attention: return "Attention"
-            case .openWatchToArm: return "Open the Watch app to arm it"
+            case .openWatchToSet: return "Open the Watch app to set it"
             case .synced: return "Synced"
             case .queued: return "Connected"
             case .watchOnly: return "Watch only"
@@ -156,7 +156,7 @@ struct ContentView: View {
             return .active
         }
 
-        if sensorManager.nextAlarmDate != nil || sensorManager.hasPendingSchedule || sensorManager.hasArmedSchedule {
+        if sensorManager.nextAlarmDate != nil || sensorManager.hasPendingSchedule || sensorManager.hasReadySchedule {
             return .scheduled
         }
 
@@ -252,7 +252,7 @@ struct ContentView: View {
 
     private var nextAlarmPrimaryText: String {
         guard let nextAlarmDate = sensorManager.nextAlarmDate else {
-            if sensorManager.hasPendingSchedule || sensorManager.hasArmedSchedule {
+            if sensorManager.hasPendingSchedule || sensorManager.hasReadySchedule {
                 return copy.text(.scheduled)
             }
             return copy.text(.noActiveAlarms)
@@ -263,20 +263,20 @@ struct ContentView: View {
 
     private var nextAlarmSecondaryText: String? {
         guard let nextAlarmDate = sensorManager.nextAlarmDate else {
-            if let armed = sensorManager.armedScheduleDescription {
-                return armed
+            if let ready = sensorManager.readyScheduleDescription {
+                return ready
             }
-            return sensorManager.hasPendingSchedule ? copy.text(.openWatchToArm) : copy.text(.setOnIPhone)
+            return sensorManager.hasPendingSchedule ? copy.text(.openWatchToSet) : copy.text(.setOnIPhone)
         }
 
         let formatted = formattedAlarm(date: nextAlarmDate)
 
         if sensorManager.hasPendingSchedule {
-            return copy.text(.openWatchToArm)
+            return copy.text(.openWatchToSet)
         }
 
-        if let armed = sensorManager.armedScheduleDescription, currentState == .scheduled {
-            return armed
+        if let ready = sensorManager.readyScheduleDescription, currentState == .scheduled {
+            return ready
         }
 
         switch currentState {
@@ -364,8 +364,8 @@ struct DebugNodeView: View {
                             .foregroundColor(.orange)
                     }
 
-                    if sensorManager.hasArmedSchedule, let armed = sensorManager.armedScheduleDescription {
-                        Text("Armed: \(armed)")
+                    if sensorManager.hasReadySchedule, let ready = sensorManager.readyScheduleDescription {
+                        Text("Ready: \(ready)")
                             .foregroundColor(.green)
                     }
                 }
