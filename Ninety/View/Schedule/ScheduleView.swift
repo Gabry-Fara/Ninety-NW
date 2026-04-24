@@ -227,7 +227,7 @@ struct ScheduleView: View {
                     .overlay(alignment: .top) {
                         if !showingWakeTimePicker && !showGuidedTour {
                             Color.clear
-                                .frame(width: 286, height: 96)
+                                .frame(width: 250, height: 96)
                                 .contentShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
