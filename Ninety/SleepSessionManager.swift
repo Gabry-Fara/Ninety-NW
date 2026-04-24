@@ -104,6 +104,18 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let sessionStateDisplay: String
     }
 
+    struct EpochDiagnosticsSnapshot: Identifiable {
+        var id: Date { timestamp }
+
+        let timestamp: Date
+        let heartRateMean: Double
+        let heartRateStd: Double
+        let heartRateRange: Double
+        let motionMagMean: Double
+        let motionMagMax: Double
+        let motionJerk: Double
+    }
+
     private struct PredictionSnapshot {
         let rawStage: SleepStage
         let smoothedStage: SleepStage
@@ -149,6 +161,37 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     var isTrackingLive: Bool {
         sessionState == .recording || sessionState == .deliveringBacklog
+    }
+
+    var latestEpochDiagnostics: EpochDiagnosticsSnapshot? {
+        performOnProcessingQueueSync {
+            guard let epoch = epochHistory.last else { return nil }
+            return EpochDiagnosticsSnapshot(
+                timestamp: epoch.timestamp,
+                heartRateMean: epoch.heartRateMean,
+                heartRateStd: epoch.heartRateStd,
+                heartRateRange: epoch.heartRateRange,
+                motionMagMean: epoch.motionMagMean,
+                motionMagMax: epoch.motionMagMax,
+                motionJerk: epoch.motionJerk
+            )
+        }
+    }
+
+    var recentEpochDiagnostics: [EpochDiagnosticsSnapshot] {
+        performOnProcessingQueueSync {
+            epochHistory.reversed().map { epoch in
+                EpochDiagnosticsSnapshot(
+                    timestamp: epoch.timestamp,
+                    heartRateMean: epoch.heartRateMean,
+                    heartRateStd: epoch.heartRateStd,
+                    heartRateRange: epoch.heartRateRange,
+                    motionMagMean: epoch.motionMagMean,
+                    motionMagMax: epoch.motionMagMax,
+                    motionJerk: epoch.motionJerk
+                )
+            }
+        }
     }
 
     // MARK: - Confirmation Window Configuration

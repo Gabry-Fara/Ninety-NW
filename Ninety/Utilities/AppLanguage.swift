@@ -240,7 +240,19 @@ private let translations: [String: [String: String]] = [
         "Clear Logs": "Borrar registros",
         "Alarm saved": "Alarma guardada",
         "Open Watch": "Abrir Watch",
-        "Tracking": "Seguimiento"
+        "Tracking": "Seguimiento",
+        "Epoch Processing": "Procesamiento de Época",
+        "No processed epoch yet.": "Aún no hay una época procesada.",
+        "Time": "Hora",
+        "HR mean": "HR media",
+        "Motion mean": "Motion media",
+        "Timestamp:": "Hora:",
+        "HR mean:": "HR media:",
+        "HR std:": "HR desv std:",
+        "HR range:": "HR rango:",
+        "Motion mean:": "Motion media:",
+        "Motion max:": "Motion max:",
+        "Motion jerk:": "Motion jerk:"
     ],
     "zh": [
         "Track your sleep pattern and wake up refreshed.": "追踪您的睡眠模式，焕发活力地醒来。",
@@ -341,7 +353,19 @@ private let translations: [String: [String: String]] = [
         "Clear Logs": "清除日志",
         "Alarm saved": "闹钟已保存",
         "Open Watch": "打开 Watch",
-        "Tracking": "追踪"
+        "Tracking": "追踪",
+        "Epoch Processing": "周期处理",
+        "No processed epoch yet.": "还没有处理过的周期。",
+        "Time": "时间",
+        "HR mean": "心率均值",
+        "Motion mean": "运动均值",
+        "Timestamp:": "时间：",
+        "HR mean:": "心率均值：",
+        "HR std:": "心率标准差：",
+        "HR range:": "心率范围：",
+        "Motion mean:": "运动均值：",
+        "Motion max:": "运动最大值：",
+        "Motion jerk:": "运动突变量："
     ],
     "ar": [
         "Track your sleep pattern and wake up refreshed.": "تتبع أنماط نومك واستيقظ منتعشاً.",
@@ -442,6 +466,18 @@ private let translations: [String: [String: String]] = [
         "Clear Logs": "مسح السجلات",
         "Alarm saved": "تم حفظ المنبه",
         "Open Watch": "افتح Watch",
-        "Tracking": "التتبع"
+        "Tracking": "التتبع",
+        "Epoch Processing": "معالجة الدورة",
+        "No processed epoch yet.": "لا توجد دورة معالجة بعد.",
+        "Time": "الوقت",
+        "HR mean": "متوسط HR",
+        "Motion mean": "متوسط الحركة",
+        "Timestamp:": "الوقت:",
+        "HR mean:": "متوسط HR:",
+        "HR std:": "الانحراف المعياري HR:",
+        "HR range:": "نطاق HR:",
+        "Motion mean:": "متوسط الحركة:",
+        "Motion max:": "أقصى حركة:",
+        "Motion jerk:": "تغيّر الحركة:"
     ]
 ]

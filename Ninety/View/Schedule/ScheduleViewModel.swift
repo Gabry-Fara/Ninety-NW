@@ -279,7 +279,10 @@ final class ScheduleViewModel: ObservableObject {
         if status.localizedCaseInsensitiveContains("armed") {
             return "Scheduled".localized(for: preferredLang)
         }
-        if status.localizedCaseInsensitiveContains("Session Started") {
+        if status.localizedCaseInsensitiveContains("Session Started") ||
+            status.localizedCaseInsensitiveContains("Recording") ||
+            status.localizedCaseInsensitiveContains("Delivering backlog")
+        {
             return "Tracking in progress".localized(for: preferredLang)
         }
         if status.localizedCaseInsensitiveContains("Monitoring Paused") {
