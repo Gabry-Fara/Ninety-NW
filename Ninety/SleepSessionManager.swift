@@ -180,6 +180,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     private var dynamicAlarmTriggered = false
     private var sessionStartDate: Date?
     private var lastAcceptedPayloadAt: Date?
+    private var lastWatchStatusTimestamp: TimeInterval = 0
     private var sessionState: AnalysisSessionState = .idle
     /// Tracks the last epoch where HR jumped significantly, for the
     /// `minutes_since_last_hr_jump_log1p` feature.
@@ -415,7 +416,21 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 self.lastAcceptedPayloadAt = payload.timestamp
                 self.setSessionState(backlogPending ? .deliveringBacklog : .recording)
                 DispatchQueue.main.async {
+                    let receivedAt = Date().timeIntervalSince1970
+                    let inferredWatchStatus = backlogPending ? AnalysisSessionState.deliveringBacklog.label : AnalysisSessionState.recording.label
+                    let shouldLogWatchStatus = self.watchStatus != inferredWatchStatus
+
+                    if receivedAt >= self.lastWatchStatusTimestamp {
+                        self.lastWatchStatusTimestamp = receivedAt
+                        self.watchStatus = inferredWatchStatus
+                    }
+
                     self.lastPayloadReceived = "Received at \(payload.timestamp.formatted(date: .omitted, time: .standard))"
+                    self.requestPersistedSessionSave()
+
+                    if shouldLogWatchStatus {
+                        self.log("Watch: \(inferredWatchStatus)")
+                    }
                 }
 
                 self.consume(payload: payload)
@@ -437,8 +452,15 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let pendingPayloadCount = payloadDictionary["pendingPayloadCount"] as? Int
         let replayStatus = payloadDictionary["replayStatus"] as? String
         let pipelineStateRaw = payloadDictionary["pipelineState"] as? String
+        let statusTimestamp = payloadDictionary["statusTimestamp"] as? TimeInterval ?? 0
 
         DispatchQueue.main.async {
+            guard statusTimestamp >= self.lastWatchStatusTimestamp else {
+                return
+            }
+
+            let shouldLogWatchStatus = self.watchStatus != status
+            self.lastWatchStatusTimestamp = statusTimestamp
             self.watchStatus = status
 
             if let connectionStatus {
@@ -455,19 +477,22 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             if let replayStatus {
                 self.replayStatus = replayStatus
             }
+
+            if let pendingPayloadCount, pendingPayloadCount > 0 {
+                self.setSessionState(.deliveringBacklog)
+            } else if let pipelineStateRaw, let pipelineState = AnalysisSessionState(rawValue: pipelineStateRaw) {
+                self.setSessionState(pipelineState)
+            } else if self.activeWakeTargetDate != nil || self.sessionStartDate != nil {
+                self.setSessionState(.recording)
+            }
+
+            self.requestPersistedSessionSave()
+
+            if shouldLogWatchStatus {
+                self.log("Watch: \(status)")
+            }
         }
 
-        if let pendingPayloadCount, pendingPayloadCount > 0 {
-            setSessionState(.deliveringBacklog)
-        } else if let pipelineStateRaw, let pipelineState = AnalysisSessionState(rawValue: pipelineStateRaw) {
-            setSessionState(pipelineState)
-        } else if activeWakeTargetDate != nil || sessionStartDate != nil {
-            setSessionState(.recording)
-        }
-
-        requestPersistedSessionSave()
-
-        log("Watch: \(status)")
         return true
     }
 
@@ -1188,6 +1213,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             self.lastHRJumpEpochIndex = 0
             self.sessionStartDate = nil
             self.lastAcceptedPayloadAt = nil
+            self.lastWatchStatusTimestamp = 0
             self.sessionState = .idle
             self.clearPersistedSessionState()
 

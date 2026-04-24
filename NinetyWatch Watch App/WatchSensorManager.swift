@@ -127,6 +127,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         return .queued
     }
 
+    private var isActivelyMonitoring: Bool {
+        sensorsRunning ||
+        runtimeSession?.state == .running ||
+        pipelineState == .recording ||
+        pipelineState == .deliveringBacklog
+    }
+
     func setupWatchConnectivity() {
         if WCSession.isSupported() {
             wcSession = WCSession.default
@@ -424,6 +431,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     private func transmit(payload: SensorPayload) {
+        if isActivelyMonitoring && pipelineState != .deliveringBacklog {
+            updatePipelineState(.recording, detail: "Recording")
+        }
+
         enqueuePendingPayload(payload)
         if let lastIndex = pendingPayloads.indices.last {
             sendPendingPayloads(at: [lastIndex], reason: "Live delivery")
@@ -635,7 +646,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         connectionStatus = pendingPayloads.isEmpty ? "Phone reachable" : "Phone reachable, pending \(pendingPayloads.count)"
 
         if pendingPayloads.isEmpty {
-            if runtimeSession?.state == .running {
+            if isActivelyMonitoring {
                 updatePipelineState(.recording, detail: "Recording")
             } else if armedScheduledStartDate != nil {
                 updatePipelineState(.scheduled, detail: armedScheduleDescription ?? "Scheduled")
@@ -821,6 +832,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
         var message: [String: Any] = [
             "watchStatus": status,
+            "statusTimestamp": Date().timeIntervalSince1970,
             "watchConnectionStatus": connectionStatus,
             "pendingPayloadCount": pendingPayloads.count,
             "replayStatus": replayStatusText,
