@@ -302,9 +302,23 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     func triggerWatchHapticWakeUp() {
         guard let session = wcSession else { return }
         let command = ["action": "hapticWakeUp"]
-        // For alarm haptics, we only care about immediate delivery when reachable
+        // Try sendMessage first for immediacy, fallback to transferUserInfo
+        if session.isReachable {
+            session.sendMessage(command, replyHandler: nil) { error in
+                session.transferUserInfo(command)
+            }
+        } else {
+            session.transferUserInfo(command)
+        }
+    }
+
+    func stopWatchAlarm() {
+        guard let session = wcSession else { return }
+        let command = ["action": "stopAlarm"]
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(command)
         }
     }
 
@@ -385,7 +399,16 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
-        // 2. Original Watch Status Check
+        // 2. Stop Alarm Request from Watch
+        if let action = payloadDictionary["action"] as? String, action == "stopAlarm" {
+            DispatchQueue.main.async {
+                SmartAlarmManager.shared.cancelSession()
+                self.log("Watch: Alarm Stopped via Remote Request.")
+            }
+            return
+        }
+
+        // 3. Original Watch Status Check
         if handleWatchStatus(payloadDictionary) {
             return
         }
