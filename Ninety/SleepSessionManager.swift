@@ -1313,6 +1313,13 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    func clearLogs() {
+        DispatchQueue.main.async {
+            self.logs.removeAll()
+            self.requestPersistedSessionSave()
+        }
+    }
+
     private func extendBackgroundTask() {
         let application = UIApplication.shared
         let previousTask = currentBackgroundTask

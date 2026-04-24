@@ -117,6 +117,14 @@ struct DiagnosticsView: View {
 
                     diagnosticSection("Log Stream".localized(for: appLanguage)) {
                         VStack(alignment: .leading, spacing: 8) {
+                            if !sleepManager.logs.isEmpty {
+                                Button("Clear Logs".localized(for: appLanguage)) {
+                                    sleepManager.clearLogs()
+                                }
+                                .buttonStyle(GlassButtonStyle.glassProminent)
+                                .padding(.bottom, 8)
+                            }
+
                             if sleepManager.logs.isEmpty {
                                 Text("No logs yet. Schedule an alarm to begin.".localized(for: appLanguage))
                                     .foregroundColor(.secondary)
