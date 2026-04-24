@@ -61,8 +61,8 @@ struct DiagnosticsView: View {
                             if let queuedStart = sleepManager.watchQueuedStartDate {
                                 diagnosticRow("Watch queued for:".localized(for: appLanguage), queuedStart.formatted(date: .abbreviated, time: .shortened))
                             }
-                            if let armedStart = sleepManager.watchArmedStartDate {
-                                diagnosticRow("Watch armed for:".localized(for: appLanguage), armedStart.formatted(date: .abbreviated, time: .shortened))
+                            if let readyStart = sleepManager.watchReadyStartDate {
+                                diagnosticRow("Watch ready for:".localized(for: appLanguage), readyStart.formatted(date: .abbreviated, time: .shortened))
                             }
                             diagnosticRow("Last payload:".localized(for: appLanguage), sleepManager.lastPayloadReceived)
                             diagnosticRow("Pending on Watch:".localized(for: appLanguage), "\(sleepManager.watchPendingPayloadCount)")
@@ -87,7 +87,7 @@ struct DiagnosticsView: View {
                     diagnosticSection("AlarmKit Constraints".localized(for: appLanguage)) {
                         VStack(spacing: 12) {
                             diagnosticRow("Status:".localized(for: appLanguage), smartAlarm.alarmStatus)
-                            Text("Open Ninety on Apple Watch once before sleep to arm Smart Alarm. After that it starts automatically.")
+                            Text("Open Ninety on Apple Watch once before sleep to set Smart Alarm. After that it starts automatically.")
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                                 .padding(.top, 2)
