@@ -558,21 +558,16 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                     self.acknowledgePayloads(withIDs: idStrings.compactMap(UUID.init(uuidString:)))
                 }
             } else if action == "startSession" {
+                guard let targetInterval = payload["targetDate"] as? TimeInterval else { return }
                 prepareForNewSession()
-                if let targetInterval = payload["targetDate"] as? TimeInterval {
-                    UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
-                    refreshNextAlarmDate()
-                    var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
-                    if wakeWindowStartDate <= Date() {
-                        wakeWindowStartDate = Date().addingTimeInterval(2)
-                    }
-                    DispatchQueue.main.async {
-                        self.queueOrScheduleSmartAlarmSession(at: wakeWindowStartDate)
-                    }
-                } else {
-                    DispatchQueue.main.async {
-                        self.queueOrScheduleSmartAlarmSession(at: Date().addingTimeInterval(5))
-                    }
+                UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
+                refreshNextAlarmDate()
+                var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
+                if wakeWindowStartDate <= Date() {
+                    wakeWindowStartDate = Date().addingTimeInterval(2)
+                }
+                DispatchQueue.main.async {
+                    self.queueOrScheduleSmartAlarmSession(at: wakeWindowStartDate)
                 }
             } else if action == "stopSession" {
                 DispatchQueue.main.async {

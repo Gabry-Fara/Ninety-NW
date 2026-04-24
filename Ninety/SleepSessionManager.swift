@@ -147,6 +147,10 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     @Published var isTestModeRunning: Bool = false
     @Published var testModeProgress: String = ""
 
+    var isTrackingLive: Bool {
+        sessionState == .recording || sessionState == .deliveringBacklog
+    }
+
     // MARK: - Confirmation Window Configuration
     /// Number of predictions required in the confirmation window.
     private let confirmationRequired = 3
@@ -203,36 +207,34 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
-    func startWatchSession(targetDate: Date? = nil) {
+    func startWatchSession(targetDate: Date) {
         resetSession()
         activeWakeTargetDate = targetDate
         dynamicAlarmTriggered = false
         sessionStartDate = Date()
         lastAcceptedPayloadAt = nil
-        setSessionState(targetDate == nil ? .recording : .scheduled)
+        setSessionState(.scheduled)
         updateSessionRecoveryStatus("Session restarted")
 
-        if let targetDate {
-            let applyQueuedState = {
-                self.watchQueuedStartDate = self.scheduledMonitoringStartDate(for: targetDate)
-                self.watchArmedStartDate = nil
-                self.watchStatus = "Open Ninety on Apple Watch to arm Smart Alarm"
-            }
-            if Thread.isMainThread {
-                applyQueuedState()
-            } else {
-                DispatchQueue.main.async(execute: applyQueuedState)
-            }
+        let applyQueuedState = {
+            self.watchQueuedStartDate = self.scheduledMonitoringStartDate(for: targetDate)
+            self.watchArmedStartDate = nil
+            self.watchStatus = "Open Ninety on Apple Watch to arm Smart Alarm"
+        }
+        if Thread.isMainThread {
+            applyQueuedState()
+        } else {
+            DispatchQueue.main.async(execute: applyQueuedState)
         }
 
         requestPersistedSessionSave()
 
         guard let session = wcSession else { return }
 
-        var command: [String: Any] = ["action": "startSession"]
-        if let targetDate {
-            command["targetDate"] = targetDate.timeIntervalSince1970
-        }
+        let command: [String: Any] = [
+            "action": "startSession",
+            "targetDate": targetDate.timeIntervalSince1970
+        ]
 
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil) { error in
@@ -1261,14 +1263,6 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 self.logs.removeLast()
             }
             self.engineLog = message
-            self.requestPersistedSessionSave()
-        }
-    }
-
-    func clearLogs() {
-        DispatchQueue.main.async {
-            self.logs.removeAll()
-            self.engineLog = "Logs cleared"
             self.requestPersistedSessionSave()
         }
     }

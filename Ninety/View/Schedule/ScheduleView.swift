@@ -7,9 +7,17 @@
 import SwiftUI
 
 struct ScheduleView: View {
+    private enum WatchSetupState: Int {
+        case needsAction = 1
+        case armed = 2
+        case active = 3
+    }
+
     private struct WatchSetupSummary {
+        let state: WatchSetupState
         let title: String
         let message: String
+        let badge: String
         let symbol: String
         let tint: Color
     }
@@ -17,6 +25,7 @@ struct ScheduleView: View {
     private let timeBlockOffset: CGFloat = -130
     private let daySelectorOffset: CGFloat = -8
     private let alarmButtonBottomPadding: CGFloat = 92
+    private let watchBannerSlotHeight: CGFloat = 190
 
     @EnvironmentObject private var viewModel: ScheduleViewModel
     @Environment(\.colorScheme) private var colorScheme
@@ -25,7 +34,6 @@ struct ScheduleView: View {
     @State private var showingSettings = false
     @State private var isSettingsNavigationPending = false
     @State private var showingDiagnostics = false
-    @State private var showingTestMode = false
     @State private var showingWakeTimePicker = false
     @Namespace private var glassNamespace
     @State private var internalHour: Int = 0
@@ -48,36 +56,42 @@ struct ScheduleView: View {
             return nil
         }
 
-        if sleepManager.sessionStateDisplay == "Recording" || sleepManager.sessionStateDisplay == "Delivering backlog" {
+        if sleepManager.isTrackingLive {
             return WatchSetupSummary(
+                state: .active,
                 title: "Tracking active on Apple Watch".localized(for: appLanguage),
                 message: "The sleep window is running on Apple Watch now.".localized(for: appLanguage),
+                badge: "Tracking in progress".localized(for: appLanguage),
                 symbol: "waveform.path.ecg",
-                tint: .green
+                tint: Color(red: 0.22, green: 0.72, blue: 0.55)
             )
         }
 
         if let armedStartDate = sleepManager.watchArmedStartDate {
             let formatted = armedStartDate.formatted(date: .omitted, time: .shortened)
             return WatchSetupSummary(
+                state: .armed,
                 title: "Smart Alarm armed".localized(for: appLanguage),
                 message: String(
                     format: "Apple Watch will start sleep tracking at %@.".localized(for: appLanguage),
                     formatted
                 ),
+                badge: "Ready".localized(for: appLanguage),
                 symbol: "checkmark.circle.fill",
-                tint: .green
+                tint: Color(red: 0.18, green: 0.70, blue: 0.48)
             )
         }
 
         let pendingStartDate = sleepManager.watchQueuedStartDate ?? scheduledSession.monitoringStartDate
         let formatted = pendingStartDate.formatted(date: .omitted, time: .shortened)
         return WatchSetupSummary(
-            title: "Arm on Apple Watch".localized(for: appLanguage),
+            state: .needsAction,
+            title: "Open the Watch app to finish setting up".localized(for: appLanguage),
             message: String(
                 format: "Open Ninety once on your Apple Watch before sleep. No extra tap is needed after that. Tracking starts at %@.".localized(for: appLanguage),
                 formatted
             ),
+            badge: "Open Watch".localized(for: appLanguage),
             symbol: "applewatch",
             tint: accent
         )
@@ -199,12 +213,6 @@ struct ScheduleView: View {
                             .offset(y: daySelectorOffset)
                             .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
                     }
-                    if let watchSetupSummary, !showingWakeTimePicker {
-                        watchSetupBanner(watchSetupSummary)
-                            .padding(.top, viewModel.isAlarmEnabled ? 14 : 0)
-                            .offset(y: daySelectorOffset)
-                            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
-                    }
                     if !showingWakeTimePicker {
                         DayOfWeekSelector(scheduledWeekdays: viewModel.scheduledWeekdays, selectedWeekday: viewModel.selectedWeekday) { weekday in
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -217,8 +225,14 @@ struct ScheduleView: View {
                         .offset(y: daySelectorOffset)
                         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
                     }
-                    Spacer().frame(height: 60)
+                    if viewModel.isAlarmEnabled && !showingWakeTimePicker {
+                        watchSetupBannerSlot
+                            .padding(.top, 14)
+                            .offset(y: daySelectorOffset)
+                    }
+                    Spacer().frame(height: 20)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 VStack {
                     Spacer()
                     if showingWakeTimePicker {
@@ -254,6 +268,7 @@ struct ScheduleView: View {
                         .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
             .allowsHitTesting(!showGuidedTour)
             .toolbar {
@@ -274,12 +289,6 @@ struct ScheduleView: View {
                                 showingDiagnostics = true
                             } label: {
                                 Label("Diagnostics".localized(for: appLanguage), systemImage: "ladybug")
-                            }
-                            Divider()
-                            Button {
-                                showingTestMode = true
-                            } label: {
-                                Label("Test Mode", systemImage: "flask")
                             }
                         } label: {
                             Image(systemName: "ellipsis")
@@ -312,20 +321,6 @@ struct ScheduleView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showingTestMode) {
-                NavigationStack {
-                    TestModeView()
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") {
-                                    showingTestMode = false
-                                }
-                            }
-                        }
-                }
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-            }
             .overlay {
                 if showGuidedTour {
                     ZStack {
@@ -343,35 +338,168 @@ struct ScheduleView: View {
         }
     }
 
-    @ViewBuilder
+    private var watchSetupBannerSlot: some View {
+        ZStack(alignment: .top) {
+            Color.clear
+
+            if let summary = watchSetupSummary {
+                watchSetupBanner(summary)
+                    .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: watchBannerSlotHeight, alignment: .top)
+    }
+
     private func watchSetupBanner(_ summary: WatchSetupSummary) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: summary.symbol)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(summary.tint)
-                .frame(width: 22, height: 22)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(summary.tint.opacity(colorScheme == .light ? 0.16 : 0.24))
+                        .frame(width: 42, height: 42)
 
-            VStack(alignment: .leading, spacing: 4) {
+                    Image(systemName: summary.symbol)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(summary.tint)
+                }
+
                 Text(summary.title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.system(.headline, design: .rounded))
+                    .fontWeight(.semibold)
                     .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                    .layoutPriority(1)
 
-                Text(summary.message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+
+                watchSetupStatusPill(summary.badge, tint: summary.tint)
             }
 
-            Spacer(minLength: 0)
+            Text(summary.message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            watchSetupProgressRow(for: summary)
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .frame(maxWidth: 320, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(summary.tint.opacity(0.22), lineWidth: 1)
+        .padding(.vertical, 18)
+        .frame(maxWidth: 332, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(alignment: .topLeading) {
+                    Circle()
+                        .fill(summary.tint.opacity(colorScheme == .light ? 0.14 : 0.18))
+                        .frame(width: 150, height: 150)
+                        .blur(radius: 32)
+                        .offset(x: -26, y: -66)
+                }
         }
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(summary.tint.opacity(colorScheme == .light ? 0.22 : 0.30), lineWidth: 1)
+        }
+        .shadow(color: summary.tint.opacity(colorScheme == .light ? 0.12 : 0.18), radius: 24, y: 12)
+    }
+
+    private func watchSetupStatusPill(_ label: String, tint: Color) -> some View {
+        Text(label)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(tint.opacity(colorScheme == .light ? 0.12 : 0.18))
+            )
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(tint.opacity(colorScheme == .light ? 0.18 : 0.26), lineWidth: 1)
+            }
+    }
+
+    private func watchSetupProgressRow(for summary: WatchSetupSummary) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            watchSetupProgressNode(
+                label: "Alarm saved".localized(for: appLanguage),
+                symbol: "checkmark",
+                style: .complete,
+                tint: accent
+            )
+            watchSetupConnector(isActive: summary.state.rawValue >= WatchSetupState.armed.rawValue, tint: summary.tint)
+            watchSetupProgressNode(
+                label: "Open Watch".localized(for: appLanguage),
+                symbol: summary.state == .needsAction ? "applewatch" : "checkmark",
+                style: summary.state == .needsAction ? .current : .complete,
+                tint: summary.state == .needsAction ? summary.tint : Color(red: 0.18, green: 0.70, blue: 0.48)
+            )
+            watchSetupConnector(isActive: summary.state == .active, tint: summary.tint)
+            watchSetupProgressNode(
+                label: "Tracking".localized(for: appLanguage),
+                symbol: summary.state == .active ? "waveform.path.ecg" : "moon.zzz",
+                style: summary.state == .active ? .complete : .upcoming,
+                tint: summary.tint
+            )
+        }
+    }
+
+    private enum WatchProgressStyle {
+        case complete
+        case current
+        case upcoming
+    }
+
+    private func watchSetupProgressNode(label: String, symbol: String, style: WatchProgressStyle, tint: Color) -> some View {
+        let circleFill: Color
+        let circleStroke: Color
+        let iconColor: Color
+
+        switch style {
+        case .complete:
+            circleFill = tint
+            circleStroke = tint.opacity(0.0)
+            iconColor = .white
+        case .current:
+            circleFill = tint.opacity(colorScheme == .light ? 0.14 : 0.20)
+            circleStroke = tint.opacity(colorScheme == .light ? 0.30 : 0.36)
+            iconColor = tint
+        case .upcoming:
+            circleFill = Color.white.opacity(colorScheme == .light ? 0.42 : 0.08)
+            circleStroke = Color.primary.opacity(colorScheme == .light ? 0.08 : 0.16)
+            iconColor = .secondary
+        }
+
+        return VStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(circleFill)
+                    .frame(width: 30, height: 30)
+                Circle()
+                    .strokeBorder(circleStroke, lineWidth: 1)
+                    .frame(width: 30, height: 30)
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(iconColor)
+            }
+
+            Text(label)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func watchSetupConnector(isActive: Bool, tint: Color) -> some View {
+        Capsule(style: .continuous)
+            .fill(isActive ? tint.opacity(0.55) : Color.primary.opacity(0.10))
+            .frame(width: 22, height: 2)
+            .padding(.top, 14)
     }
 
     private func syncInternalTime() {
