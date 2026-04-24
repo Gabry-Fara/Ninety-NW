@@ -224,9 +224,10 @@ struct ScheduleView: View {
                     .frame(width: 286, height: 280)
                     .disabled(showGuidedTour)
                     .offset(y: timeBlockOffset)
-                    .overlay {
+                    .overlay(alignment: .top) {
                         if !showingWakeTimePicker && !showGuidedTour {
                             Color.clear
+                                .frame(width: 286, height: 96)
                                 .contentShape(RoundedRectangle(cornerRadius: 38, style: .continuous))
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -263,14 +264,26 @@ struct ScheduleView: View {
                         .offset(y: daySelectorOffset)
                         .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
                     }
-                    if viewModel.isAlarmEnabled && !showingWakeTimePicker && showingWatchDetails {
-                        watchSetupBannerSlot
-                            .padding(.top, 14)
-                            .offset(y: daySelectorOffset)
-                    }
                     Spacer().frame(height: 20)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                // Watch status panel — floats in the empty space above the alarm button
+                if viewModel.isAlarmEnabled && !showingWakeTimePicker && showingWatchDetails {
+                    VStack(spacing: 0) {
+                        Spacer()
+                        if let summary = watchSetupSummary {
+                            watchSetupBanner(summary)
+                                .padding(.horizontal, 24)
+                        }
+                        Spacer().frame(height: alarmButtonBottomPadding + 230)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .allowsHitTesting(true)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    ))
+                }
                 VStack {
                     Spacer()
                     if showingWakeTimePicker {
@@ -390,20 +403,20 @@ struct ScheduleView: View {
     }
 
     private func watchSetupBanner(_ summary: WatchSetupSummary) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(summary.tint.opacity(colorScheme == .light ? 0.16 : 0.24))
-                        .frame(width: 42, height: 42)
+                        .frame(width: 32, height: 32)
 
                     Image(systemName: summary.symbol)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(summary.tint)
                 }
 
                 Text(summary.title)
-                    .font(.system(.headline, design: .rounded))
+                    .font(.system(.subheadline, design: .rounded))
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
@@ -411,44 +424,42 @@ struct ScheduleView: View {
                     .layoutPriority(1)
 
                 Spacer(minLength: 0)
-
-                watchSetupStatusPill(summary.badge, tint: summary.tint)
             }
 
             Text(summary.message)
-                .font(.subheadline)
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             watchSetupProgressRow(for: summary)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 18)
-        .frame(maxWidth: 332, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+        .frame(maxWidth: 340, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(alignment: .topLeading) {
                     Circle()
                         .fill(summary.tint.opacity(colorScheme == .light ? 0.14 : 0.18))
-                        .frame(width: 150, height: 150)
-                        .blur(radius: 32)
-                        .offset(x: -26, y: -66)
+                        .frame(width: 120, height: 120)
+                        .blur(radius: 28)
+                        .offset(x: -20, y: -50)
                 }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .strokeBorder(summary.tint.opacity(colorScheme == .light ? 0.22 : 0.30), lineWidth: 1)
         }
-        .shadow(color: summary.tint.opacity(colorScheme == .light ? 0.12 : 0.18), radius: 24, y: 12)
+        .shadow(color: summary.tint.opacity(colorScheme == .light ? 0.10 : 0.15), radius: 20, y: 10)
     }
 
     private func watchSetupStatusPill(_ label: String, tint: Color) -> some View {
         Text(label)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
             .foregroundStyle(tint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
             .background(
                 Capsule(style: .continuous)
                     .fill(tint.opacity(colorScheme == .light ? 0.12 : 0.18))
@@ -510,21 +521,21 @@ struct ScheduleView: View {
             iconColor = .secondary
         }
 
-        return VStack(spacing: 8) {
+        return VStack(spacing: 6) {
             ZStack {
                 Circle()
                     .fill(circleFill)
-                    .frame(width: 30, height: 30)
+                    .frame(width: 24, height: 24)
                 Circle()
                     .strokeBorder(circleStroke, lineWidth: 1)
-                    .frame(width: 30, height: 30)
+                    .frame(width: 24, height: 24)
                 Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(iconColor)
             }
 
             Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -536,8 +547,8 @@ struct ScheduleView: View {
     private func watchSetupConnector(isActive: Bool, tint: Color) -> some View {
         Capsule(style: .continuous)
             .fill(isActive ? tint.opacity(0.55) : Color.primary.opacity(0.10))
-            .frame(width: 22, height: 2)
-            .padding(.top, 14)
+            .frame(width: 18, height: 2)
+            .padding(.top, 11)
     }
 
     private func syncInternalTime() {
