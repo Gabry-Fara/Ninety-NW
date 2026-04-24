@@ -5,9 +5,16 @@ import CoreMotion
 import WatchConnectivity
 import Combine
 
+enum WatchConnectivityState {
+    case synced
+    case queued
+    case watchOnly
+}
+
 class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDelegate, WCSessionDelegate {
     private static let pendingScheduleKey = "pendingSmartAlarmSchedule"
     private static let armedScheduleKey = "armedSmartAlarmSchedule"
+    private static let actualAlarmTimeKey = "actualSmartAlarmTime"
     private let payloadInterval: TimeInterval = 5
     private let motionThreshold = 0.08
     private let maxPendingPayloads = 12_000
@@ -54,6 +61,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     @Published var lastPayloadSent: String = "No data sent yet"
     @Published var connectionStatus: String = "Disconnected"
     @Published var isMocking: Bool = false
+    @Published var nextAlarmDate: Date? = nil
     
     private var runtimeSession: WKExtendedRuntimeSession?
     private var suppressNextRuntimeInvalidation = false
@@ -82,6 +90,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         super.init()
         restorePendingPayloadQueue()
         setupWatchConnectivity()
+        refreshNextAlarmDate()
     }
 
     var hasPendingSchedule: Bool {
@@ -100,6 +109,22 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     var armedScheduleDescription: String? {
         guard let date = armedScheduledStartDate else { return nil }
         return "Armed for \(date.formatted(date: .omitted, time: .shortened))"
+    }
+
+    var connectivityState: WatchConnectivityState {
+        guard let session = wcSession, WCSession.isSupported() else {
+            return .watchOnly
+        }
+
+        guard session.activationState == .activated else {
+            return .watchOnly
+        }
+
+        if session.isReachable {
+            return .synced
+        }
+
+        return .queued
     }
 
     func setupWatchConnectivity() {
@@ -148,6 +173,36 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
         sendWatchStatusUpdate(sessionState)
     }
+
+    func refreshStoredAlarmStateIfNeeded() {
+        if let interval = UserDefaults.standard.object(forKey: Self.actualAlarmTimeKey) as? TimeInterval {
+            let storedDate = Date(timeIntervalSince1970: interval)
+            if storedDate <= Date() {
+                clearAlarmTracking()
+                return
+            }
+        }
+
+        if let interval = UserDefaults.standard.object(forKey: Self.pendingScheduleKey) as? TimeInterval {
+            let pendingDate = Date(timeIntervalSince1970: interval)
+            if pendingDate <= Date() {
+                clearPendingSchedule()
+            }
+        }
+
+        refreshNextAlarmDate()
+        requestAlarmSync()
+    }
+
+    func requestAlarmSync() {
+        guard let session = wcSession, session.activationState == .activated else { return }
+        let message = ["action": "requestAlarmSync"]
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(message)
+        }
+    }
     
     func requestHealthPermissions(completion: @escaping (Bool) -> Void) {
         let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)!
@@ -180,8 +235,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         self.runtimeSession?.start(at: date)
         storeArmedSchedule(date)
         clearPendingSchedule()
+        refreshNextAlarmDate()
         updatePipelineState(.scheduled, detail: "Armed for \(date.formatted(date: .omitted, time: .shortened))")
-        sendWatchStatusUpdate("Smart Alarm armed on Apple Watch")
+        sendWatchStatusUpdate(sessionState)
     }
 
     func armPendingScheduleIfPossible() {
@@ -204,8 +260,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             runtimeSession?.invalidate()
         }
         runtimeSession = nil
-        clearPendingSchedule()
-        clearArmedSchedule()
+        clearAlarmTracking()
         stopSensors()
         clearPendingPayloadQueue()
         updatePipelineState(.completed, detail: "Manually Stopped")
@@ -213,8 +268,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     func pauseMonitoring() {
-        clearPendingSchedule()
-        clearArmedSchedule()
+        clearAlarmTracking()
         stopSensors()
         clearPendingPayloadQueue()
         updatePipelineState(.completed, detail: "Monitoring Paused After Alarm")
@@ -432,6 +486,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async {
             self.refreshConnectionStatus()
+            if activationState == .activated {
+                self.requestAlarmSync()
+            }
             self.flushPendingPayloadsIfNeeded(force: true)
         }
     }
@@ -439,7 +496,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     func sessionReachabilityDidChange(_ session: WCSession) {
         DispatchQueue.main.async {
             self.refreshConnectionStatus()
-            self.flushPendingPayloadsIfNeeded(force: session.isReachable)
+            if session.isReachable {
+                self.requestAlarmSync()
+            }
         }
     }
     
@@ -449,6 +508,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
         processIncomingCommand(userInfo)
+    }
+    
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        processIncomingCommand(applicationContext)
     }
     
     private func processIncomingCommand(_ payload: [String: Any]) {
@@ -461,17 +524,16 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             } else if action == "startSession" {
                 prepareForNewSession()
                 if let targetInterval = payload["targetDate"] as? TimeInterval {
-                    // Start exactly 30 minutes before the target alarm date
+                    UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
+                    refreshNextAlarmDate()
                     var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
-                    // Ensure the date is never in the past, which would crash WKExtendedRuntimeSession
                     if wakeWindowStartDate <= Date() {
-                        wakeWindowStartDate = Date().addingTimeInterval(2) // start practically immediately
+                        wakeWindowStartDate = Date().addingTimeInterval(2)
                     }
                     DispatchQueue.main.async {
                         self.queueOrScheduleSmartAlarmSession(at: wakeWindowStartDate)
                     }
                 } else {
-                    // Fallback to instant mock start
                     DispatchQueue.main.async {
                         self.queueOrScheduleSmartAlarmSession(at: Date().addingTimeInterval(5))
                     }
@@ -487,6 +549,17 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             } else if action == "hapticWakeUp" {
                 DispatchQueue.main.async {
                     HapticWakeUpManager.shared.startGradualWakeUp()
+                }
+            } else if action == "syncAlarmState" {
+                if let targetInterval = payload["targetDate"] as? TimeInterval {
+                    UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
+                    print("WATCH: Received syncAlarmState for \(Date(timeIntervalSince1970: targetInterval))")
+                } else {
+                    clearAlarmTracking()
+                    print("WATCH: Received syncAlarmState (clear)")
+                }
+                DispatchQueue.main.async {
+                    self.refreshNextAlarmDate()
                 }
             }
         }
@@ -525,7 +598,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     private func prepareForNewSession() {
-        clearArmedSchedule()
+        clearAlarmTracking()
         clearPendingPayloadQueue()
         replayStatusText = "No backlog activity"
         updatePipelineState(.idle)
@@ -569,8 +642,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         if pendingPayloads.isEmpty {
             if runtimeSession?.state == .running {
                 updatePipelineState(.recording, detail: "Recording")
+            } else if armedScheduledStartDate != nil {
+                updatePipelineState(.scheduled, detail: armedScheduleDescription ?? "Scheduled")
             } else if pendingScheduledStartDate != nil {
-                updatePipelineState(.scheduled, detail: "Scheduled")
+                updatePipelineState(.scheduled, detail: pendingScheduleDescription ?? "Scheduled")
             } else {
                 updatePipelineState(.idle)
             }
@@ -689,6 +764,26 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         return interval.map(Date.init(timeIntervalSince1970:))
     }
 
+    private func refreshNextAlarmDate() {
+        let interval = UserDefaults.standard.double(forKey: Self.actualAlarmTimeKey)
+        let refreshedDate: Date?
+
+        if interval > 0 {
+            let storedDate = Date(timeIntervalSince1970: interval)
+            refreshedDate = storedDate > Date() ? storedDate : nil
+        } else {
+            refreshedDate = nil
+        }
+
+        if Thread.isMainThread {
+            nextAlarmDate = refreshedDate
+        } else {
+            DispatchQueue.main.async {
+                self.nextAlarmDate = refreshedDate
+            }
+        }
+    }
+
     private func queueOrScheduleSmartAlarmSession(at date: Date) {
         guard WKExtension.shared().applicationState == .active else {
             UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.pendingScheduleKey)
@@ -711,6 +806,19 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
     private func clearArmedSchedule() {
         UserDefaults.standard.removeObject(forKey: Self.armedScheduleKey)
+    }
+
+    private func clearAlarmTracking() {
+        UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
+        UserDefaults.standard.removeObject(forKey: Self.armedScheduleKey)
+        UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
+        if Thread.isMainThread {
+            nextAlarmDate = nil
+        } else {
+            DispatchQueue.main.async {
+                self.nextAlarmDate = nil
+            }
+        }
     }
 
     private func sendWatchStatusUpdate(_ status: String) {

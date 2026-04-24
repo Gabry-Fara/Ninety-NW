@@ -81,20 +81,9 @@
 		E1A2B3C82F96820000112233 /* TestModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestModeView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		D23DFE0F2F967A9E004C4401 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				test6.csv,
-				train6.csv,
-			);
-			target = 5BB3ED652C3AD54600CD4274 /* Ninety */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		00B6430C2F7EC58800CC8B51 /* NinetyWatch Watch App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "NinetyWatch Watch App"; sourceTree = "<group>"; };
-		D23DFE0B2F967A6F004C4401 /* dataset */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (D23DFE0F2F967A9E004C4401 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = dataset; sourceTree = "<group>"; };
+		D23DFE0B2F967A6F004C4401 /* dataset */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = dataset; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */

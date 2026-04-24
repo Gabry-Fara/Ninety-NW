@@ -308,6 +308,24 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    func syncAlarmState(targetDate: Date?) {
+        guard let session = wcSession else { return }
+        var command: [String: Any] = ["action": "syncAlarmState"]
+        if let targetDate {
+            command["targetDate"] = targetDate.timeIntervalSince1970
+        }
+        
+        if session.isReachable {
+            session.sendMessage(command, replyHandler: nil, errorHandler: nil)
+        } else {
+            do {
+                try session.updateApplicationContext(command)
+            } catch {
+                session.transferUserInfo(command)
+            }
+        }
+    }
+
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         log("WCSession Activated: \(activationState == .activated)")
     }
@@ -349,6 +367,18 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Payload Handling
 
     private func handleIncomingPayload(_ payloadDictionary: [String: Any]) {
+        // 0. Manual Alarm Sync Request
+        if let action = payloadDictionary["action"] as? String, action == "requestAlarmSync" {
+            DispatchQueue.main.async {
+                if let nextSession = ScheduleViewModel().nextUpcomingSession {
+                    self.syncAlarmState(targetDate: nextSession.wakeUpDate)
+                } else {
+                    self.syncAlarmState(targetDate: nil)
+                }
+            }
+            return
+        }
+
         // 1. Cross-Device Siri Intent Relay Check
         if let relayIntent = payloadDictionary["relayIntent"] as? String {
             handleRelayIntent(relayIntent, payload: payloadDictionary)
