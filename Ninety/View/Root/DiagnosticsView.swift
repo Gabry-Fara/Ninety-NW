@@ -94,6 +94,27 @@ struct DiagnosticsView: View {
                         }
                     }
 
+                    diagnosticSection("Epoch Processing".localized(for: appLanguage)) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            let epochs = sleepManager.recentEpochDiagnostics
+
+                            if epochs.isEmpty {
+                                Text("No processed epoch yet.".localized(for: appLanguage))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                epochProcessingHeader()
+                                Divider()
+
+                                LazyVStack(alignment: .leading, spacing: 8) {
+                                    ForEach(epochs) { epoch in
+                                        epochProcessingRow(epoch)
+                                    }
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     diagnosticSection("Log Stream".localized(for: appLanguage)) {
                         VStack(alignment: .leading, spacing: 8) {
                             if sleepManager.logs.isEmpty {
@@ -178,6 +199,39 @@ struct DiagnosticsView: View {
                 .foregroundColor(.secondary)
         }
         .font(.caption)
+    }
+
+    @ViewBuilder
+    private func epochProcessingHeader() -> some View {
+        HStack(spacing: 12) {
+            Text("Time".localized(for: appLanguage))
+                .frame(width: 86, alignment: .leading)
+
+            Text("HR mean".localized(for: appLanguage))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+
+            Text("Motion mean".localized(for: appLanguage))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .font(.system(size: 10, design: .monospaced).weight(.semibold))
+        .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private func epochProcessingRow(_ epoch: SleepSessionManager.EpochDiagnosticsSnapshot) -> some View {
+        HStack(spacing: 12) {
+            Text(epoch.timestamp.formatted(date: .omitted, time: .standard))
+                .frame(width: 86, alignment: .leading)
+
+            Text(String(format: "%.1f", epoch.heartRateMean))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+
+            Text(String(format: "%.1f", epoch.motionMagMean))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .font(.system(size: 11, design: .monospaced))
+        .foregroundStyle(.secondary)
+        .monospacedDigit()
     }
 
     @ViewBuilder

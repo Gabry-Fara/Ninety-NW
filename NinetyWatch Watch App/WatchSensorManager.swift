@@ -861,6 +861,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
         var message: [String: Any] = [
             "watchStatus": status,
+            "statusTimestamp": Date().timeIntervalSince1970,
             "watchConnectionStatus": connectionStatus,
             "pendingPayloadCount": pendingPayloads.count,
             "replayStatus": replayStatusText,
