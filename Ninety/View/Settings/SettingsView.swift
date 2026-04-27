@@ -180,10 +180,11 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .background {
-            HorizonBackground(isActive: false)
-                .ignoresSafeArea()
-        }
+        // Disable HorizonBackground for the Settings View
+        // .background {
+        //     HorizonBackground(isActive: false)
+        //         .ignoresSafeArea()
+        // }
         .navigationTitle("Settings".localized(for: appLanguage))
         .navigationBarTitleDisplayMode(.large)
         .scrollContentBackground(.hidden)
