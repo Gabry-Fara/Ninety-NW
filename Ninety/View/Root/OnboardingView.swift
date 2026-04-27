@@ -13,6 +13,9 @@ struct OnboardingView: View {
     @AppStorage("showGuidedTour") var showGuidedTour: Bool = false
     @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
     @Environment(\.colorScheme) private var colorScheme
+    
+    @State private var showTermsOfService = false
+    @State private var showPrivacyPolicy = false
 
     var body: some View {
         if isOnBoarding {
@@ -29,12 +32,13 @@ struct OnboardingView: View {
                         .scaledToFit()
                         .frame(height: 160)
                         .accessibilityLabel("Ninety logo".localized(for: appLanguage))
+                        .cornerRadius(32)
 
                     VStack(spacing: 12) {
                         Text("Ninety".localized(for: appLanguage))
                             .font(.largeTitle.bold())
 
-                        Text("Track your sleep pattern and wake up refreshed.".localized(for: appLanguage))
+                        Text("Your next Smart Alarm".localized(for: appLanguage))
                             .font(.body)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.secondary)
@@ -44,7 +48,7 @@ struct OnboardingView: View {
 
                     Spacer()
 
-                    VStack(spacing: 16) {
+                    VStack(spacing: 10) {
                         Button("Get Started".localized(for: appLanguage)) {
                             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                                 isOnBoarding.toggle()
@@ -62,13 +66,49 @@ struct OnboardingView: View {
                         .controlSize(.large)
                         .accessibilityHint("Opens the main sleep schedule".localized(for: appLanguage))
 
-                        Text("By continuing, you agree to Ninety's \n**Terms of Service** and **Privacy Policy.**".localized(for: appLanguage))
+                        VStack(spacing: 2) {
+                            Text("By continuing, you agree to Ninety's".localized(for: appLanguage))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                
+                            HStack(spacing: 4) {
+                                Button(action: {
+                                    showTermsOfService = true
+                                }) {
+                                    Text("Terms of Service".localized(for: appLanguage))
+                                        .bold()
+                                        .foregroundStyle(.blue)
+                                }
+                                
+                                Text("and".localized(for: appLanguage))
+                                
+                                Button(action: {
+                                    showPrivacyPolicy = true
+                                }) {
+                                    Text("Privacy Policy.".localized(for: appLanguage))
+                                        .bold()
+                                        .foregroundStyle(.blue)
+                                }
+                            }
                             .font(.footnote)
                             .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                        }
+                        .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, 40)
-                    .padding(.bottom, 48)
+                    .padding(.bottom, 32)
+                }
+            }
+            .sheet(isPresented: $showTermsOfService) {
+                if let url = URL(string: "https://example.com/terms") {
+                    SafariView(url: url)
+                        .ignoresSafeArea()
+                }
+            }
+            .sheet(isPresented: $showPrivacyPolicy) {
+                if let url = URL(string: "https://example.com/privacy") {
+                    SafariView(url: url)
+                        .ignoresSafeArea()
                 }
             }
         } else {
