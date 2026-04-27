@@ -26,7 +26,7 @@
 		A1B2C3D22C3FDC8200353790 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */; };
 		A1B2C3E12C3FDC8200353790 /* RedesignedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */; };
 		B1C2D3E42F90123400AABBCC /* GuidedTourView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E32F90123400AABBCC /* GuidedTourView.swift */; };
-		E1A2B3C52F96800000112233 /* modello25.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C42F96800000112233 /* modello25.mlmodel */; };
+		E1A2B3C52F96800000112233 /* NeuralWakeUP.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C42F96800000112233 /* NeuralWakeUP.mlmodel */; };
 		E1A2B3C92F96820000112233 /* TestModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C82F96820000112233 /* TestModeView.swift */; };
 /* End PBXBuildFile section */
 
@@ -77,7 +77,7 @@
 		A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlass.swift; sourceTree = "<group>"; };
 		A1B2C3E02C3FDC8200353790 /* RedesignedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignedComponents.swift; sourceTree = "<group>"; };
 		B1C2D3E32F90123400AABBCC /* GuidedTourView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedTourView.swift; sourceTree = "<group>"; };
-		E1A2B3C42F96800000112233 /* modello25.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = modello25.mlmodel; sourceTree = "<group>"; };
+		E1A2B3C42F96800000112233 /* NeuralWakeUP.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = NeuralWakeUP.mlmodel; sourceTree = "<group>"; };
 		E1A2B3C82F96820000112233 /* TestModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestModeView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -168,7 +168,7 @@
 				5BB3ED6D2C3AD54700CD4274 /* Assets.xcassets */,
 				5BB3ED6F2C3AD54700CD4274 /* Preview Content */,
 				001E1CC62F87FA3B00AD4DC7 /* NinetySiriShortcuts.swift */,
-				E1A2B3C42F96800000112233 /* modello25.mlmodel */,
+				E1A2B3C42F96800000112233 /* NeuralWakeUP.mlmodel */,
 			);
 			path = Ninety;
 			sourceTree = "<group>";
@@ -338,7 +338,7 @@
 				5BB3ED7C2C3ADCAB00CD4274 /* OnboardingView.swift in Sources */,
 				B1C2D3E42F90123400AABBCC /* GuidedTourView.swift in Sources */,
 				E1A2B3C92F96820000112233 /* TestModeView.swift in Sources */,
-				E1A2B3C52F96800000112233 /* modello25.mlmodel in Sources */,
+				E1A2B3C52F96800000112233 /* NeuralWakeUP.mlmodel in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

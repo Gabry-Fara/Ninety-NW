@@ -394,8 +394,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     private func loadModel() {
         processingQueue.async {
-            guard let modelURL = Bundle.main.url(forResource: "modello25", withExtension: "mlmodelc") else {
-                self.updateModelStatus("modello25.mlmodelc missing from bundle".localized(for: self.preferredLang))
+            guard let modelURL = Bundle.main.url(forResource: "NeuralWakeUP", withExtension: "mlmodelc") else {
+                self.updateModelStatus("NeuralWakeUP.mlmodelc missing from bundle".localized(for: self.preferredLang))
                 return
             }
 
@@ -706,7 +706,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     // MARK: - Feature Engineering
 
-    /// Computes the 25 features required by modello25.mlmodel for a given epoch index.
+    /// Computes the 25 features required by NeuralWakeUP.mlmodel for a given epoch index.
     ///
     /// Rolling windows:
     ///  - hist2m  = 4 epochs  (4 × 30s = 2 min)
