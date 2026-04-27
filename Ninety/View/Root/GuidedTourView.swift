@@ -121,7 +121,7 @@ struct GuidedTourView: View {
             .overlay(alignment: .bottom) {
                 navRow
                     .padding(.horizontal, 24)
-                    .padding(.bottom, proxy.safeAreaInsets.bottom + 44)
+                    .padding(.bottom, step == .alarmToggle ? proxy.safeAreaInsets.bottom + 180 : proxy.safeAreaInsets.bottom + 83)
             }
         }
         .ignoresSafeArea()
@@ -231,7 +231,12 @@ struct GuidedTourView: View {
                     .lineSpacing(2)
                     .lineLimit(3)
 
-                dots.padding(.top, 1)
+                HStack {
+                    Spacer()
+                    dots
+                    Spacer()
+                }
+                .padding(.top, 4)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -264,7 +269,7 @@ struct GuidedTourView: View {
 
     private var spotlightCardYOffset: CGFloat {
         switch step {
-        case .alarmToggle: return 28
+        case .alarmToggle: return -56
         default:           return 0
         }
     }

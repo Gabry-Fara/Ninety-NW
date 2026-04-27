@@ -12,6 +12,7 @@
 		001E1C952F853DF500AD4DC7 /* SleepSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1C902F853DF500AD4DC7 /* SleepSessionManager.swift */; };
 		001E1C972F853EB100AD4DC7 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1C962F853EB100AD4DC7 /* DiagnosticsView.swift */; };
 		001E1CC72F87FA3B00AD4DC7 /* NinetySiriShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 001E1CC62F87FA3B00AD4DC7 /* NinetySiriShortcuts.swift */; };
+		0095803E2F9F98EE005241FF /* SafariView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0095803D2F9F98EE005241FF /* SafariView.swift */; };
 		00B643152F7EC58900CC8B51 /* NinetyWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		00B643212F7EC82E00CC8B51 /* AlarmKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643202F7EC82E00CC8B51 /* AlarmKit.framework */; };
 		00B643232F85305E00CC8B51 /* CoreMotion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643222F85305E00CC8B51 /* CoreMotion.framework */; };
@@ -60,6 +61,7 @@
 		001E1C912F853DF500AD4DC7 /* SmartAlarmManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartAlarmManager.swift; sourceTree = "<group>"; };
 		001E1C962F853EB100AD4DC7 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		001E1CC62F87FA3B00AD4DC7 /* NinetySiriShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NinetySiriShortcuts.swift; sourceTree = "<group>"; };
+		0095803D2F9F98EE005241FF /* SafariView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariView.swift; sourceTree = "<group>"; };
 		00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "NinetyWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		00B6431B2F7EC6A700CC8B51 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		00B6431C2F7EC6BC00CC8B51 /* Ninety.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Ninety.entitlements; sourceTree = "<group>"; };
@@ -205,6 +207,7 @@
 		A1B2C3D02C3FDC8200353790 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				0095803D2F9F98EE005241FF /* SafariView.swift */,
 				A1B2C3D12C3FDC8200353790 /* LiquidGlass.swift */,
 			);
 			path = Utilities;
@@ -335,6 +338,7 @@
 				5BF32F852C3C05A900A528BD /* ScheduleView.swift in Sources */,
 				A1B2C3E12C3FDC8200353790 /* RedesignedComponents.swift in Sources */,
 				A1B2C3D22C3FDC8200353790 /* LiquidGlass.swift in Sources */,
+				0095803E2F9F98EE005241FF /* SafariView.swift in Sources */,
 				5BB3ED7C2C3ADCAB00CD4274 /* OnboardingView.swift in Sources */,
 				B1C2D3E42F90123400AABBCC /* GuidedTourView.swift in Sources */,
 				E1A2B3C92F96820000112233 /* TestModeView.swift in Sources */,
