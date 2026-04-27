@@ -267,22 +267,35 @@ struct ScheduleView: View {
                     Spacer().frame(height: 20)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                // Watch status panel — floats in the empty space above the alarm button
+                // Watch status panel — centered between the status pill and the day selector
                 if viewModel.isAlarmEnabled && !showingWakeTimePicker && showingWatchDetails {
-                    VStack(spacing: 0) {
-                        Spacer()
-                        if let summary = watchSetupSummary {
+                    if let summary = watchSetupSummary {
+                        GeometryReader { geo in
+                            // The VStack layout is top-aligned with:
+                            // 1. Spacer(60)
+                            // 2. Clock block (280) with offset(-60) -> Visual bottom at 280
+                            // 3. Spacer(40)
+                            // 4. Day selector with offset(70) -> Visual top at 450
+                            // We place the card in that ~170pt gap.
+                            let clockBottom: CGFloat = 280
+                            let selectorTop: CGFloat = 450
+                            
+                            // Center of gap is 365. We use 350 to push it slightly higher 
+                            // toward the pill as requested.
+                            let targetY: CGFloat = 350
+
                             watchSetupBanner(summary)
                                 .padding(.horizontal, 24)
+                                .frame(maxWidth: .infinity)
+                                .position(x: geo.size.width / 2, y: targetY)
                         }
-                        Spacer().frame(height: alarmButtonBottomPadding + 230)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .allowsHitTesting(true)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .bottom).combined(with: .opacity)
+                        ))
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .allowsHitTesting(true)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .bottom).combined(with: .opacity),
-                        removal: .move(edge: .bottom).combined(with: .opacity)
-                    ))
                 }
                 VStack {
                     Spacer()
