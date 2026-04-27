@@ -8,10 +8,10 @@ struct NinetyShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: SetNinetyAlarmIntent(),
             phrases: [
-                "Svegliami con \(.applicationName) \(\.$weekday)",
-                "Wake me up with \(.applicationName) on \(\.$weekday)",
-                "Imposta la sveglia \(.applicationName)",
-                "Set the \(.applicationName) alarm"
+                "Svegliami con \(.applicationName)",
+                "Imposta sveglia con \(.applicationName)",
+                "Imposta la sveglia con \(.applicationName)",
+                "Set alarm with \(.applicationName)"
             ],
             shortTitle: "Imposta Sveglia",
             systemImageName: "alarm"
@@ -20,11 +20,10 @@ struct NinetyShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: GetNinetyAlarmIntent(),
             phrases: [
-                "A che ora è la sveglia di \(.applicationName)",
-                "Dimmi la prossima sveglia \(.applicationName)",
-                "A che ora è la sveglia \(.applicationName) di \(\.$weekday)",
-                "What time is the \(.applicationName) alarm",
-                "What time is the \(.applicationName) alarm on \(\.$weekday)"
+                "Controlla sveglia con \(.applicationName)",
+                "A che ora è la sveglia con \(.applicationName)",
+                "Dimmi la prossima sveglia con \(.applicationName)",
+                "Check alarm with \(.applicationName)"
             ],
             shortTitle: "Controlla Sveglia",
             systemImageName: "clock"
@@ -33,10 +32,9 @@ struct NinetyShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: UpdateNinetyAlarmIntent(),
             phrases: [
-                "Sposta la sveglia \(.applicationName) di \(\.$weekday)",
-                "Move the \(.applicationName) alarm on \(\.$weekday)",
-                "Sposta la sveglia \(.applicationName)",
-                "Move the \(.applicationName) alarm"
+                "Sposta sveglia con \(.applicationName)",
+                "Modifica sveglia con \(.applicationName)",
+                "Move alarm with \(.applicationName)"
             ],
             shortTitle: "Sposta Sveglia",
             systemImageName: "arrow.forward.circle"
@@ -45,9 +43,9 @@ struct NinetyShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: CancelNinetyAlarmIntent(),
             phrases: [
-                "Annulla la sveglia \(.applicationName) di \(\.$weekday)",
-                "Disattiva la sveglia \(.applicationName) di \(\.$weekday)",
-                "Cancel the \(.applicationName) alarm on \(\.$weekday)"
+                "Annulla sveglia con \(.applicationName)",
+                "Disattiva sveglia con \(.applicationName)",
+                "Cancel alarm with \(.applicationName)"
             ],
             shortTitle: "Annulla Sveglia",
             systemImageName: "xmark.circle"
