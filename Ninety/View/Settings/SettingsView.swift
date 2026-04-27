@@ -25,36 +25,22 @@ struct SettingsView: View {
                     // Smart Alarm Section
                     settingsSection("SMART ALARM".localized(for: appLanguage)) {
                         VStack(spacing: 0) {
-                            settingsRow(icon: "timer", color: accent, title: "Wake Window".localized(for: appLanguage)) {
-                                Picker("Wake Window", selection: $settingsViewModel.smartWakeWindow) {
-                                    Text("15 min").tag(15)
-                                    Text("30 min").tag(30)
-                                    Text("45 min").tag(45)
-                                    Text("60 min").tag(60)
-                                }
-                                .labelsHidden()
-                                .tint(.secondary)
-                            }
                             
                             Divider().padding(.leading, 44)
                             
                             settingsToggleRow(icon: "water.waves", color: .indigo, title: "Haptic Pre-Alarm".localized(for: appLanguage), isOn: $settingsViewModel.hapticAlarm)
                             
-                            Divider().padding(.leading, 44)
+                            Divider()
                             
                             settingsToggleRow(icon: "hand.tap.fill", color: .orange, title: "Haptic Feedback".localized(for: appLanguage), isOn: $settingsViewModel.hapticFeedbackEnabled)
                         }
                     }
                     
                     // Appearance Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("APPEARANCE".localized(for: appLanguage))
-                            .font(.caption.bold())
-                            .tracking(2)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 8)
-                        
+                    settingsSection("APPEARANCE".localized(for: appLanguage)) {
                         VStack(spacing: 0) {
+                            Divider().padding(.leading, 44)
+                            
                             // Visual Previews
                             HStack(spacing: 40) {
                                 Spacer()
@@ -80,9 +66,9 @@ struct SettingsView: View {
                                 Spacer()
                             }
                             .padding(.vertical, 24)
-                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
-                            
-                            Spacer().frame(height: 16)
+                            // .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
+
+                            Divider()
 
                             // Automatic Toggle
                             settingsToggleRow(
@@ -98,16 +84,14 @@ struct SettingsView: View {
                                     }
                                 )
                             )
-                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24))
                         }
                     }
-                    
                     // Permissions Section
                     settingsSection("PERMISSIONS".localized(for: appLanguage)) {
                         VStack(spacing: 0) {
                             settingsToggleRow(icon: "bell.badge.fill", color: .red, title: "Notifications".localized(for: appLanguage), isOn: $settingsViewModel.isNotificationsEnabled)
                             
-                            Divider().padding(.leading, 44)
+                            Divider()
                             
                             settingsToggleRow(icon: "heart.text.square.fill", color: .pink, title: "Apple Health".localized(for: appLanguage), isOn: $settingsViewModel.saveToHealthKit)
                         }
@@ -126,7 +110,7 @@ struct SettingsView: View {
                                 .tint(.secondary)
                             }
                             
-                            Divider().padding(.leading, 44)
+                            Divider()
                             
                             Button {
                                 showGuidedTour = true
@@ -150,7 +134,7 @@ struct SettingsView: View {
                             }
                             .buttonStyle(.plain)
                             
-                            Divider().padding(.leading, 44)
+                            Divider()
                             
                             Button {
                                 showingAbout = true
