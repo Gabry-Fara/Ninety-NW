@@ -85,9 +85,9 @@ struct GuidedTourView: View {
     // Spotlight padding around the element
     private let pad: CGFloat = 12
     // Estimated card height for vertical placement math
-    private let estCardH: CGFloat = 170
+    private let estCardH: CGFloat = 220
     // Reserved bottom space for the fixed navigation row.
-    private let bottomBarClearance: CGFloat = 132
+    private let bottomBarClearance: CGFloat = 24
 
     init(isPresented: Binding<Bool>) {
         self._isPresented = isPresented
@@ -104,25 +104,27 @@ struct GuidedTourView: View {
                 // Full-screen tap blocker so controls underneath the tour
                 // never receive touches while onboarding is visible.
                 Rectangle()
-                    .fill(Color.black.opacity(0.001))
+                    .fill(Color.black.opacity(0.1))
                     .contentShape(Rectangle())
                     .ignoresSafeArea()
                     .onTapGesture {}
 
-                Color.black.opacity(step.isFullScreen ? 0.7 : 0.0)
-                    .ignoresSafeArea()
-                    .onTapGesture {}
-                    .allowsHitTesting(false)
+
 
                 group(in: proxy)
                     .allowsHitTesting(false)
             }
             .opacity(show ? 1 : 0)
-            .overlay(alignment: .bottom) {
-                navRow
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, step == .alarmToggle ? proxy.safeAreaInsets.bottom + 180 : proxy.safeAreaInsets.bottom + 83)
-            }
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 30)
+                    .onEnded { value in
+                        if value.translation.width < -30 {
+                            if step == .ready { close() } else { go(back: false) }
+                        } else if value.translation.width > 30 {
+                            if step.rawValue > 0 { go(back: true) }
+                        }
+                    }
+            )
         }
         .ignoresSafeArea()
         .onAppear {
@@ -132,118 +134,76 @@ struct GuidedTourView: View {
 
     @ViewBuilder
     private func group(in proxy: GeometryProxy) -> some View {
-        if step.isFullScreen {
-            fullCard(in: proxy)
-        } else {
-            spotCard(in: proxy)
-        }
+        spotCard(in: proxy)
     }
 
-    // MARK: - Full-screen card
 
-    private func fullCard(in proxy: GeometryProxy) -> some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 16) {
-                // Compact icon
-                Image(systemName: step.icon)
-                    .font(.system(size: 34, weight: .medium))
-                    .foregroundStyle(accent)
-                    .symbolRenderingMode(.hierarchical)
-                    .padding(16)
-                    .background(Circle().fill(accent.opacity(0.12)))
-                    .rotationEffect(.degrees(iconAngle))
-
-                Text(step.title.localized(for: appLanguage))
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .multilineTextAlignment(.center)
-
-                Text(step.body.localized(for: appLanguage))
-                    .font(.system(size: 17, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(3)
-                    .lineLimit(4)
-                    .padding(.horizontal, 4)
-
-                if step != .ready { dots }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 22)
-            .frame(maxWidth: min(proxy.size.width - 40, 340))
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28))
-            .scaleEffect(cardScale)
-
-            Spacer()
-        }
-        .frame(width: proxy.size.width)
-    }
 
     // MARK: - Spotlight card
 
     private func spotCard(in proxy: GeometryProxy) -> some View {
         // Convert global target frame to this overlay's local coordinate space.
         let overlayGlobal = proxy.frame(in: .global)
-        let localRaw = spotFrame.offsetBy(dx: -overlayGlobal.minX, dy: -overlayGlobal.minY)
-        let raw = localRaw
-        let hFrame = raw.insetBy(dx: -pad, dy: -pad)
-
-        let spaceBelow = proxy.size.height - bottomBarClearance - hFrame.maxY
-        let below = spaceBelow >= estCardH + pad + 24
-
-        let cy: CGFloat = below
-            ? hFrame.maxY + pad + estCardH / 2
-            : hFrame.minY - pad - estCardH / 2
-        let minY = proxy.safeAreaInsets.top + estCardH / 2 + 8
-        let maxY = proxy.size.height - proxy.safeAreaInsets.bottom - bottomBarClearance - estCardH / 2
-        let safeCY = (cy + spotlightCardYOffset).clamped(to: minY...maxY)
+        let actualSpotFrame = step.isFullScreen
+            ? CGRect(x: proxy.size.width / 2 + overlayGlobal.minX, y: proxy.size.height / 2 + overlayGlobal.minY, width: 0, height: 0)
+            : spotFrame
+        let localRaw = actualSpotFrame.offsetBy(dx: -overlayGlobal.minX, dy: -overlayGlobal.minY)
+        let hFrame = step.isFullScreen ? localRaw : localRaw.insetBy(dx: -pad, dy: -pad)
 
         return ZStack {
             // Dimmed mask with cutout
-            SpotlightShape(cutout: hFrame, radius: spotR + pad)
+            SpotlightShape(cutout: hFrame, radius: step.isFullScreen ? 0 : spotR + pad)
                 .fill(style: FillStyle(eoFill: true))
-                .foregroundStyle(Color.black.opacity(0.62))
+                .foregroundStyle(Color.black.opacity(0.1))
                 .ignoresSafeArea()
 
             // Accent ring
-            RoundedRectangle(cornerRadius: spotR + pad, style: .continuous)
+            RoundedRectangle(cornerRadius: step.isFullScreen ? 0 : spotR + pad, style: .continuous)
                 .strokeBorder(accent, lineWidth: 2)
                 .frame(width: hFrame.width, height: hFrame.height)
                 .shadow(color: accent.opacity(0.45), radius: 10)
                 .position(x: hFrame.midX, y: hFrame.midY)
+                .opacity(step.isFullScreen ? 0 : 1)
 
             // Tooltip card
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Image(systemName: step.icon)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(accent)
-                        .symbolRenderingMode(.hierarchical)
-                    Text(step.title.localized(for: appLanguage))
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    Spacer(minLength: 0)
-                }
+            VStack(spacing: 0) {
+                Spacer()
+                VStack(alignment: .leading, spacing: 16) {
+                    ZStack(alignment: .leading) {
+                        Image(systemName: step.icon)
+                            .font(.system(size: 34, weight: .medium))
+                            .foregroundStyle(accent)
+                            .symbolRenderingMode(.hierarchical)
 
-                Text(step.body.localized(for: appLanguage))
-                    .font(.system(size: 14, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .lineSpacing(2)
-                    .lineLimit(3)
+                        Text(step.title.localized(for: appLanguage))
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal, 48)
+                    }
 
-                HStack {
-                    Spacer()
-                    dots
-                    Spacer()
+                    Text(step.body.localized(for: appLanguage))
+                        .font(.system(size: 17, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .lineSpacing(3)
+                        .lineLimit(4)
+
+                    HStack {
+                        Spacer()
+                        dots
+                        Spacer()
+                    }
+                    .padding(.top, 4)
                 }
-                .padding(.top, 4)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+                .frame(width: min(proxy.size.width - 48, 320))
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28))
+                .scaleEffect(cardScale)
+                Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(width: min(proxy.size.width - 36, 320))
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18))
-            .scaleEffect(cardScale)
-            .position(x: proxy.size.width / 2, y: safeCY)
         }
         .ignoresSafeArea()
     }
@@ -280,34 +240,11 @@ struct GuidedTourView: View {
                 Circle()
                     .fill(s == step ? accent : Color.primary.opacity(0.2))
                     .frame(width: s == step ? 8 : 5, height: s == step ? 8 : 5)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: step)
             }
         }
     }
 
-    private var navRow: some View {
-        HStack(spacing: 8) {
-            if step.rawValue > 0 && step != .ready {
-                Button { go(back: true) } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                }
-                .buttonStyle(GlassButtonStyle(isProminent: false, tint: nil))
-            }
 
-            Button { step == .ready ? close() : go(back: false) } label: {
-                Text(step == .ready
-                     ? "Get Started".localized(for: appLanguage)
-                     : "Next".localized(for: appLanguage))
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, step == .ready ? 36 : 24)
-                    .padding(.vertical, 8)
-            }
-            .buttonStyle(GlassButtonStyle(isProminent: true, tint: accent))
-        }
-    }
 
     private func go(back: Bool) {
         if hapticFeedbackEnabled { haptic.impactOccurred() }
