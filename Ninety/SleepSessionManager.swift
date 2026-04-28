@@ -420,7 +420,9 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         // 0. Manual Alarm Sync Request
         if let action = payloadDictionary["action"] as? String, action == "requestAlarmSync" {
             DispatchQueue.main.async {
-                if let nextSession = ScheduleViewModel().nextUpcomingSession {
+                if let activeWakeTargetDate = self.activeWakeTargetDate, activeWakeTargetDate > Date() {
+                    self.syncAlarmState(targetDate: activeWakeTargetDate)
+                } else if let nextSession = ScheduleViewModel().nextUpcomingSession {
                     self.syncAlarmState(targetDate: nextSession.wakeUpDate)
                 } else {
                     self.syncAlarmState(targetDate: nil)
@@ -429,13 +431,19 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
-        // 1. Cross-Device Siri Intent Relay Check
+        // 1. One-shot next alarm command from the native Watch UI
+        if let action = payloadDictionary["action"] as? String, action == "setNextAlarm" {
+            handleSetNextAlarmFromWatch(payloadDictionary, replyHandler: replyHandler)
+            return
+        }
+
+        // 2. Cross-Device Siri Intent Relay Check
         if let relayIntent = payloadDictionary["relayIntent"] as? String {
             handleRelayIntent(relayIntent, payload: payloadDictionary, replyHandler: replyHandler)
             return
         }
 
-        // 2. Original Watch Status Check
+        // 3. Original Watch Status Check
         if handleWatchStatus(payloadDictionary) {
             return
         }
@@ -486,6 +494,77 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         } catch {
             log("Decode Error: \(error.localizedDescription)")
         }
+    }
+
+    private func handleSetNextAlarmFromWatch(_ payloadDictionary: [String: Any], replyHandler: (([String: Any]) -> Void)?) {
+        guard
+            let hour = intValue(from: payloadDictionary["hour"]),
+            let minute = intValue(from: payloadDictionary["minute"])
+        else {
+            replyHandler?(["error": "Comando Watch non valido. Manca l'orario."])
+            return
+        }
+
+        guard (0...23).contains(hour), (0...59).contains(minute) else {
+            replyHandler?(["error": "Quell'orario non è valido."])
+            return
+        }
+
+        guard let targetDate = nextWatchAlarmTargetDate(hour: hour, minute: minute) else {
+            replyHandler?(["error": "Non sono riuscito a calcolare la prossima sveglia."])
+            return
+        }
+
+        Task { @MainActor in
+            await SmartAlarmManager.shared.rescheduleSystemAlarm(for: targetDate)
+            self.log("Watch UI: Set next alarm for \(targetDate.formatted(date: .abbreviated, time: .shortened))")
+            self.syncAlarmState(targetDate: targetDate)
+
+            replyHandler?([
+                "status": "ok",
+                "dialog": self.watchSetNextAlarmDialog(targetDate: targetDate),
+                "targetDate": targetDate.timeIntervalSince1970
+            ])
+        }
+    }
+
+    private func intValue(from value: Any?) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        }
+
+        if let numberValue = value as? NSNumber {
+            return numberValue.intValue
+        }
+
+        if let stringValue = value as? String {
+            return Int(stringValue)
+        }
+
+        return nil
+    }
+
+    private func nextWatchAlarmTargetDate(hour: Int, minute: Int, now: Date = Date()) -> Date? {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+
+        guard var candidate = calendar.date(from: components) else {
+            return nil
+        }
+
+        if candidate <= now {
+            candidate = calendar.date(byAdding: .day, value: 1, to: candidate) ?? candidate
+        }
+
+        return candidate
+    }
+
+    private func watchSetNextAlarmDialog(targetDate: Date) -> String {
+        let nextTime = targetDate.formatted(date: .abbreviated, time: .shortened)
+        return "Sveglia Ninety salvata. Prossima occorrenza: \(nextTime)."
     }
 
     private func handleWatchStatus(_ payloadDictionary: [String: Any]) -> Bool {

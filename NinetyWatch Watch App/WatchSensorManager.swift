@@ -11,10 +11,20 @@ enum WatchConnectivityState {
     case watchOnly
 }
 
+enum WatchWeeklyAlarmSyncState: Equatable {
+    case synced
+    case saving
+    case saved
+    case pending
+    case unreachable
+    case failed
+}
+
 class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDelegate, WCSessionDelegate {
     private static let pendingScheduleKey = "pendingSmartAlarmSchedule"
     private static let readyScheduleKey = "readySmartAlarmSchedule"
     private static let actualAlarmTimeKey = "actualSmartAlarmTime"
+    private static let pendingNextAlarmCommandKey = "pendingNextAlarmCommand"
     private let payloadInterval: TimeInterval = 5
     private let motionThreshold = 0.08
     private let maxPendingPayloads = 12_000
@@ -54,6 +64,20 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         var deliveryAttempts: Int
         var deferredDeliveryQueued: Bool
     }
+
+    private struct PendingNextAlarmCommand: Codable, Equatable {
+        let hour: Int
+        let minute: Int
+        let enqueuedAt: Date
+
+        var message: [String: Any] {
+            [
+                "action": "setNextAlarm",
+                "hour": hour,
+                "minute": minute
+            ]
+        }
+    }
     
     static let shared = WatchSensorManager()
     
@@ -62,6 +86,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     @Published var connectionStatus: String = "Disconnected"
     @Published var isMocking: Bool = false
     @Published var nextAlarmDate: Date? = nil
+    @Published var weeklyAlarmSyncState: WatchWeeklyAlarmSyncState = .synced
+    @Published var weeklyAlarmSyncDetail: String? = nil
     
     private var runtimeSession: WKExtendedRuntimeSession?
     private var suppressNextRuntimeInvalidation = false
@@ -72,6 +98,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private var lastBacklogFlushDate: Date?
     private var pipelineState: WatchPipelineState = .idle
     private var replayStatusText: String = "No backlog activity"
+    private var isSendingNextAlarmCommand = false
     
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
@@ -89,6 +116,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     override init() {
         super.init()
         restorePendingPayloadQueue()
+        restorePendingNextAlarmCommand()
         setupWatchConnectivity()
         refreshNextAlarmDate()
     }
@@ -162,11 +190,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
         sendWatchStatusUpdate(sessionState)
         flushPendingPayloadsIfNeeded(force: session.isReachable)
+        flushPendingNextAlarmCommandIfNeeded()
     }
 
     func retryPendingPayloadDelivery() {
         refreshConnectionStatus()
         flushPendingPayloadsIfNeeded(force: true)
+        flushPendingNextAlarmCommandIfNeeded()
     }
 
     func resumeScheduledSession(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
@@ -209,6 +239,38 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         } else {
             session.transferUserInfo(message)
         }
+    }
+
+    func setNextAlarm(wakeTime: Date) {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: wakeTime)
+        setNextAlarm(
+            hour: components.hour ?? 7,
+            minute: components.minute ?? 0
+        )
+    }
+
+    func markNextAlarmDraftChanged() {
+        guard weeklyAlarmSyncState == .saved || weeklyAlarmSyncState == .failed else {
+            return
+        }
+
+        weeklyAlarmSyncState = pendingNextAlarmCommand() == nil ? .synced : .pending
+        weeklyAlarmSyncDetail = nil
+    }
+
+    private func setNextAlarm(hour: Int, minute: Int) {
+        guard (0...23).contains(hour), (0...59).contains(minute) else {
+            weeklyAlarmSyncState = .failed
+            weeklyAlarmSyncDetail = "Invalid alarm draft"
+            return
+        }
+
+        let command = PendingNextAlarmCommand(
+            hour: hour,
+            minute: minute,
+            enqueuedAt: Date()
+        )
+        sendNextAlarmCommand(command)
     }
     
     func requestHealthPermissions(completion: @escaping (Bool) -> Void) {
@@ -280,6 +342,104 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         clearPendingPayloadQueue()
         updatePipelineState(.completed, detail: "Monitoring Paused After Alarm")
         sendWatchStatusUpdate(sessionState)
+    }
+
+    // MARK: - Next Alarm Commands
+
+    private func restorePendingNextAlarmCommand() {
+        guard pendingNextAlarmCommand() != nil else { return }
+        weeklyAlarmSyncState = .pending
+        weeklyAlarmSyncDetail = nil
+    }
+
+    private func pendingNextAlarmCommand() -> PendingNextAlarmCommand? {
+        guard let data = UserDefaults.standard.data(forKey: Self.pendingNextAlarmCommandKey) else {
+            return nil
+        }
+
+        guard let command = try? JSONDecoder().decode(PendingNextAlarmCommand.self, from: data) else {
+            UserDefaults.standard.removeObject(forKey: Self.pendingNextAlarmCommandKey)
+            return nil
+        }
+
+        return command
+    }
+
+    private func persistPendingNextAlarmCommand(_ command: PendingNextAlarmCommand, state: WatchWeeklyAlarmSyncState) {
+        guard let data = try? JSONEncoder().encode(command) else {
+            weeklyAlarmSyncState = .failed
+            weeklyAlarmSyncDetail = "Unable to store pending alarm"
+            return
+        }
+
+        UserDefaults.standard.set(data, forKey: Self.pendingNextAlarmCommandKey)
+        weeklyAlarmSyncState = state
+        weeklyAlarmSyncDetail = nil
+    }
+
+    private func clearPendingNextAlarmCommand() {
+        UserDefaults.standard.removeObject(forKey: Self.pendingNextAlarmCommandKey)
+    }
+
+    private func flushPendingNextAlarmCommandIfNeeded() {
+        guard !isSendingNextAlarmCommand, let command = pendingNextAlarmCommand() else {
+            return
+        }
+
+        sendNextAlarmCommand(command)
+    }
+
+    private func sendNextAlarmCommand(_ command: PendingNextAlarmCommand) {
+        guard !isSendingNextAlarmCommand else { return }
+
+        guard let session = wcSession, session.activationState == .activated else {
+            persistPendingNextAlarmCommand(command, state: .pending)
+            return
+        }
+
+        guard session.isReachable else {
+            persistPendingNextAlarmCommand(command, state: .unreachable)
+            return
+        }
+
+        isSendingNextAlarmCommand = true
+        weeklyAlarmSyncState = .saving
+        weeklyAlarmSyncDetail = nil
+
+        session.sendMessage(command.message, replyHandler: { [weak self] reply in
+            DispatchQueue.main.async {
+                self?.handleNextAlarmReply(reply, command: command)
+            }
+        }, errorHandler: { [weak self] error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isSendingNextAlarmCommand = false
+                self.persistPendingNextAlarmCommand(command, state: .pending)
+                self.weeklyAlarmSyncDetail = error.localizedDescription
+            }
+        })
+    }
+
+    private func handleNextAlarmReply(_ reply: [String: Any], command: PendingNextAlarmCommand) {
+        isSendingNextAlarmCommand = false
+
+        if let error = reply["error"] as? String {
+            clearPendingNextAlarmCommand()
+            weeklyAlarmSyncState = .failed
+            weeklyAlarmSyncDetail = error
+            return
+        }
+
+        clearPendingNextAlarmCommand()
+        weeklyAlarmSyncState = .saved
+        weeklyAlarmSyncDetail = reply["dialog"] as? String
+
+        if let targetInterval = reply["targetDate"] as? TimeInterval {
+            UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
+            refreshNextAlarmDate()
+        } else {
+            requestAlarmSync()
+        }
     }
     
     // MARK: - WKExtendedRuntimeSessionDelegate

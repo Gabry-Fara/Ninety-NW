@@ -16,6 +16,7 @@ struct NinetyShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Imposta Sveglia",
             systemImageName: "alarm"
         )
+        
 
         AppShortcut(
             intent: GetNinetyAlarmIntent(),
