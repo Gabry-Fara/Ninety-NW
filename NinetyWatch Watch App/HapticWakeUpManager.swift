@@ -73,6 +73,7 @@ class HapticWakeUpManager: ObservableObject {
     // MARK: - Internal
 
     private func tick() {
+        guard isPlaying else { return }
         let elapsed = Double(elapsedTicks) * 0.5  // seconds since start
 
         // Determine which phase we're in

@@ -302,6 +302,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         runtimeSession = nil
         clearAlarmTracking()
         stopSensors()
+        HapticWakeUpManager.shared.stop()
         clearPendingPayloadQueue()
         updatePipelineState(.completed, detail: "Manually Stopped")
         sendWatchStatusUpdate(sessionState)
@@ -315,6 +316,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         runtimeSession = nil
         clearAlarmTracking()
         stopSensors()
+        HapticWakeUpManager.shared.stop()
         clearPendingPayloadQueue()
         updatePipelineState(.completed, detail: "Monitoring Paused After Alarm")
         sendWatchStatusUpdate(sessionState)

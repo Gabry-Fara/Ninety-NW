@@ -208,6 +208,12 @@ struct ContentView: View {
                     }
                     .ignoresSafeArea(.all, edges: .bottom)
                 }
+                
+                if hapticManager.isPlaying {
+                    AlarmView()
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .zIndex(10)
+                }
             }
             .containerBackground(.black.gradient, for: .navigation)
             .focusable(!isEditingTime)
@@ -232,13 +238,6 @@ struct ContentView: View {
             .onAppear {
                 sensorManager.refreshStoredAlarmStateIfNeeded()
                 sensorManager.requestHealthPermissions { _ in }
-            }
-        }
-        .overlay(alignment: .bottom) {
-             if hapticManager.isPlaying {
-                AlarmView()
-                    .transition(.move(edge: .bottom))
-                    .zIndex(1)
             }
         }
     }
