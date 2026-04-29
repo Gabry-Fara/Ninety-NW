@@ -517,6 +517,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         } catch {
             log("Decode Error: \(error.localizedDescription)")
         }
+    }
 
     private func handleSetNextAlarmFromWatch(_ payloadDictionary: [String: Any], replyHandler: (([String: Any]) -> Void)?) {
         guard
