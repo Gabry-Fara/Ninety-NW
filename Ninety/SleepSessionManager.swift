@@ -454,6 +454,12 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
+        // 1. Weekly plan edit command from the native Watch UI
+        if let action = payloadDictionary["action"] as? String, action == "setNextAlarm" {
+            handleSetNextAlarmFromWatch(payloadDictionary, replyHandler: replyHandler)
+            return
+        }
+
         // 1. Cross-Device Siri Intent Relay Check
         if let relayIntent = payloadDictionary["relayIntent"] as? String {
             handleRelayIntent(relayIntent, payload: payloadDictionary, replyHandler: replyHandler)
@@ -511,6 +517,144 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         } catch {
             log("Decode Error: \(error.localizedDescription)")
         }
+
+    private func handleSetNextAlarmFromWatch(_ payloadDictionary: [String: Any], replyHandler: (([String: Any]) -> Void)?) {
+        guard
+            let hour = intValue(from: payloadDictionary["hour"]),
+            let minute = intValue(from: payloadDictionary["minute"])
+        else {
+            replyHandler?(["error": "Comando Watch non valido. Manca l'orario."])
+            return
+        }
+
+        guard (0...23).contains(hour), (0...59).contains(minute) else {
+            replyHandler?(["error": "Quell'orario non è valido."])
+            return
+        }
+
+        guard let targetDate = nextWatchAlarmTargetDate(hour: hour, minute: minute) else {
+            replyHandler?(["error": "Non sono riuscito a calcolare la prossima sveglia."])
+            return
+        }
+
+        let targetWeekday = Calendar.current.component(.weekday, from: targetDate)
+        let createdAt = doubleValue(from: payloadDictionary["createdAt"])
+            .map(Date.init(timeIntervalSince1970:)) ?? Date()
+
+        Task { @MainActor in
+            do {
+                let scheduleViewModel = ScheduleViewModel()
+                let result = try await scheduleViewModel.applyWatchWeeklyAlarm(
+                    weekday: targetWeekday,
+                    hour: hour,
+                    minute: minute,
+                    createdAt: createdAt
+                )
+                let nextWakeDate = result.nextAlarm?.wakeUpDate
+                self.syncAlarmState(targetDate: nextWakeDate)
+
+                var reply: [String: Any] = [
+                    "status": result.isStale ? "stale" : "ok",
+                    "applied": result.didApply,
+                    "affectedWeekday": targetWeekday,
+                    "dialog": result.isStale
+                        ? self.watchStaleNextAlarmDialog(weekday: targetWeekday, nextDate: nextWakeDate)
+                        : self.watchSetNextAlarmDialog(
+                            weekday: targetWeekday,
+                            hour: hour,
+                            minute: minute,
+                            nextDate: nextWakeDate
+                        )
+                ]
+
+                if let nextWakeDate {
+                    reply["targetDate"] = nextWakeDate.timeIntervalSince1970
+                }
+
+                replyHandler?(reply)
+            } catch {
+                replyHandler?(["error": error.localizedDescription])
+            }
+        }
+    }
+
+    private func intValue(from value: Any?) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        }
+
+        if let numberValue = value as? NSNumber {
+            return numberValue.intValue
+        }
+
+        if let stringValue = value as? String {
+            return Int(stringValue)
+        }
+
+        return nil
+    }
+
+    private func doubleValue(from value: Any?) -> Double? {
+        if let doubleValue = value as? Double {
+            return doubleValue
+        }
+
+        if let numberValue = value as? NSNumber {
+            return numberValue.doubleValue
+        }
+
+        if let stringValue = value as? String {
+            return Double(stringValue)
+        }
+
+        return nil
+    }
+
+    private func nextWatchAlarmTargetDate(hour: Int, minute: Int, now: Date = Date()) -> Date? {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+
+        guard var candidate = calendar.date(from: components) else {
+            return nil
+        }
+
+        if candidate <= now {
+            candidate = calendar.date(byAdding: .day, value: 1, to: candidate) ?? candidate
+        }
+
+        return candidate
+    }
+
+    private func watchSetNextAlarmDialog(weekday: Int, hour: Int, minute: Int, nextDate: Date?) -> String {
+        let dayName = weekdayName(for: weekday)
+        let time = String(format: "%02d:%02d", hour, minute)
+        guard let nextDate else {
+            return "Sveglia Ninety salvata per \(dayName) alle \(time)."
+        }
+        let nextTime = nextDate.formatted(date: .abbreviated, time: .shortened)
+        return "Sveglia Ninety salvata per \(dayName) alle \(time). Prossima occorrenza: \(nextTime)."
+    }
+
+    private func watchStaleNextAlarmDialog(weekday: Int, nextDate: Date?) -> String {
+        let dayName = weekdayName(for: weekday)
+        guard let nextDate else {
+            return "L'iPhone ha una modifica più recente per \(dayName). Piano Ninety invariato."
+        }
+        let nextTime = nextDate.formatted(date: .abbreviated, time: .shortened)
+        return "L'iPhone ha una modifica più recente per \(dayName). Prossima occorrenza: \(nextTime)."
+    }
+
+    private func weekdayName(for weekday: Int) -> String {
+        let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "it"
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: preferredLang)
+        guard (1...7).contains(weekday), formatter.weekdaySymbols.indices.contains(weekday - 1) else {
+            return "weekday \(weekday)"
+        }
+        return formatter.weekdaySymbols[weekday - 1]
     }
 
     private func handleWatchStatus(_ payloadDictionary: [String: Any]) -> Bool {

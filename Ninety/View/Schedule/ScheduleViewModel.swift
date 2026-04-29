@@ -7,7 +7,11 @@ final class ScheduleViewModel: ObservableObject {
         static let wakeTime = "scheduleWakeTimeInterval"
         static let wakeTimesDict = "scheduleWakeTimesDict"
         static let scheduledWeekdays = "scheduleWeekdayPlan"
+        static let weekdayMutationTimes = "scheduleWeekdayMutationTimes"
     }
+
+    static let externalScheduleDidChangeNotification = Notification.Name("NinetyExternalScheduleDidChange")
+    static let externalScheduleChangedWeekdayKey = "weekday"
 
     struct WeeklyAlarmSnapshot {
         let weekday: Int
@@ -27,6 +31,14 @@ final class ScheduleViewModel: ObservableObject {
         let affectedAlarm: WeeklyAlarmSnapshot?
         let nextAlarm: WeeklyAlarmSnapshot?
         let didScheduleSystemAlarm: Bool
+    }
+
+    struct WatchWeeklyAlarmApplyResult {
+        let affectedAlarm: WeeklyAlarmSnapshot?
+        let nextAlarm: WeeklyAlarmSnapshot?
+        let didScheduleSystemAlarm: Bool
+        let didApply: Bool
+        let isStale: Bool
     }
 
     enum WeeklyAlarmError: LocalizedError {
@@ -69,6 +81,11 @@ final class ScheduleViewModel: ObservableObject {
     @Published var scheduledWeekdays: Set<Int> {
         didSet {
             UserDefaults.standard.set(Array(scheduledWeekdays).sorted(), forKey: StorageKey.scheduledWeekdays)
+        }
+    }
+    @Published private var weekdayMutationTimes: [String: TimeInterval] {
+        didSet {
+            UserDefaults.standard.set(weekdayMutationTimes, forKey: StorageKey.weekdayMutationTimes)
         }
     }
     @Published var lastScheduledSession: SmartAlarmManager.ScheduledSleepSession?
@@ -132,8 +149,10 @@ final class ScheduleViewModel: ObservableObject {
         
         currentWakeUpTime = ScheduleViewModel.defaultWakeTime
 
-        let storedWeekdays = UserDefaults.standard.array(forKey: StorageKey.scheduledWeekdays) as? [Int] ?? []
-        scheduledWeekdays = Set(storedWeekdays)
+        self.scheduledWeekdays = Set(UserDefaults.standard.array(forKey: StorageKey.scheduledWeekdays) as? [Int] ?? [])
+        self.weekdayMutationTimes = Self.loadWeekdayMutationTimesFromStorage()
+        
+        let components = Calendar.current.dateComponents([.hour, .minute], from: Date())
         lastScheduledSession = nil
         logClock("INIT ViewModel finished.")
         updateCurrentWakeUpTime()
@@ -333,6 +352,46 @@ final class ScheduleViewModel: ObservableObject {
         )
     }
 
+    func applyWatchWeeklyAlarm(weekday: Int, hour: Int, minute: Int, createdAt: Date) async throws -> WatchWeeklyAlarmApplyResult {
+        try validate(weekday: weekday, hour: hour, minute: minute)
+
+        let createdAtInterval = createdAt.timeIntervalSince1970
+        let latestMutationInterval = mutationTime(for: weekday)
+        guard createdAtInterval >= latestMutationInterval else {
+            let nextAlarm = nextUpcomingAlarm
+            SleepSessionManager.shared.log(
+                "Watch UI: Ignored stale weekly alarm for weekday \(weekday) at \(String(format: "%02d:%02d", hour, minute))"
+            )
+            return WatchWeeklyAlarmApplyResult(
+                affectedAlarm: alarmSnapshot(for: weekday),
+                nextAlarm: nextAlarm,
+                didScheduleSystemAlarm: false,
+                didApply: false,
+                isStale: true
+            )
+        }
+
+        storeWakeTime(weekday: weekday, hour: hour, minute: minute)
+        scheduledWeekdays.insert(weekday)
+        markMutation(for: weekday, timestamp: createdAtInterval)
+        lastScheduledSession = nextUpcomingSession
+
+        SleepSessionManager.shared.log(
+            "Watch UI: Updated weekly alarm for weekday \(weekday) to \(String(format: "%02d:%02d", hour, minute))"
+        )
+
+        let didSchedule = await scheduleSession()
+        postExternalScheduleChange(weekday: weekday)
+
+        return WatchWeeklyAlarmApplyResult(
+            affectedAlarm: alarmSnapshot(for: weekday),
+            nextAlarm: nextUpcomingAlarm,
+            didScheduleSystemAlarm: didSchedule,
+            didApply: true,
+            isStale: false
+        )
+    }
+
     func moveWeeklyAlarm(weekday: Int, offsetMinutes: Int, forward: Bool) async throws -> WeeklyAlarmOperationResult {
         guard (1...7).contains(weekday) else { throw WeeklyAlarmError.invalidWeekday }
         guard scheduledWeekdays.contains(weekday) else { throw WeeklyAlarmError.inactiveWeekday }
@@ -368,6 +427,37 @@ final class ScheduleViewModel: ObservableObject {
             nextAlarm: nextUpcomingAlarm,
             didScheduleSystemAlarm: didSchedule
         )
+    }
+
+    private func clearCurrentSelection() {
+        lastScheduledSession = nextUpcomingSession
+    }
+
+    private func mutationTime(for weekday: Int) -> TimeInterval {
+        weekdayMutationTimes[String(weekday)] ?? 0
+    }
+
+    private func markMutation(for weekday: Int, at date: Date = Date()) {
+        markMutation(for: weekday, timestamp: date.timeIntervalSince1970)
+    }
+
+    private func markMutation(for weekday: Int, timestamp: TimeInterval) {
+        weekdayMutationTimes[String(weekday)] = timestamp
+    }
+
+    private func postExternalScheduleChange(weekday: Int) {
+        NotificationCenter.default.post(
+            name: Self.externalScheduleDidChangeNotification,
+            object: self,
+            userInfo: [Self.externalScheduleChangedWeekdayKey: weekday]
+        )
+    }
+
+    private static func loadWeekdayMutationTimesFromStorage() -> [String: TimeInterval] {
+        guard let dictionary = UserDefaults.standard.dictionary(forKey: StorageKey.weekdayMutationTimes) else {
+            return [:]
+        }
+        return dictionary as? [String: TimeInterval] ?? [:]
     }
 
     func alarmSnapshot(for weekday: Int) -> WeeklyAlarmSnapshot? {
