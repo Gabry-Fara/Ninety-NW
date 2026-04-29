@@ -181,42 +181,85 @@ private struct WatchCopy {
 struct ContentView: View {
     @StateObject private var sensorManager = WatchSensorManager.shared
     @StateObject private var hapticManager = HapticWakeUpManager.shared
+    @State private var isEditingTime = false
 
     private var copy: WatchCopy {
         WatchCopy(localeIdentifier: Locale.autoupdatingCurrent.identifier)
     }
 
     var body: some View {
-        ZStack {
-            WatchPageBackground()
+        NavigationStack {
+            ZStack {
+                WatchPageBackground()
 
-            WatchAlarmSetupView(sensorManager: sensorManager, copy: copy)
-            
-            if hapticManager.isPlaying {
+                WatchAlarmSetupView(sensorManager: sensorManager, copy: copy, isEditingTime: $isEditingTime)
+                
+                if !isEditingTime {
+                    VStack {
+                        Spacer()
+                        WatchStatusFooter(sensorManager: sensorManager)
+                            .padding(.bottom, -2) // Subtle nudge to the absolute edge
+                    }
+                    .ignoresSafeArea(.all, edges: .bottom)
+                }
+            }
+            .containerBackground(.black.gradient, for: .navigation)
+            .onAppear {
+                sensorManager.refreshStoredAlarmStateIfNeeded()
+                sensorManager.requestHealthPermissions { _ in }
+            }
+        }
+        .overlay(alignment: .bottom) {
+             if hapticManager.isPlaying {
                 AlarmView()
                     .transition(.move(edge: .bottom))
                     .zIndex(1)
             }
         }
-        .onAppear {
-            sensorManager.refreshStoredAlarmStateIfNeeded()
-            sensorManager.requestHealthPermissions { _ in }
+    }
+}
+
+private struct WatchStatusFooter: View {
+    @ObservedObject var sensorManager: WatchSensorManager
+    
+    private var isSynced: Bool {
+        sensorManager.connectionStatus.contains("reachable") || sensorManager.connectionStatus.contains("enabled")
+    }
+    
+    private var statusText: String {
+        if isSynced {
+            return "Synced"
+        } else if sensorManager.connectionStatus.contains("unavailable") {
+            return "Phone Offline"
+        } else {
+            return "Connecting..."
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(isSynced ? Color.green : Color.red)
+                .frame(width: 6, height: 6)
+                .shadow(color: (isSynced ? Color.green : Color.red).opacity(0.5), radius: 2)
+            
+            Text(statusText)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary.opacity(0.8))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background {
+            Capsule()
+                .fill(.white.opacity(0.04))
         }
     }
 }
 
 private struct WatchPageBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.035, green: 0.055, blue: 0.105),
-                Color(red: 0.055, green: 0.09, blue: 0.16),
-                Color(red: 0.018, green: 0.03, blue: 0.06)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
+        Color.black
+            .ignoresSafeArea()
     }
 }
 
@@ -230,13 +273,13 @@ private struct WatchAlarmSetupView: View {
     @State private var internalHour = 7
     @State private var internalMinute = 0
     @State private var isApplyingSyncedAlarm = false
-    @State private var isEditingTime = false
+    @Binding var isEditingTime: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .center, spacing: 12) {
             if isEditingTime {
                 TimeWheelField(hour: $internalHour, minute: $internalMinute)
-                    .padding(.bottom, -4)
+                    .padding(.bottom, 4)
                     .transition(.asymmetric(
                         insertion: .move(edge: .bottom).combined(with: .opacity),
                         removal: .opacity
@@ -280,7 +323,7 @@ private struct WatchAlarmSetupView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
-                    .tint(buttonTint)
+                    .tint(.blue) // Use a more consistent blue for the Watch
                     .disabled(sensorManager.weeklyAlarmSyncState == .saving)
                 }
                 .frame(maxWidth: .infinity)
@@ -291,7 +334,41 @@ private struct WatchAlarmSetupView: View {
                         isEditingTime = true
                     }
                 } label: {
-                    WatchAlarmDisplayCard(date: displayedAlarmDate, copy: copy)
+                    VStack(spacing: 4) {
+                        Text(displayedAlarmDate == nil ? copy.text(.noActiveAlarms) : copy.text(.nextAlarm))
+                            .font(.system(.footnote, design: .rounded).weight(.bold))
+                            .foregroundStyle(.blue.opacity(0.92))
+                            .textCase(.uppercase)
+                            .tracking(1.2)
+                            .padding(.bottom, 2)
+
+                        Text(timeText(for: displayedAlarmDate))
+                            .font(.system(size: 48, weight: .light, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 24)
+                            .background {
+                                Capsule()
+                                    .fill(.white.opacity(0.1))
+                                    .overlay {
+                                        Capsule()
+                                            .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                                    }
+                            }
+
+                        if let date = displayedAlarmDate {
+                            Text(dateText(for: date))
+                                .font(.system(.caption2, design: .rounded).weight(.medium))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(copy.text(.setOnIPhone))
+                                .font(.system(.caption2, design: .rounded).weight(.medium))
+                                .foregroundStyle(.secondary.opacity(0.7))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
                 .transition(.asymmetric(
@@ -300,8 +377,8 @@ private struct WatchAlarmSetupView: View {
                 ))
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 0)
         .animation(.snappy(duration: 0.22), value: isEditingTime)
         .onAppear {
             applySyncedNextAlarm()
@@ -431,30 +508,9 @@ private struct WatchAlarmSetupView: View {
             isEditingTime = false
         }
     }
-}
 
-private struct WatchAlarmDisplayCard: View {
-    let date: Date?
-    let copy: WatchCopy
 
-    private var timeText: String {
-        guard let date else {
-            return "--:--"
-        }
-
-        return date.formatted(
-            Date.FormatStyle()
-                .locale(Locale.autoupdatingCurrent)
-                .hour()
-                .minute()
-        )
-    }
-
-    private var dateText: String {
-        guard let date else {
-            return copy.text(.setOnIPhone)
-        }
-
+    private func dateText(for date: Date) -> String {
         return date.formatted(
             .dateTime
                 .weekday(.abbreviated)
@@ -464,47 +520,14 @@ private struct WatchAlarmDisplayCard: View {
         )
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(date == nil ? copy.text(.noActiveAlarms) : copy.text(.nextAlarm))
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.68))
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(timeText)
-                    .font(.system(size: 32, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                Spacer(minLength: 0)
-
-                Image(systemName: "chevron.right.circle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.42))
-            }
-
-            if date == nil {
-                Text(copy.text(.setOnIPhone))
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.54))
-            } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(dateText)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.66))
-
-                    Text(copy.text(.tapToChange))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.52))
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
-        .background(SoftControlBackground(cornerRadius: 18))
+    private func timeText(for date: Date?) -> String {
+        guard let date else { return "--:--" }
+        return date.formatted(
+            Date.FormatStyle()
+                .locale(Locale.autoupdatingCurrent)
+                .hour()
+                .minute()
+        )
     }
 }
 
@@ -525,9 +548,16 @@ private struct TimeWheelField: View {
             WatchCustomWheelPicker(selectedValue: $minute, range: 0...59)
                 .frame(maxWidth: .infinity)
         }
-        .frame(height: 80)
+        .frame(height: 90)
         .padding(.horizontal, 10)
-        .background(SoftControlBackground(cornerRadius: 16))
+        .background {
+            Capsule()
+                .fill(.white.opacity(0.08))
+                .overlay {
+                    Capsule()
+                        .strokeBorder(.white.opacity(0.12), lineWidth: 0.8)
+                }
+        }
         .clipped()
     }
 }
@@ -542,8 +572,8 @@ struct WatchCustomWheelPicker: View {
     
     private let multiplier = 3
     private var count: Int { range.upperBound - range.lowerBound + 1 }
-    private let itemHeight: CGFloat = 36
-    private let containerHeight: CGFloat = 80
+    private let itemHeight: CGFloat = 34
+    private let containerHeight: CGFloat = 100
 
     var body: some View {
         ZStack {
@@ -561,14 +591,14 @@ struct WatchCustomWheelPicker: View {
                             .foregroundStyle(.white)
                             .scrollTransition(axis: .vertical) { content, phase in
                                 content
-                                    .opacity(phase.isIdentity ? 1.0 : 0.3)
-                                    .scaleEffect(phase.isIdentity ? 1.0 : 0.8)
+                                    .opacity(phase.isIdentity ? 1.0 : 0.55)
+                                    .scaleEffect(phase.isIdentity ? 1.0 : 0.85)
                                     .rotation3DEffect(
                                         .degrees(Double(phase.value) * -20),
                                         axis: (x: 1, y: 0, z: 0),
                                         perspective: 0.5
                                     )
-                                    .offset(y: phase.value * 8)
+                                    // Removed the offset that pushed items further away
                             }
                             .id(index)
                     }
