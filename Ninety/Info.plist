@@ -11,5 +11,7 @@
 		<string>processing</string>
 		<string>audio</string>
 	</array>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 </dict>
 </plist>
