@@ -178,10 +178,16 @@ private struct WatchCopy {
     }
 }
 
+private enum WatchTimeField: Hashable {
+    case hour, minute
+}
+
 struct ContentView: View {
     @StateObject private var sensorManager = WatchSensorManager.shared
     @StateObject private var hapticManager = HapticWakeUpManager.shared
     @State private var isEditingTime = false
+    @State private var initialField: WatchTimeField = .hour
+    @State private var mainCrownValue: Double = 0
 
     private var copy: WatchCopy {
         WatchCopy(localeIdentifier: Locale.autoupdatingCurrent.identifier)
@@ -192,7 +198,7 @@ struct ContentView: View {
             ZStack {
                 WatchPageBackground()
 
-                WatchAlarmSetupView(sensorManager: sensorManager, copy: copy, isEditingTime: $isEditingTime)
+                WatchAlarmSetupView(sensorManager: sensorManager, copy: copy, isEditingTime: $isEditingTime, initialField: $initialField)
                 
                 if !isEditingTime {
                     VStack {
@@ -204,6 +210,25 @@ struct ContentView: View {
                 }
             }
             .containerBackground(.black.gradient, for: .navigation)
+            .focusable(!isEditingTime)
+            .digitalCrownRotation($mainCrownValue, from: -100, through: 100, by: 1, sensitivity: .medium, isContinuous: true, isHapticFeedbackEnabled: false)
+            .onChange(of: mainCrownValue) { oldCrown, newValue in
+                guard !isEditingTime else { return }
+                
+                if newValue < oldCrown {
+                    // Scrolled down (CCW) -> Hours
+                    initialField = .hour
+                    withAnimation(.snappy) {
+                        isEditingTime = true
+                    }
+                } else if newValue > oldCrown {
+                    // Scrolled up (CW) -> Minutes
+                    initialField = .minute
+                    withAnimation(.snappy) {
+                        isEditingTime = true
+                    }
+                }
+            }
             .onAppear {
                 sensorManager.refreshStoredAlarmStateIfNeeded()
                 sensorManager.requestHealthPermissions { _ in }
@@ -274,11 +299,12 @@ private struct WatchAlarmSetupView: View {
     @State private var internalMinute = 0
     @State private var isApplyingSyncedAlarm = false
     @Binding var isEditingTime: Bool
+    @Binding var initialField: WatchTimeField
 
     var body: some View {
         VStack(alignment: .center, spacing: 12) {
             if isEditingTime {
-                TimeWheelField(hour: $internalHour, minute: $internalMinute)
+                TimeWheelField(hour: $internalHour, minute: $internalMinute, initialFocus: initialField)
                     .padding(.bottom, 4)
                     .transition(.asymmetric(
                         insertion: .move(edge: .bottom).combined(with: .opacity),
@@ -333,6 +359,7 @@ private struct WatchAlarmSetupView: View {
                     withAnimation(.snappy(duration: 0.22)) {
                         isEditingTime = true
                     }
+                    initialField = .hour
                 } label: {
                     VStack(spacing: 4) {
                         Text(displayedAlarmDate == nil ? copy.text(.noActiveAlarms) : copy.text(.nextAlarm))
@@ -534,12 +561,9 @@ private struct WatchAlarmSetupView: View {
 private struct TimeWheelField: View {
     @Binding var hour: Int
     @Binding var minute: Int
+    let initialFocus: WatchTimeField
 
-    private enum Field: Hashable {
-        case hour, minute
-    }
-
-    @FocusState private var focusedField: Field?
+    @FocusState private var focusedField: WatchTimeField?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -572,7 +596,7 @@ private struct TimeWheelField: View {
         }
         .clipShape(Capsule())
         .onAppear {
-            focusedField = .hour
+            focusedField = initialFocus
         }
     }
 }
@@ -645,7 +669,7 @@ struct WatchCustomWheelPicker: View {
                     }
                 }
             }
-            .onChange(of: viewPosition) { newPos in
+            .onChange(of: viewPosition) { _, newPos in
                 guard let new = newPos else { return }
                 let newValue = range.lowerBound + (new % count)
                 if userDidScroll && newValue != selectedValue {
@@ -654,7 +678,7 @@ struct WatchCustomWheelPicker: View {
                     WKInterfaceDevice.current().play(.click)
                 }
             }
-            .onChange(of: selectedValue) { newSelected in
+            .onChange(of: selectedValue) { _, newSelected in
                 if !userDidScroll, let currentPos = viewPosition {
                     let currentShownValue = range.lowerBound + (currentPos % count)
                     if currentShownValue != newSelected {
@@ -669,7 +693,7 @@ struct WatchCustomWheelPicker: View {
                     crownValue = Double(newSelected)
                 }
             }
-            .onChange(of: crownValue) { newCrown in
+            .onChange(of: crownValue) { _, newCrown in
                 let rounded = Int(round(newCrown))
                 if rounded != selectedValue {
                     withAnimation(.snappy(duration: 0.15)) {
