@@ -298,6 +298,12 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         DispatchQueue.main.async {
             self.updatePipelineState(.recording, detail: "Session Expiring Soon")
             self.sendWatchStatusUpdate(self.sessionState)
+            
+            // Fallback: if the session is expiring (30 mins passed), the alarm time has been reached.
+            // We must notify the user to wake them up and prevent the system from reporting a failure.
+            extendedRuntimeSession.notifyUser(hapticType: .notification)
+            HapticWakeUpManager.shared.startGradualWakeUp()
+            self.clearAlarmTracking()
         }
     }
     
@@ -436,6 +442,16 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         motionCountBuffer = 0
         
         transmit(payload: payload)
+        
+        // Fallback: If iPhone is disconnected, trigger the alarm locally when the time is reached
+        if let alarmDate = nextAlarmDate, Date() >= alarmDate {
+            DispatchQueue.main.async {
+                print("WATCH: Triggering fallback alarm, target date reached.")
+                self.runtimeSession?.notifyUser(hapticType: .notification)
+                HapticWakeUpManager.shared.startGradualWakeUp()
+                self.clearAlarmTracking()
+            }
+        }
     }
     
     private func transmit(payload: SensorPayload) {
@@ -562,7 +578,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 }
             } else if action == "hapticWakeUp" {
                 DispatchQueue.main.async {
+                    print("WATCH: Received hapticWakeUp from iPhone.")
+                    self.runtimeSession?.notifyUser(hapticType: .notification)
                     HapticWakeUpManager.shared.startGradualWakeUp()
+                    self.clearAlarmTracking()
                 }
             } else if action == "syncAlarmState" {
                 if let targetInterval = payload["targetDate"] as? TimeInterval {
