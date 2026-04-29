@@ -548,7 +548,7 @@ private struct TimeWheelField: View {
             WatchCustomWheelPicker(selectedValue: $minute, range: 0...59)
                 .frame(maxWidth: .infinity)
         }
-        .frame(height: 90)
+        .frame(height: 100)
         .padding(.horizontal, 10)
         .background {
             Capsule()
@@ -621,7 +621,7 @@ struct WatchCustomWheelPicker: View {
                     }
                 }
             }
-            .onChange(of: viewPosition) { _, newPos in
+            .onChange(of: viewPosition) { newPos in
                 guard let new = newPos else { return }
                 let newValue = range.lowerBound + (new % count)
                 if userDidScroll && newValue != selectedValue {
@@ -629,7 +629,7 @@ struct WatchCustomWheelPicker: View {
                     WKInterfaceDevice.current().play(.click)
                 }
             }
-            .onChange(of: selectedValue) { _, newSelected in
+            .onChange(of: selectedValue) { newSelected in
                 if !userDidScroll, let currentPos = viewPosition {
                     let currentShownValue = range.lowerBound + (currentPos % count)
                     if currentShownValue != newSelected {

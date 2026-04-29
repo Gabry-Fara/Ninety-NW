@@ -569,6 +569,13 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         Task { @MainActor in
             do {
                 let scheduleViewModel = ScheduleViewModel(observesExternalChanges: false)
+                
+                // If the user is modifying the next alarm and pushing it to a new day,
+                // we should cancel the existing next alarm so it doesn't preempt the newly set one.
+                if let currentNext = scheduleViewModel.nextUpcomingAlarm, currentNext.weekday != targetWeekday {
+                    _ = try? await scheduleViewModel.cancelWeeklyAlarm(weekday: currentNext.weekday)
+                }
+
                 let result = try await scheduleViewModel.applyWatchWeeklyAlarm(
                     weekday: targetWeekday,
                     hour: hour,
