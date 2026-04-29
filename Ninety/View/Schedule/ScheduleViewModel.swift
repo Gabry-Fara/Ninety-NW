@@ -9,6 +9,49 @@ final class ScheduleViewModel: ObservableObject {
         static let scheduledWeekdays = "scheduleWeekdayPlan"
     }
 
+    struct WeeklyAlarmSnapshot {
+        let weekday: Int
+        let hour: Int
+        let minute: Int
+        let wakeUpDate: Date
+
+        var session: SmartAlarmManager.ScheduledSleepSession {
+            SmartAlarmManager.ScheduledSleepSession(
+                wakeUpDate: wakeUpDate,
+                monitoringStartDate: wakeUpDate.addingTimeInterval(-SmartAlarmManager.monitoringLeadTime)
+            )
+        }
+    }
+
+    struct WeeklyAlarmOperationResult {
+        let affectedAlarm: WeeklyAlarmSnapshot?
+        let nextAlarm: WeeklyAlarmSnapshot?
+        let didScheduleSystemAlarm: Bool
+    }
+
+    enum WeeklyAlarmError: LocalizedError {
+        case invalidWeekday
+        case invalidTime
+        case invalidOffset
+        case inactiveWeekday
+        case crossesDayBoundary
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidWeekday:
+                return "Quel giorno non è valido."
+            case .invalidTime:
+                return "Quell'orario non è valido."
+            case .invalidOffset:
+                return "Dimmi di quanti minuti vuoi spostare la sveglia."
+            case .inactiveWeekday:
+                return "Non hai nessuna sveglia Ninety attiva per quel giorno."
+            case .crossesDayBoundary:
+                return "Questo spostamento cambierebbe giorno. Imposta direttamente la sveglia sul nuovo giorno corretto."
+            }
+        }
+    }
+
     @Published var wakeTimes: [String: TimeInterval] {
         didSet {
             UserDefaults.standard.set(wakeTimes, forKey: StorageKey.wakeTimesDict)
@@ -118,10 +161,13 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     var nextUpcomingSession: SmartAlarmManager.ScheduledSleepSession? {
-        guard let nextWakeUpDate = nextUpcomingWakeUpDate else {
-            return nil
+        nextUpcomingAlarm?.session
+    }
+
+    var nextUpcomingAlarm: WeeklyAlarmSnapshot? {
+        scheduledWeekdays.compactMap { alarmSnapshot(for: $0) }.min {
+            $0.wakeUpDate < $1.wakeUpDate
         }
-        return makeSession(for: nextWakeUpDate)
     }
 
     var wakeTimeLabel: String {
@@ -165,13 +211,14 @@ final class ScheduleViewModel: ObservableObject {
         return "\("Next Up".localized(for: preferredLang)) · \(nextUpcomingLabel)"
     }
 
-    func scheduleSession() async {
-        guard !isScheduling else { return }
+    @discardableResult
+    func scheduleSession() async -> Bool {
+        guard !isScheduling else { return false }
         guard let nextUpcomingSession else {
             await SmartAlarmManager.shared.cancelSessionNow()
             lastScheduledSession = nil
             schedulingError = nil
-            return
+            return true
         }
 
         isScheduling = true
@@ -182,11 +229,12 @@ final class ScheduleViewModel: ObservableObject {
         guard granted else {
             let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
             schedulingError = "Permissions are required to schedule your weekly wake-up plan.".localized(for: preferredLang)
-            return
+            return false
         }
 
         await SmartAlarmManager.shared.rescheduleSystemAlarm(for: nextUpcomingSession.wakeUpDate)
         lastScheduledSession = nextUpcomingSession
+        return true
     }
 
     func cancelSession() {
@@ -221,15 +269,10 @@ final class ScheduleViewModel: ObservableObject {
 
     func updateWakeTime(hour: Int, minute: Int) {
         logClock("updateWakeTime CALLED with \(hour):\(minute) for weekday \(selectedWeekday)")
-        let key = String(selectedWeekday)
-        wakeTimes[key] = TimeInterval(hour * 3600 + minute * 60).rounded()
+        storeWakeTime(weekday: selectedWeekday, hour: hour, minute: minute)
         
         SleepSessionManager.shared.log("UI Interaction: Updated wake time to \(String(format: "%02d:%02d", hour, minute)) for weekday \(selectedWeekday)")
-        logClock("wakeTimes[\(key)] updated to \(wakeTimes[key]!)")
-        
-        selectedDayHour = hour
-        selectedDayMinute = minute
-        currentWakeUpTime = Self.todayDate(hour: hour, minute: minute)
+        logClock("wakeTimes[\(selectedWeekday)] updated to \(wakeTimes[String(selectedWeekday)]!)")
         
         lastScheduledSession = nextUpcomingSession
 
@@ -264,6 +307,83 @@ final class ScheduleViewModel: ObservableObject {
         components.minute = minute
         components.second = 0
         return Calendar.current.date(from: components) ?? .now
+    }
+
+    func setWeeklyAlarm(weekday: Int, wakeTime: Date) async throws -> WeeklyAlarmOperationResult {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: wakeTime)
+        let minute = calendar.component(.minute, from: wakeTime)
+        return try await setWeeklyAlarm(weekday: weekday, hour: hour, minute: minute)
+    }
+
+    func setWeeklyAlarm(weekday: Int, hour: Int, minute: Int) async throws -> WeeklyAlarmOperationResult {
+        try validate(weekday: weekday, hour: hour, minute: minute)
+
+        storeWakeTime(weekday: weekday, hour: hour, minute: minute)
+        scheduledWeekdays.insert(weekday)
+        lastScheduledSession = nextUpcomingSession
+
+        SleepSessionManager.shared.log("Siri: Set weekly alarm for weekday \(weekday) at \(String(format: "%02d:%02d", hour, minute))")
+
+        let didSchedule = await scheduleSession()
+        return WeeklyAlarmOperationResult(
+            affectedAlarm: alarmSnapshot(for: weekday),
+            nextAlarm: nextUpcomingAlarm,
+            didScheduleSystemAlarm: didSchedule
+        )
+    }
+
+    func moveWeeklyAlarm(weekday: Int, offsetMinutes: Int, forward: Bool) async throws -> WeeklyAlarmOperationResult {
+        guard (1...7).contains(weekday) else { throw WeeklyAlarmError.invalidWeekday }
+        guard scheduledWeekdays.contains(weekday) else { throw WeeklyAlarmError.inactiveWeekday }
+        guard offsetMinutes > 0 else { throw WeeklyAlarmError.invalidOffset }
+
+        let currentSeconds = Int((wakeTimes[String(weekday)] ?? TimeInterval(7 * 3600)).rounded())
+        let signedOffset = (forward ? offsetMinutes : -offsetMinutes) * 60
+        let newSeconds = currentSeconds + signedOffset
+
+        guard (0..<24 * 3600).contains(newSeconds) else {
+            throw WeeklyAlarmError.crossesDayBoundary
+        }
+
+        let hour = newSeconds / 3600
+        let minute = (newSeconds % 3600) / 60
+        SleepSessionManager.shared.log("Siri: Move weekly alarm for weekday \(weekday) by \(signedOffset / 60)m")
+        return try await setWeeklyAlarm(weekday: weekday, hour: hour, minute: minute)
+    }
+
+    func cancelWeeklyAlarm(weekday: Int) async throws -> WeeklyAlarmOperationResult {
+        guard (1...7).contains(weekday) else { throw WeeklyAlarmError.invalidWeekday }
+        guard scheduledWeekdays.contains(weekday) else { throw WeeklyAlarmError.inactiveWeekday }
+
+        let previousAlarm = alarmSnapshot(for: weekday)
+        scheduledWeekdays.remove(weekday)
+        lastScheduledSession = nextUpcomingSession
+
+        SleepSessionManager.shared.log("Siri: Cancel weekly alarm for weekday \(weekday)")
+
+        let didSchedule = await scheduleSession()
+        return WeeklyAlarmOperationResult(
+            affectedAlarm: previousAlarm,
+            nextAlarm: nextUpcomingAlarm,
+            didScheduleSystemAlarm: didSchedule
+        )
+    }
+
+    func alarmSnapshot(for weekday: Int) -> WeeklyAlarmSnapshot? {
+        guard scheduledWeekdays.contains(weekday),
+              let (hour, minute) = wakeTimeComponents(for: weekday),
+              let wakeUpDate = nextWakeUpDate(for: weekday, hour: hour, minute: minute)
+        else {
+            return nil
+        }
+
+        return WeeklyAlarmSnapshot(
+            weekday: weekday,
+            hour: hour,
+            minute: minute,
+            wakeUpDate: wakeUpDate
+        )
     }
 
     func userFriendlyWatchStatus(from status: String) -> String {
@@ -309,36 +429,7 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     private var nextUpcomingWakeUpDate: Date? {
-        guard !scheduledWeekdays.isEmpty else {
-            return nil
-        }
-
-        let calendar = Calendar.current
-        let now = Date()
-
-        return scheduledWeekdays.compactMap { weekday -> Date? in
-            let wakeKey = String(weekday)
-            let secondsSinceMidnight = wakeTimes[wakeKey] ?? TimeInterval(7 * 3600) // default 07:00
-            let hour = Int(secondsSinceMidnight) / 3600
-            let minute = (Int(secondsSinceMidnight) % 3600) / 60
-            
-            var candidateComponents = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
-            candidateComponents.weekday = weekday
-            candidateComponents.hour = hour
-            candidateComponents.minute = minute
-            candidateComponents.second = 0
-
-            guard var candidateDate = calendar.date(from: candidateComponents) else {
-                return nil
-            }
-
-            if candidateDate <= now {
-                candidateDate = calendar.date(byAdding: .day, value: 7, to: candidateDate) ?? candidateDate
-            }
-
-            return candidateDate
-        }
-        .min()
+        nextUpcomingAlarm?.wakeUpDate
     }
 
     private var fallbackProjectedSession: SmartAlarmManager.ScheduledSleepSession {
@@ -355,6 +446,52 @@ final class ScheduleViewModel: ObservableObject {
             wakeUpDate: wakeUpDate,
             monitoringStartDate: wakeUpDate.addingTimeInterval(-SmartAlarmManager.monitoringLeadTime)
         )
+    }
+
+    private func validate(weekday: Int, hour: Int, minute: Int) throws {
+        guard (1...7).contains(weekday) else { throw WeeklyAlarmError.invalidWeekday }
+        guard (0...23).contains(hour), (0...59).contains(minute) else {
+            throw WeeklyAlarmError.invalidTime
+        }
+    }
+
+    private func storeWakeTime(weekday: Int, hour: Int, minute: Int) {
+        let key = String(weekday)
+        wakeTimes[key] = TimeInterval(hour * 3600 + minute * 60).rounded()
+
+        if selectedWeekday == weekday {
+            selectedDayHour = hour
+            selectedDayMinute = minute
+            currentWakeUpTime = Self.todayDate(hour: hour, minute: minute)
+        }
+    }
+
+    private func wakeTimeComponents(for weekday: Int) -> (hour: Int, minute: Int)? {
+        guard (1...7).contains(weekday) else { return nil }
+
+        let totalSeconds = Int((wakeTimes[String(weekday)] ?? TimeInterval(7 * 3600)).rounded())
+        return (totalSeconds / 3600, (totalSeconds % 3600) / 60)
+    }
+
+    private func nextWakeUpDate(for weekday: Int, hour: Int, minute: Int) -> Date? {
+        let calendar = Calendar.current
+        let now = Date()
+
+        var components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+        components.weekday = weekday
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+
+        guard var candidateDate = calendar.date(from: components) else {
+            return nil
+        }
+
+        if candidateDate <= now {
+            candidateDate = calendar.date(byAdding: .day, value: 7, to: candidateDate) ?? candidateDate
+        }
+
+        return candidateDate
     }
 
     private func requestAlarmPermissions() async -> Bool {

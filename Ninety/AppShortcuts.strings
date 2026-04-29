@@ -1,31 +1,26 @@
-/* AppShortcuts.strings — Siri phrase index for Ninety iOS app.
-   Each key must exactly match the phrase in NinetyShortcutsProvider.
-   ${applicationName} is replaced by CFBundleDisplayName at install time. */
-
-/* Diagnostic */
-"Test ${applicationName}" = "Test ${applicationName}";
-"Ping ${applicationName}" = "Ping ${applicationName}";
+/* AppShortcuts.strings - Siri phrase index for Ninety iOS app.
+   AppShortcut phrases interpolate only AppEnum/AppEntity parameters. */
 
 /* SetNinetyAlarmIntent */
+"Svegliami con ${applicationName} ${weekday}" = "Svegliami con ${applicationName} ${weekday}";
+"Wake me up with ${applicationName} on ${weekday}" = "Wake me up with ${applicationName} on ${weekday}";
 "Imposta la sveglia ${applicationName}" = "Imposta la sveglia ${applicationName}";
-"Svegliami con ${applicationName}" = "Svegliami con ${applicationName}";
-"Punta la sveglia ${applicationName}" = "Punta la sveglia ${applicationName}";
 "Set the ${applicationName} alarm" = "Set the ${applicationName} alarm";
-"Wake me up with ${applicationName}" = "Wake me up with ${applicationName}";
-"Set my alarm with ${applicationName}" = "Set my alarm with ${applicationName}";
 
 /* GetNinetyAlarmIntent */
 "A che ora è la sveglia di ${applicationName}" = "A che ora è la sveglia di ${applicationName}";
 "Dimmi la prossima sveglia ${applicationName}" = "Dimmi la prossima sveglia ${applicationName}";
-"C'è una sveglia attiva in ${applicationName}" = "C'è una sveglia attiva in ${applicationName}";
+"A che ora è la sveglia ${applicationName} di ${weekday}" = "A che ora è la sveglia ${applicationName} di ${weekday}";
 "What time is the ${applicationName} alarm" = "What time is the ${applicationName} alarm";
-"Tell me the next ${applicationName} alarm" = "Tell me the next ${applicationName} alarm";
-"Is there an active alarm in ${applicationName}" = "Is there an active alarm in ${applicationName}";
+"What time is the ${applicationName} alarm on ${weekday}" = "What time is the ${applicationName} alarm on ${weekday}";
 
 /* UpdateNinetyAlarmIntent */
+"Sposta la sveglia ${applicationName} di ${weekday}" = "Sposta la sveglia ${applicationName} di ${weekday}";
+"Move the ${applicationName} alarm on ${weekday}" = "Move the ${applicationName} alarm on ${weekday}";
 "Sposta la sveglia ${applicationName}" = "Sposta la sveglia ${applicationName}";
-"Modifica la sveglia ${applicationName}" = "Modifica la sveglia ${applicationName}";
-"Sposta l'orario di ${applicationName}" = "Sposta l'orario di ${applicationName}";
 "Move the ${applicationName} alarm" = "Move the ${applicationName} alarm";
-"Change the ${applicationName} alarm" = "Change the ${applicationName} alarm";
-"Update the ${applicationName} alarm" = "Update the ${applicationName} alarm";
+
+/* CancelNinetyAlarmIntent */
+"Annulla la sveglia ${applicationName} di ${weekday}" = "Annulla la sveglia ${applicationName} di ${weekday}";
+"Disattiva la sveglia ${applicationName} di ${weekday}" = "Disattiva la sveglia ${applicationName} di ${weekday}";
+"Cancel the ${applicationName} alarm on ${weekday}" = "Cancel the ${applicationName} alarm on ${weekday}";

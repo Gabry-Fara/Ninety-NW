@@ -386,6 +386,10 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         handleIncomingPayload(message)
     }
 
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        handleIncomingPayload(message, replyHandler: replyHandler)
+    }
+
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         handleIncomingPayload(userInfo)
     }
@@ -412,7 +416,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     // MARK: - Payload Handling
 
-    private func handleIncomingPayload(_ payloadDictionary: [String: Any]) {
+    private func handleIncomingPayload(_ payloadDictionary: [String: Any], replyHandler: (([String: Any]) -> Void)? = nil) {
         // 0. Manual Alarm Sync Request
         if let action = payloadDictionary["action"] as? String, action == "requestAlarmSync" {
             DispatchQueue.main.async {
@@ -427,7 +431,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         // 1. Cross-Device Siri Intent Relay Check
         if let relayIntent = payloadDictionary["relayIntent"] as? String {
-            handleRelayIntent(relayIntent, payload: payloadDictionary)
+            handleRelayIntent(relayIntent, payload: payloadDictionary, replyHandler: replyHandler)
             return
         }
 
@@ -573,33 +577,19 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     // MARK: - Cross-Device Intent Handlers
     
-    private func handleRelayIntent(_ action: String, payload: [String: Any]) {
-        DispatchQueue.main.async {
-            switch action {
-            case "setAlarm":
-                if let timestamp = payload["time"] as? TimeInterval {
-                    let date = Date(timeIntervalSince1970: timestamp)
-                    _ = SmartAlarmManager.shared.scheduleSleepSession(endingAt: date)
-                    self.log("Relayed: Set Ninety Alarm to \(date)")
-                }
-            case "updateAlarm":
-                if let offsetMinutes = payload["offsetMinutes"] as? Int,
-                   let scheduleVM = ScheduleViewModel().nextUpcomingSession {
-                    let offsetSeconds = Double(offsetMinutes) * 60
-                    let newWakeUpDate = scheduleVM.wakeUpDate.addingTimeInterval(offsetSeconds)
-                    if newWakeUpDate > Date() {
-                        SmartAlarmManager.shared.cancelSession()
-                        _ = SmartAlarmManager.shared.scheduleSleepSession(endingAt: newWakeUpDate)
-                        self.log("Relayed: Updated Ninety Alarm by \(offsetMinutes)m to \(newWakeUpDate)")
-                    }
-                }
-            case "getAlarm":
-                // Get intents usually result in speech responses, which Siri on the Watch natively handles 
-                // by delegating to iPhone or speaking a simple default if we return a reply block.
-                // For this UI-less app, simply updating the status string is enough.
-                self.log("Relayed: Checked Ninety Alarm status.")
-            default:
-                self.log("Unknown Relay Intent: \(action)")
+    private func handleRelayIntent(_ action: String, payload: [String: Any], replyHandler: (([String: Any]) -> Void)?) {
+        Task { @MainActor in
+            do {
+                let dialog = try await NinetyAlarmIntentService.dialogForRelay(
+                    action: action,
+                    payload: payload
+                )
+                self.log("Relayed Siri intent: \(action)")
+                replyHandler?(["dialog": dialog])
+            } catch {
+                let message = error.localizedDescription
+                self.log("Relayed Siri intent failed: \(action) - \(message)")
+                replyHandler?(["error": message])
             }
         }
     }

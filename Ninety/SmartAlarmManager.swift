@@ -11,7 +11,7 @@ import AlarmKit
 @MainActor
 class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = SmartAlarmManager()
-    static let monitoringLeadTime: TimeInterval = 30 * 60
+    nonisolated static let monitoringLeadTime: TimeInterval = 30 * 60
 
     struct ScheduledSleepSession {
         let wakeUpDate: Date

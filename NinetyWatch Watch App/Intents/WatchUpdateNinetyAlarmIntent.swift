@@ -1,32 +1,32 @@
-// WatchUpdateNinetyAlarmIntent.swift
-// NinetyWatch Watch App
-//
-// Cross-device relay: captures "Ehi Siri, sposta la mia sveglia di Ninety
-// di un'ora in avanti" on the Apple Watch and relays to iPhone.
-
 import AppIntents
 import Foundation
 
-/// Direction enum mirroring the iOS-side AlarmOffsetDirection.
 enum WatchAlarmOffsetDirection: String, AppEnum {
-    case forward  = "avanti"
-    case backward = "indietro"
+    case forward
+    case backward
 
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Direzione"
+
     static let caseDisplayRepresentations: [WatchAlarmOffsetDirection: DisplayRepresentation] = [
-        .forward:  "in avanti",
-        .backward: "indietro"
+        .forward: DisplayRepresentation(title: "in avanti", synonyms: ["avanti", "forward", "later"]),
+        .backward: DisplayRepresentation(title: "indietro", synonyms: ["backward", "earlier"])
     ]
 }
 
 struct WatchUpdateNinetyAlarmIntent: AppIntent {
-
     static let title: LocalizedStringResource = "Sposta Sveglia Ninety"
-    static let description = IntentDescription("Sposta la sveglia Ninety dall'Apple Watch. Il comando viene inoltrato all'iPhone.")
-    static let openAppWhenRun: Bool = false
+    static let description = IntentDescription("Sposta la sveglia Ninety dall'Apple Watch inoltrando il comando all'iPhone.")
+    static let openAppWhenRun = false
 
     @Parameter(
-        title: "Minuti di spostamento",
+        title: "Giorno",
+        description: "Il giorno della sveglia da spostare.",
+        requestValueDialog: IntentDialog("Quale giorno vuoi spostare?")
+    )
+    var weekday: WatchNinetyWeekday
+
+    @Parameter(
+        title: "Minuti",
         description: "Quanti minuti vuoi spostare la sveglia?",
         default: 60,
         requestValueDialog: IntentDialog("Di quanti minuti vuoi spostare la sveglia?")
@@ -42,7 +42,7 @@ struct WatchUpdateNinetyAlarmIntent: AppIntent {
     var direction: WatchAlarmOffsetDirection
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Sposta la sveglia Ninety")
+        Summary("Sposta la sveglia Ninety di \(\.$weekday) di \(\.$offsetMinutes) minuti")
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -50,6 +50,7 @@ struct WatchUpdateNinetyAlarmIntent: AppIntent {
             let dialog = try await WatchIntentRelay.shared.relay(
                 action: "updateAlarm",
                 params: [
+                    "weekday": weekday.calendarWeekday,
                     "offsetMinutes": offsetMinutes,
                     "direction": direction.rawValue
                 ]

@@ -244,9 +244,9 @@ private struct AboutView: View {
                         Image("Logo design")
                             .resizable()
                             .scaledToFit()
-                            .frame(height: 100)
-                            .accessibilityHidden(true)
-                            .cornerRadius(10)
+                            .frame(height: 160)
+                            .accessibilityLabel("Ninety logo".localized(for: appLanguage))
+                            .cornerRadius(32)
 
                         VStack(spacing: 6) {
                             Text("Ninety".localized(for: appLanguage))

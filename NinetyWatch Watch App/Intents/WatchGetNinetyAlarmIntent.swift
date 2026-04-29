@@ -1,34 +1,27 @@
-// WatchGetNinetyAlarmIntent.swift
-// NinetyWatch Watch App
-//
-// Cross-device relay: captures "Ehi Siri, a che ora è la sveglia di Ninety?"
-// on the Apple Watch and asks the iPhone for the current alarm state.
-
 import AppIntents
 import Foundation
 
 struct WatchGetNinetyAlarmIntent: AppIntent {
-
     static let title: LocalizedStringResource = "Controlla Sveglia Ninety"
     static let description = IntentDescription("Chiedi a Siri dall'Apple Watch a che ora è la sveglia Ninety.")
-    static let openAppWhenRun: Bool = false
+    static let openAppWhenRun = false
 
     @Parameter(
         title: "Giorno",
-        description: "Il giorno per cui vuoi controllare la sveglia (opzionale).",
+        description: "Il giorno da controllare. Se non lo specifichi, Ninety userà la prossima sveglia attiva.",
         requestValueDialog: IntentDialog("Per quale giorno vuoi sapere l'orario?")
     )
-    var queryDate: Date?
+    var weekday: WatchNinetyWeekday?
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Dimmi la prossima sveglia Ninety")
+        Summary("Dimmi la sveglia Ninety")
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         do {
             var params: [String: Any] = [:]
-            if let queryDate {
-                params["queryDate"] = queryDate.timeIntervalSince1970
+            if let weekday {
+                params["weekday"] = weekday.calendarWeekday
             }
 
             let dialog = try await WatchIntentRelay.shared.relay(
