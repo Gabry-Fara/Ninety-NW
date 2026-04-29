@@ -451,7 +451,7 @@ private struct RemoteWatchCopy {
         return "en"
     }
 
-    func text(_ key: RemoteRemoteWatchCopyKey) -> String {
+    func text(_ key: RemoteWatchCopyKey) -> String {
         switch languageCode {
         case "it":
             switch key {
