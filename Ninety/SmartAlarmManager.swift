@@ -25,6 +25,8 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     private var monitoringTimer: Timer?   // fires when the 29-min tracking window opens
     private var countdownTimer: Timer?    // updates the countdown string every second
     private var layer2Task: Task<Void, Never>?
+    private var monitoringStopTimer: Timer?
+    private var monitoringStopTargetDate: Date?
     private let speechSynthesizer = AVSpeechSynthesizer()
     
     override init() {
@@ -92,6 +94,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         monitoringTimer = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
+        monitoringStopTimer?.invalidate()
+        monitoringStopTimer = nil
+        monitoringStopTargetDate = nil
         monitoringCountdown = ""
 
         layer2Task?.cancel()
@@ -133,8 +138,10 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         // Cancel any previous pending monitoring timer
         monitoringTimer?.invalidate()
         countdownTimer?.invalidate()
+        monitoringStopTimer?.invalidate()
 
         SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
+        scheduleMonitoringStop(at: targetDate)
 
         if monitoringStart <= now {
             // We're already inside the 29-min window — start immediately
@@ -197,6 +204,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     // Layer Two: The Dynamic Heuristic Trigger
     func triggerDynamicAlarm() {
         self.alarmStatus = "🚨 DYNAMIC WAKE EVENT TRIGGERED VIA ALARMKIT!"
+        cancelMonitoringStopTimer()
         SleepSessionManager.shared.pauseWatchMonitoring()
         SleepSessionManager.shared.triggerWatchHapticWakeUp()
         
@@ -259,6 +267,46 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
             }
         }
         #endif
+    }
+
+    private func scheduleMonitoringStop(at targetDate: Date) {
+        monitoringStopTimer?.invalidate()
+        monitoringStopTargetDate = targetDate
+
+        let delay = max(0, targetDate.timeIntervalSinceNow)
+        monitoringStopTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard
+                    let self,
+                    let scheduledTarget = self.monitoringStopTargetDate,
+                    abs(scheduledTarget.timeIntervalSince(targetDate)) < 1
+                else {
+                    return
+                }
+
+                self.finishMonitoringAtWakeTarget(targetDate)
+            }
+        }
+    }
+
+    private func finishMonitoringAtWakeTarget(_ targetDate: Date) {
+        cancelMonitoringStopTimer()
+        monitoringTimer?.invalidate()
+        monitoringTimer = nil
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+        monitoringCountdown = ""
+        absoluteAlarmID = nil
+
+        SleepSessionManager.shared.finishMonitoringAfterAlarmFired()
+        SleepSessionManager.shared.syncAlarmState(targetDate: nil)
+        alarmStatus = "Wake alarm fired. Monitoring stopped."
+    }
+
+    private func cancelMonitoringStopTimer() {
+        monitoringStopTimer?.invalidate()
+        monitoringStopTimer = nil
+        monitoringStopTargetDate = nil
     }
     
     private func playMockAlarmSound() {

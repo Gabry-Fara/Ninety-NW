@@ -137,6 +137,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     private let processingQueueToken: UInt8 = 1
     private let persistedSessionMaxAge: TimeInterval = 15 * 60
     private let persistedScheduledSessionGrace: TimeInterval = 10 * 60
+    private let maximumDynamicPredictionAge: TimeInterval = 90
+    private let dynamicTriggerFailsafeBuffer: TimeInterval = 60
 
     // MARK: - Published UI State
     @Published var lastPayloadReceived: String = "No data received"
@@ -233,6 +235,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     private var stageModel: MLModel?
     private var activeWakeTargetDate: Date?
     private var dynamicAlarmTriggered = false
+    private var hasLoggedStaleDynamicSkip = false
+    private var hasLoggedFailsafeWindowSkip = false
     private var sessionStartDate: Date?
     private var lastAcceptedPayloadAt: Date?
     private var lastWatchStatusTimestamp: TimeInterval = 0
@@ -265,15 +269,16 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     func startWatchSession(targetDate: Date) {
         resetSession()
+        let monitoringStartDate = scheduledMonitoringStartDate(for: targetDate)
         activeWakeTargetDate = targetDate
         dynamicAlarmTriggered = false
-        sessionStartDate = Date()
+        sessionStartDate = monitoringStartDate
         lastAcceptedPayloadAt = nil
         setSessionState(.scheduled)
         updateSessionRecoveryStatus("Session restarted")
 
         let applyQueuedState = {
-            self.watchQueuedStartDate = self.scheduledMonitoringStartDate(for: targetDate)
+            self.watchQueuedStartDate = monitoringStartDate
             self.watchReadyStartDate = nil
             self.watchStatus = "Open Ninety on Apple Watch to set Smart Alarm"
         }
@@ -357,6 +362,15 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    func finishMonitoringAfterAlarmFired() {
+        guard activeWakeTargetDate != nil || sessionStartDate != nil else {
+            return
+        }
+
+        log("Wake alarm fired. Stopping Watch monitoring.")
+        pauseWatchMonitoring()
+    }
+
     func triggerWatchHapticWakeUp() {
         guard let session = wcSession else { return }
         let command = ["action": "hapticWakeUp"]
@@ -437,7 +451,9 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         // 0. Manual Alarm Sync Request
         if let action = payloadDictionary["action"] as? String, action == "requestAlarmSync" {
             DispatchQueue.main.async {
-                if let nextSession = ScheduleViewModel().nextUpcomingSession {
+                if let activeWakeTargetDate = self.activeWakeTargetDate, activeWakeTargetDate > Date() {
+                    self.syncAlarmState(targetDate: activeWakeTargetDate)
+                } else if let nextSession = ScheduleViewModel(observesExternalChanges: false).nextUpcomingSession {
                     self.syncAlarmState(targetDate: nextSession.wakeUpDate)
                 } else {
                     self.syncAlarmState(targetDate: nil)
@@ -454,13 +470,19 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
-        // 1. Cross-Device Siri Intent Relay Check
+        // 1. Weekly plan edit command from the native Watch UI
+        if let action = payloadDictionary["action"] as? String, action == "setNextAlarm" {
+            handleSetNextAlarmFromWatch(payloadDictionary, replyHandler: replyHandler)
+            return
+        }
+
+        // 2. Cross-Device Siri Intent Relay Check
         if let relayIntent = payloadDictionary["relayIntent"] as? String {
             handleRelayIntent(relayIntent, payload: payloadDictionary, replyHandler: replyHandler)
             return
         }
 
-        // 2. Original Watch Status Check
+        // 3. Original Watch Status Check
         if handleWatchStatus(payloadDictionary) {
             return
         }
@@ -482,6 +504,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             processingQueue.async {
                 guard self.shouldProcessPayload(withID: payload.id) else {
                     self.sendPayloadAcknowledgement(for: [payload.id], outcome: "Duplicate payload acknowledged")
+                    return
+                }
+
+                if self.shouldFinishMonitoringForWakeTarget(asOf: Date()) || self.shouldFinishMonitoringForWakeTarget(asOf: payload.timestamp) {
+                    self.sendPayloadAcknowledgement(for: [payload.id], outcome: "Ignored payload after wake alarm")
+                    DispatchQueue.main.async {
+                        self.finishMonitoringAfterAlarmFired()
+                    }
                     return
                 }
 
@@ -511,6 +541,145 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         } catch {
             log("Decode Error: \(error.localizedDescription)")
         }
+    }
+
+    private func handleSetNextAlarmFromWatch(_ payloadDictionary: [String: Any], replyHandler: (([String: Any]) -> Void)?) {
+        guard
+            let hour = intValue(from: payloadDictionary["hour"]),
+            let minute = intValue(from: payloadDictionary["minute"])
+        else {
+            replyHandler?(["error": "Comando Watch non valido. Manca l'orario."])
+            return
+        }
+
+        guard (0...23).contains(hour), (0...59).contains(minute) else {
+            replyHandler?(["error": "Quell'orario non è valido."])
+            return
+        }
+
+        guard let targetDate = nextWatchAlarmTargetDate(hour: hour, minute: minute) else {
+            replyHandler?(["error": "Non sono riuscito a calcolare la prossima sveglia."])
+            return
+        }
+
+        let targetWeekday = Calendar.current.component(.weekday, from: targetDate)
+        let createdAt = doubleValue(from: payloadDictionary["createdAt"])
+            .map(Date.init(timeIntervalSince1970:)) ?? Date()
+
+        Task { @MainActor in
+            do {
+                let scheduleViewModel = ScheduleViewModel(observesExternalChanges: false)
+                let result = try await scheduleViewModel.applyWatchWeeklyAlarm(
+                    weekday: targetWeekday,
+                    hour: hour,
+                    minute: minute,
+                    createdAt: createdAt
+                )
+                let nextWakeDate = result.nextAlarm?.wakeUpDate
+                self.syncAlarmState(targetDate: nextWakeDate)
+
+                var reply: [String: Any] = [
+                    "status": result.isStale ? "stale" : "ok",
+                    "applied": result.didApply,
+                    "affectedWeekday": targetWeekday,
+                    "dialog": result.isStale
+                        ? self.watchStaleNextAlarmDialog(weekday: targetWeekday, nextDate: nextWakeDate)
+                        : self.watchSetNextAlarmDialog(
+                            weekday: targetWeekday,
+                            hour: hour,
+                            minute: minute,
+                            nextDate: nextWakeDate
+                        )
+                ]
+
+                if let nextWakeDate {
+                    reply["targetDate"] = nextWakeDate.timeIntervalSince1970
+                }
+
+                replyHandler?(reply)
+            } catch {
+                replyHandler?(["error": error.localizedDescription])
+            }
+        }
+    }
+
+    private func intValue(from value: Any?) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        }
+
+        if let numberValue = value as? NSNumber {
+            return numberValue.intValue
+        }
+
+        if let stringValue = value as? String {
+            return Int(stringValue)
+        }
+
+        return nil
+    }
+
+    private func doubleValue(from value: Any?) -> Double? {
+        if let doubleValue = value as? Double {
+            return doubleValue
+        }
+
+        if let numberValue = value as? NSNumber {
+            return numberValue.doubleValue
+        }
+
+        if let stringValue = value as? String {
+            return Double(stringValue)
+        }
+
+        return nil
+    }
+
+    private func nextWatchAlarmTargetDate(hour: Int, minute: Int, now: Date = Date()) -> Date? {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+
+        guard var candidate = calendar.date(from: components) else {
+            return nil
+        }
+
+        if candidate <= now {
+            candidate = calendar.date(byAdding: .day, value: 1, to: candidate) ?? candidate
+        }
+
+        return candidate
+    }
+
+    private func watchSetNextAlarmDialog(weekday: Int, hour: Int, minute: Int, nextDate: Date?) -> String {
+        let dayName = weekdayName(for: weekday)
+        let time = String(format: "%02d:%02d", hour, minute)
+        guard let nextDate else {
+            return "Sveglia Ninety salvata per \(dayName) alle \(time)."
+        }
+        let nextTime = nextDate.formatted(date: .abbreviated, time: .shortened)
+        return "Sveglia Ninety salvata per \(dayName) alle \(time). Prossima occorrenza: \(nextTime)."
+    }
+
+    private func watchStaleNextAlarmDialog(weekday: Int, nextDate: Date?) -> String {
+        let dayName = weekdayName(for: weekday)
+        guard let nextDate else {
+            return "L'iPhone ha una modifica più recente per \(dayName). Piano Ninety invariato."
+        }
+        let nextTime = nextDate.formatted(date: .abbreviated, time: .shortened)
+        return "L'iPhone ha una modifica più recente per \(dayName). Prossima occorrenza: \(nextTime)."
+    }
+
+    private func weekdayName(for weekday: Int) -> String {
+        let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "it"
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: preferredLang)
+        guard (1...7).contains(weekday), formatter.weekdaySymbols.indices.contains(weekday - 1) else {
+            return "weekday \(weekday)"
+        }
+        return formatter.weekdaySymbols[weekday - 1]
     }
 
     private func handleWatchStatus(_ payloadDictionary: [String: Any]) -> Bool {
@@ -941,11 +1110,15 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Dynamic Alarm Trigger with Multi-Epoch Confirmation
 
     private func evaluateDynamicAlarmTrigger(for prediction: PredictionSnapshot) {
-        guard activeWakeTargetDate != nil else {
+        guard let activeWakeTargetDate else {
             return
         }
 
         guard !dynamicAlarmTriggered else {
+            return
+        }
+
+        guard dynamicAlarmCanTrigger(for: prediction, targetDate: activeWakeTargetDate) else {
             return
         }
 
@@ -1009,6 +1182,50 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             }
             // If not confirming and not light → just keep monitoring
         }
+    }
+
+    private func dynamicAlarmCanTrigger(for prediction: PredictionSnapshot, targetDate: Date) -> Bool {
+        let now = Date()
+
+        if now >= targetDate {
+            dynamicAlarmTriggered = true
+            resetConfirmation()
+            updateConfirmationProgress("Wake alarm fired")
+
+            Task { @MainActor in
+                self.finishMonitoringAfterAlarmFired()
+            }
+            return false
+        }
+
+        if now >= targetDate.addingTimeInterval(-dynamicTriggerFailsafeBuffer) {
+            resetConfirmation()
+            if !hasLoggedFailsafeWindowSkip {
+                hasLoggedFailsafeWindowSkip = true
+                log("Dynamic alarm skipped: failsafe window is already closing.")
+            }
+            return false
+        }
+
+        let predictionAge = max(0, now.timeIntervalSince(prediction.epoch.timestamp))
+        guard predictionAge <= maximumDynamicPredictionAge else {
+            resetConfirmation()
+            if !hasLoggedStaleDynamicSkip {
+                hasLoggedStaleDynamicSkip = true
+                log("Dynamic alarm skipped: Watch backlog is \(Int(predictionAge))s old.")
+            }
+            return false
+        }
+
+        return true
+    }
+
+    private func shouldFinishMonitoringForWakeTarget(asOf date: Date) -> Bool {
+        guard let activeWakeTargetDate else {
+            return false
+        }
+
+        return date >= activeWakeTargetDate
     }
 
     private func resetConfirmation() {
@@ -1274,6 +1491,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             self.processedPayloadIDs.removeAll()
             self.activeWakeTargetDate = nil
             self.dynamicAlarmTriggered = false
+            self.hasLoggedStaleDynamicSkip = false
+            self.hasLoggedFailsafeWindowSkip = false
             self.isConfirming = false
             self.confirmationBuffer.removeAll()
             self.lastHRJumpEpochIndex = 0
