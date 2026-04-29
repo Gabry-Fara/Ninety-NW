@@ -436,7 +436,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             DispatchQueue.main.async {
                 if let activeWakeTargetDate = self.activeWakeTargetDate, activeWakeTargetDate > Date() {
                     self.syncAlarmState(targetDate: activeWakeTargetDate)
-                } else if let nextSession = ScheduleViewModel().nextUpcomingSession {
+                } else if let nextSession = ScheduleViewModel(observesExternalChanges: false).nextUpcomingSession {
                     self.syncAlarmState(targetDate: nextSession.wakeUpDate)
                 } else {
                     self.syncAlarmState(targetDate: nil)
@@ -445,7 +445,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
-        // 1. One-shot next alarm command from the native Watch UI
+        // 1. Weekly plan edit command from the native Watch UI
         if let action = payloadDictionary["action"] as? String, action == "setNextAlarm" {
             handleSetNextAlarmFromWatch(payloadDictionary, replyHandler: replyHandler)
             return
@@ -537,16 +537,44 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
-        Task { @MainActor in
-            await SmartAlarmManager.shared.rescheduleSystemAlarm(for: targetDate)
-            self.log("Watch UI: Set next alarm for \(targetDate.formatted(date: .abbreviated, time: .shortened))")
-            self.syncAlarmState(targetDate: targetDate)
+        let targetWeekday = Calendar.current.component(.weekday, from: targetDate)
+        let createdAt = doubleValue(from: payloadDictionary["createdAt"])
+            .map(Date.init(timeIntervalSince1970:)) ?? Date()
 
-            replyHandler?([
-                "status": "ok",
-                "dialog": self.watchSetNextAlarmDialog(targetDate: targetDate),
-                "targetDate": targetDate.timeIntervalSince1970
-            ])
+        Task { @MainActor in
+            do {
+                let scheduleViewModel = ScheduleViewModel(observesExternalChanges: false)
+                let result = try await scheduleViewModel.applyWatchWeeklyAlarm(
+                    weekday: targetWeekday,
+                    hour: hour,
+                    minute: minute,
+                    createdAt: createdAt
+                )
+                let nextWakeDate = result.nextAlarm?.wakeUpDate
+                self.syncAlarmState(targetDate: nextWakeDate)
+
+                var reply: [String: Any] = [
+                    "status": result.isStale ? "stale" : "ok",
+                    "applied": result.didApply,
+                    "affectedWeekday": targetWeekday,
+                    "dialog": result.isStale
+                        ? self.watchStaleNextAlarmDialog(weekday: targetWeekday, nextDate: nextWakeDate)
+                        : self.watchSetNextAlarmDialog(
+                            weekday: targetWeekday,
+                            hour: hour,
+                            minute: minute,
+                            nextDate: nextWakeDate
+                        )
+                ]
+
+                if let nextWakeDate {
+                    reply["targetDate"] = nextWakeDate.timeIntervalSince1970
+                }
+
+                replyHandler?(reply)
+            } catch {
+                replyHandler?(["error": error.localizedDescription])
+            }
         }
     }
 
@@ -561,6 +589,22 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         if let stringValue = value as? String {
             return Int(stringValue)
+        }
+
+        return nil
+    }
+
+    private func doubleValue(from value: Any?) -> Double? {
+        if let doubleValue = value as? Double {
+            return doubleValue
+        }
+
+        if let numberValue = value as? NSNumber {
+            return numberValue.doubleValue
+        }
+
+        if let stringValue = value as? String {
+            return Double(stringValue)
         }
 
         return nil
@@ -584,9 +628,33 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         return candidate
     }
 
-    private func watchSetNextAlarmDialog(targetDate: Date) -> String {
-        let nextTime = targetDate.formatted(date: .abbreviated, time: .shortened)
-        return "Sveglia Ninety salvata. Prossima occorrenza: \(nextTime)."
+    private func watchSetNextAlarmDialog(weekday: Int, hour: Int, minute: Int, nextDate: Date?) -> String {
+        let dayName = weekdayName(for: weekday)
+        let time = String(format: "%02d:%02d", hour, minute)
+        guard let nextDate else {
+            return "Sveglia Ninety salvata per \(dayName) alle \(time)."
+        }
+        let nextTime = nextDate.formatted(date: .abbreviated, time: .shortened)
+        return "Sveglia Ninety salvata per \(dayName) alle \(time). Prossima occorrenza: \(nextTime)."
+    }
+
+    private func watchStaleNextAlarmDialog(weekday: Int, nextDate: Date?) -> String {
+        let dayName = weekdayName(for: weekday)
+        guard let nextDate else {
+            return "L'iPhone ha una modifica più recente per \(dayName). Piano Ninety invariato."
+        }
+        let nextTime = nextDate.formatted(date: .abbreviated, time: .shortened)
+        return "L'iPhone ha una modifica più recente per \(dayName). Prossima occorrenza: \(nextTime)."
+    }
+
+    private func weekdayName(for weekday: Int) -> String {
+        let preferredLang = UserDefaults.standard.string(forKey: "appLanguage") ?? "it"
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: preferredLang)
+        guard (1...7).contains(weekday), formatter.weekdaySymbols.indices.contains(weekday - 1) else {
+            return "weekday \(weekday)"
+        }
+        return formatter.weekdaySymbols[weekday - 1]
     }
 
     private func handleWatchStatus(_ payloadDictionary: [String: Any]) -> Bool {

@@ -74,7 +74,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             [
                 "action": "setNextAlarm",
                 "hour": hour,
-                "minute": minute
+                "minute": minute,
+                "createdAt": enqueuedAt.timeIntervalSince1970
             ]
         }
     }
@@ -437,7 +438,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
 
         clearPendingNextAlarmCommand()
-        weeklyAlarmSyncState = .saved
+        weeklyAlarmSyncState = (reply["status"] as? String) == "stale" ? .synced : .saved
         weeklyAlarmSyncDetail = reply["dialog"] as? String
 
         if let targetInterval = reply["targetDate"] as? TimeInterval {
