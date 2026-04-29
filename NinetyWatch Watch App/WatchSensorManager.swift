@@ -99,6 +99,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private var pipelineState: WatchPipelineState = .idle
     private var replayStatusText: String = "No backlog activity"
     private var isSendingNextAlarmCommand = false
+    private var alarmDeadlineTimer: Timer?
     
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
@@ -337,6 +338,11 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     func pauseMonitoring() {
+        if runtimeSession?.state == .running || runtimeSession?.state == .scheduled {
+            suppressNextRuntimeInvalidation = true
+            runtimeSession?.invalidate()
+        }
+        runtimeSession = nil
         clearAlarmTracking()
         stopSensors()
         clearPendingPayloadQueue()
@@ -503,6 +509,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     private func startSensors() {
         guard !sensorsRunning else { return }
+        guard !stopMonitoringIfAlarmDeadlineReached() else { return }
         sensorsRunning = true
         #if targetEnvironment(simulator)
         startMockDataStream()
@@ -581,6 +588,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     private func compileAndTransmitPayload() {
+        guard !stopMonitoringIfAlarmDeadlineReached() else { return }
+
         let motionVariance = standardDeviation(for: motionDeviationSamples)
         let payload = SensorPayload(
             id: UUID(),
@@ -956,6 +965,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 self.nextAlarmDate = refreshedDate
             }
         }
+
+        scheduleAlarmDeadlineTimer(for: refreshedDate)
     }
 
     private func queueOrScheduleSmartAlarmSession(at date: Date) {
@@ -983,6 +994,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     private func clearAlarmTracking() {
+        alarmDeadlineTimer?.invalidate()
+        alarmDeadlineTimer = nil
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.readyScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
@@ -993,6 +1006,56 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 self.nextAlarmDate = nil
             }
         }
+    }
+
+    private func scheduleAlarmDeadlineTimer(for alarmDate: Date?) {
+        let schedule = {
+            self.alarmDeadlineTimer?.invalidate()
+            self.alarmDeadlineTimer = nil
+
+            guard let alarmDate else {
+                return
+            }
+
+            let delay = alarmDate.timeIntervalSinceNow
+            guard delay > 0 else {
+                _ = self.stopMonitoringIfAlarmDeadlineReached()
+                return
+            }
+
+            self.alarmDeadlineTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+                self?.stopMonitoringAtAlarmDeadline()
+            }
+        }
+
+        if Thread.isMainThread {
+            schedule()
+        } else {
+            DispatchQueue.main.async(execute: schedule)
+        }
+    }
+
+    @discardableResult
+    private func stopMonitoringIfAlarmDeadlineReached(now: Date = Date()) -> Bool {
+        guard let interval = UserDefaults.standard.object(forKey: Self.actualAlarmTimeKey) as? TimeInterval else {
+            return false
+        }
+
+        let alarmDate = Date(timeIntervalSince1970: interval)
+        guard now >= alarmDate else {
+            return false
+        }
+
+        stopMonitoringAtAlarmDeadline()
+        return true
+    }
+
+    private func stopMonitoringAtAlarmDeadline() {
+        guard UserDefaults.standard.object(forKey: Self.actualAlarmTimeKey) != nil || isActivelyMonitoring else {
+            return
+        }
+
+        pauseMonitoring()
     }
 
     private func sendWatchStatusUpdate(_ status: String) {

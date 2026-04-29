@@ -136,6 +136,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     private let processingQueueToken: UInt8 = 1
     private let persistedSessionMaxAge: TimeInterval = 15 * 60
     private let persistedScheduledSessionGrace: TimeInterval = 10 * 60
+    private let maximumDynamicPredictionAge: TimeInterval = 90
+    private let dynamicTriggerFailsafeBuffer: TimeInterval = 60
 
     // MARK: - Published UI State
     @Published var lastPayloadReceived: String = "No data received"
@@ -221,6 +223,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     private var stageModel: MLModel?
     private var activeWakeTargetDate: Date?
     private var dynamicAlarmTriggered = false
+    private var hasLoggedStaleDynamicSkip = false
+    private var hasLoggedFailsafeWindowSkip = false
     private var sessionStartDate: Date?
     private var lastAcceptedPayloadAt: Date?
     private var lastWatchStatusTimestamp: TimeInterval = 0
@@ -253,15 +257,16 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     func startWatchSession(targetDate: Date) {
         resetSession()
+        let monitoringStartDate = scheduledMonitoringStartDate(for: targetDate)
         activeWakeTargetDate = targetDate
         dynamicAlarmTriggered = false
-        sessionStartDate = Date()
+        sessionStartDate = monitoringStartDate
         lastAcceptedPayloadAt = nil
         setSessionState(.scheduled)
         updateSessionRecoveryStatus("Session restarted")
 
         let applyQueuedState = {
-            self.watchQueuedStartDate = self.scheduledMonitoringStartDate(for: targetDate)
+            self.watchQueuedStartDate = monitoringStartDate
             self.watchReadyStartDate = nil
             self.watchStatus = "Open Ninety on Apple Watch to set Smart Alarm"
         }
@@ -343,6 +348,15 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         } else {
             session.transferUserInfo(command)
         }
+    }
+
+    func finishMonitoringAfterAlarmFired() {
+        guard activeWakeTargetDate != nil || sessionStartDate != nil else {
+            return
+        }
+
+        log("Wake alarm fired. Stopping Watch monitoring.")
+        pauseWatchMonitoring()
     }
 
     func triggerWatchHapticWakeUp() {
@@ -465,6 +479,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             processingQueue.async {
                 guard self.shouldProcessPayload(withID: payload.id) else {
                     self.sendPayloadAcknowledgement(for: [payload.id], outcome: "Duplicate payload acknowledged")
+                    return
+                }
+
+                if self.shouldFinishMonitoringForWakeTarget(asOf: Date()) || self.shouldFinishMonitoringForWakeTarget(asOf: payload.timestamp) {
+                    self.sendPayloadAcknowledgement(for: [payload.id], outcome: "Ignored payload after wake alarm")
+                    DispatchQueue.main.async {
+                        self.finishMonitoringAfterAlarmFired()
+                    }
                     return
                 }
 
@@ -987,11 +1009,15 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Dynamic Alarm Trigger with Multi-Epoch Confirmation
 
     private func evaluateDynamicAlarmTrigger(for prediction: PredictionSnapshot) {
-        guard activeWakeTargetDate != nil else {
+        guard let activeWakeTargetDate else {
             return
         }
 
         guard !dynamicAlarmTriggered else {
+            return
+        }
+
+        guard dynamicAlarmCanTrigger(for: prediction, targetDate: activeWakeTargetDate) else {
             return
         }
 
@@ -1055,6 +1081,50 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             }
             // If not confirming and not light → just keep monitoring
         }
+    }
+
+    private func dynamicAlarmCanTrigger(for prediction: PredictionSnapshot, targetDate: Date) -> Bool {
+        let now = Date()
+
+        if now >= targetDate {
+            dynamicAlarmTriggered = true
+            resetConfirmation()
+            updateConfirmationProgress("Wake alarm fired")
+
+            Task { @MainActor in
+                self.finishMonitoringAfterAlarmFired()
+            }
+            return false
+        }
+
+        if now >= targetDate.addingTimeInterval(-dynamicTriggerFailsafeBuffer) {
+            resetConfirmation()
+            if !hasLoggedFailsafeWindowSkip {
+                hasLoggedFailsafeWindowSkip = true
+                log("Dynamic alarm skipped: failsafe window is already closing.")
+            }
+            return false
+        }
+
+        let predictionAge = max(0, now.timeIntervalSince(prediction.epoch.timestamp))
+        guard predictionAge <= maximumDynamicPredictionAge else {
+            resetConfirmation()
+            if !hasLoggedStaleDynamicSkip {
+                hasLoggedStaleDynamicSkip = true
+                log("Dynamic alarm skipped: Watch backlog is \(Int(predictionAge))s old.")
+            }
+            return false
+        }
+
+        return true
+    }
+
+    private func shouldFinishMonitoringForWakeTarget(asOf date: Date) -> Bool {
+        guard let activeWakeTargetDate else {
+            return false
+        }
+
+        return date >= activeWakeTargetDate
     }
 
     private func resetConfirmation() {
@@ -1320,6 +1390,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             self.processedPayloadIDs.removeAll()
             self.activeWakeTargetDate = nil
             self.dynamicAlarmTriggered = false
+            self.hasLoggedStaleDynamicSkip = false
+            self.hasLoggedFailsafeWindowSkip = false
             self.isConfirming = false
             self.confirmationBuffer.removeAll()
             self.lastHRJumpEpochIndex = 0
