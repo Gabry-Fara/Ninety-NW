@@ -94,7 +94,6 @@ final class ScheduleViewModel: ObservableObject {
     @Published var selectedDayHour: Int = 7
     @Published var selectedDayMinute: Int = 0
     @Published var clockLogs: [String] = []
-
     private var externalScheduleObserver: NSObjectProtocol?
     
     func logClock(_ msg: String) {
@@ -113,7 +112,7 @@ final class ScheduleViewModel: ObservableObject {
         }
     }
 
-    init() {
+    init(observesExternalChanges: Bool = true) {
         wakeTimes = Self.loadWakeTimesFromStorage()
         currentWakeUpTime = ScheduleViewModel.defaultWakeTime
 
@@ -121,7 +120,9 @@ final class ScheduleViewModel: ObservableObject {
         self.weekdayMutationTimes = Self.loadWeekdayMutationTimesFromStorage()
         
         lastScheduledSession = nil
-        observeExternalScheduleChanges()
+        if observesExternalChanges {
+            observeExternalScheduleChanges()
+        }
         logClock("INIT ViewModel finished.")
         updateCurrentWakeUpTime()
         lastScheduledSession = nextUpcomingSession
@@ -432,12 +433,13 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     private func observeExternalScheduleChanges() {
+        let weekdayKey = Self.externalScheduleChangedWeekdayKey
         externalScheduleObserver = NotificationCenter.default.addObserver(
             forName: Self.externalScheduleDidChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            let changedWeekday = notification.userInfo?[Self.externalScheduleChangedWeekdayKey] as? Int
+            let changedWeekday = notification.userInfo?[weekdayKey] as? Int
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.reloadScheduleFromStorage(changedWeekday: changedWeekday)
@@ -505,7 +507,18 @@ final class ScheduleViewModel: ObservableObject {
         guard let dictionary = UserDefaults.standard.dictionary(forKey: StorageKey.weekdayMutationTimes) else {
             return [:]
         }
-        return dictionary as? [String: TimeInterval] ?? [:]
+        return dictionary.compactMapValues { value in
+            if let timeInterval = value as? TimeInterval {
+                return timeInterval
+            }
+            if let number = value as? NSNumber {
+                return number.doubleValue
+            }
+            if let string = value as? String {
+                return TimeInterval(string)
+            }
+            return nil
+        }
     }
 
     func alarmSnapshot(for weekday: Int) -> WeeklyAlarmSnapshot? {
@@ -571,7 +584,6 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     private var fallbackProjectedSession: SmartAlarmManager.ScheduledSleepSession {
-        // If the wake-up time is in the past, push it to tomorrow
         var wakeUpDate = currentWakeUpTime
         if wakeUpDate <= Date() {
             wakeUpDate = Calendar.current.date(byAdding: .day, value: 1, to: wakeUpDate) ?? wakeUpDate

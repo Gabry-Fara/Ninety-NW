@@ -6,18 +6,11 @@
 //
 
 import SwiftUI
-import WatchKit
-
-private enum WatchScreenState {
-    case idle
-    case scheduled
-    case active
-    case error
-}
 
 private enum WatchCopyKey {
     case appName
-    case wakeUpBy
+    case nextAlarm
+    case tapToChange
     case noActiveAlarms
     case setOnIPhone
     case today
@@ -30,6 +23,13 @@ private enum WatchCopyKey {
     case synced
     case queued
     case watchOnly
+    case setAlarm
+    case save
+    case saved
+    case syncPending
+    case phoneUnavailable
+    case syncFailed
+    case syncing
 }
 
 private struct WatchCopy {
@@ -52,412 +52,8 @@ private struct WatchCopy {
         case "it":
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "Sveglia entro"
-            case .noActiveAlarms: return "Nessuna sveglia attiva"
-            case .setOnIPhone: return "Imposta la prossima su iPhone"
-            case .today: return "Oggi"
-            case .tomorrow: return "Domani"
-            case .monitoring: return "Monitoraggio attivo"
-            case .scheduled: return "Sveglia programmata"
-            case .waiting: return "In attesa della prossima sveglia"
-            case .attention: return "Attenzione"
-            case .openWatchToSet: return "Apri l'app su Watch per impostarla"
-            case .synced: return "Sincronizzato"
-            case .queued: return "Connesso"
-            case .watchOnly: return "Solo Watch"
-            }
-        case "es":
-            switch key {
-            case .appName: return "Ninety"
-            case .wakeUpBy: return "Despertar antes de"
-            case .noActiveAlarms: return "No hay alarmas activas"
-            case .setOnIPhone: return "Configura la próxima en iPhone"
-            case .today: return "Hoy"
-            case .tomorrow: return "Mañana"
-            case .monitoring: return "Seguimiento activo"
-            case .scheduled: return "Alarma programada"
-            case .waiting: return "Esperando la próxima alarma"
-            case .attention: return "Atención"
-            case .openWatchToSet: return "Abre la app en el Watch para configurarla"
-            case .synced: return "Sincronizado"
-            case .queued: return "Conectado"
-            case .watchOnly: return "Solo Watch"
-            }
-        case "zh-Hans":
-            switch key {
-            case .appName: return "Ninety"
-            case .wakeUpBy: return "最晚唤醒时间"
-            case .noActiveAlarms: return "没有已激活的闹钟"
-            case .setOnIPhone: return "请在 iPhone 上设置下一次闹钟"
-            case .today: return "今天"
-            case .tomorrow: return "明天"
-            case .monitoring: return "监测中"
-            case .scheduled: return "闹钟已安排"
-            case .waiting: return "等待下一次闹钟"
-            case .attention: return "注意"
-            case .openWatchToSet: return "打开 Watch App 以设置"
-            case .synced: return "已同步"
-            case .queued: return "已连接"
-            case .watchOnly: return "仅 Watch"
-            }
-        case "ar":
-            switch key {
-            case .appName: return "Ninety"
-            case .wakeUpBy: return "الاستيقاظ قبل"
-            case .noActiveAlarms: return "لا توجد منبهات نشطة"
-            case .setOnIPhone: return "اضبط المنبه التالي على iPhone"
-            case .today: return "اليوم"
-            case .tomorrow: return "غدًا"
-            case .monitoring: return "المراقبة نشطة"
-            case .scheduled: return "المنبه مجدول"
-            case .waiting: return "بانتظار المنبه التالي"
-            case .attention: return "تنبيه"
-            case .openWatchToSet: return "افتح التطبيق على الساعة لضبطه"
-            case .synced: return "تمت المزامنة"
-            case .queued: return "متصل"
-            case .watchOnly: return "الساعة فقط"
-            }
-        default:
-            switch key {
-            case .appName: return "Ninety"
-            case .wakeUpBy: return "Wake up by"
-            case .noActiveAlarms: return "No active alarms"
-            case .setOnIPhone: return "Set your next alarm on iPhone"
-            case .today: return "Today"
-            case .tomorrow: return "Tomorrow"
-            case .monitoring: return "Monitoring active"
-            case .scheduled: return "Alarm scheduled"
-            case .waiting: return "Waiting for the next alarm"
-            case .attention: return "Attention"
-            case .openWatchToSet: return "Open the Watch app to set it"
-            case .synced: return "Synced"
-            case .queued: return "Connected"
-            case .watchOnly: return "Watch only"
-            }
-        }
-    }
-}
-
-struct ContentView: View {
-    @StateObject private var sensorManager = WatchSensorManager.shared
-    @StateObject private var hapticManager = HapticWakeUpManager.shared
-
-    private var copy: WatchCopy {
-        WatchCopy(localeIdentifier: Locale.autoupdatingCurrent.identifier)
-    }
-    private var currentState: WatchScreenState {
-        let state = sensorManager.sessionState.lowercased()
-
-        if state.contains("error") || state.contains("invalidated") {
-            return .error
-        }
-
-        if state.contains("started") || state.contains("active") || state.contains("monitoring") || state.contains("avviata") || state.contains("recording") || state.contains("running") {
-            return .active
-        }
-
-        if sensorManager.nextAlarmDate != nil || sensorManager.hasPendingSchedule || sensorManager.hasReadySchedule {
-            return .scheduled
-        }
-
-        return .idle
-    }
-
-    var body: some View {
-        ZStack {
-            TabView {
-                // Tab 1: Main Status UI
-                VStack(alignment: .leading, spacing: 0) {
-                    header
-                    Spacer()
-                    nextAlarmCard
-                    Spacer()
-                    footerStatus
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                
-                // Tab 2: Set Alarm View (Remote UI)
-                SetAlarmView()
-                
-                // Tab 3: Debug Node
-                DebugNodeView(sensorManager: sensorManager)
-            }
-            .tabViewStyle(.verticalPage)
-            .background(Color.black.ignoresSafeArea())
-            
-            if hapticManager.isPlaying {
-                AlarmView()
-                    .transition(.move(edge: .bottom))
-                    .zIndex(1)
-            }
-        }
-        .onAppear {
-            sensorManager.refreshStoredAlarmStateIfNeeded()
-            sensorManager.requestHealthPermissions { _ in }
-        }
-    }
-
-    private var header: some View {
-        HStack {
-            Text(copy.text(.appName))
-                .font(.system(.headline, design: .default, weight: .semibold))
-                .foregroundStyle(.primary)
-
-            Spacer(minLength: 0)
-        }
-    }
-
-    private var nextAlarmCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(copy.text(.wakeUpBy))
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
-
-            Text(nextAlarmPrimaryText)
-                .font(.system(.title3, design: .rounded, weight: .semibold))
-                .foregroundStyle(.primary)
-                .minimumScaleFactor(0.7)
-                .lineLimit(2)
-
-            if let secondaryText = nextAlarmSecondaryText {
-                Text(secondaryText)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.white.opacity(0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-        )
-    }
-
-    private var footerStatus: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(footerStatusColor)
-                .frame(width: 6, height: 6)
-
-            Text(footerStatusLabel)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.top, 2)
-    }
-
-    private var nextAlarmPrimaryText: String {
-        guard let nextAlarmDate = sensorManager.nextAlarmDate else {
-            if sensorManager.hasPendingSchedule || sensorManager.hasReadySchedule {
-                return copy.text(.scheduled)
-            }
-            return copy.text(.noActiveAlarms)
-        }
-
-        return formattedAlarm(date: nextAlarmDate).primary
-    }
-
-    private var nextAlarmSecondaryText: String? {
-        guard let nextAlarmDate = sensorManager.nextAlarmDate else {
-            if let ready = sensorManager.readyScheduleDescription {
-                return ready
-            }
-            return sensorManager.hasPendingSchedule ? copy.text(.openWatchToSet) : copy.text(.setOnIPhone)
-        }
-
-        let formatted = formattedAlarm(date: nextAlarmDate)
-
-        if sensorManager.hasPendingSchedule {
-            return copy.text(.openWatchToSet)
-        }
-
-        if let ready = sensorManager.readyScheduleDescription, currentState == .scheduled {
-            return ready
-        }
-
-        switch currentState {
-        case .active:
-            return copy.text(.monitoring)
-        case .scheduled:
-            return formatted.secondary
-        case .error:
-            return sensorManager.sessionState
-        case .idle:
-            return copy.text(.waiting)
-        }
-    }
-
-    private func formattedAlarm(date: Date) -> (primary: String, secondary: String?) {
-        let calendar = Calendar.autoupdatingCurrent
-        let locale = Locale.autoupdatingCurrent
-        let time = date.formatted(Date.FormatStyle().locale(locale).hour().minute())
-
-        if calendar.isDateInToday(date) {
-            return ("\(copy.text(.today)) · \(time)", nil)
-        }
-
-        if calendar.isDateInTomorrow(date) {
-            return ("\(copy.text(.tomorrow)) · \(time)", nil)
-        }
-
-        let weekdayFormatter = Date.FormatStyle()
-            .locale(locale)
-            .weekday(.wide)
-            
-        let dayName = date.formatted(weekdayFormatter).capitalized
-        
-        let dateSecondaryFormatter = Date.FormatStyle()
-            .locale(locale)
-            .day()
-            .month()
-
-        return ("\(dayName) · \(time)", date.formatted(dateSecondaryFormatter))
-    }
-
-    private var footerStatusLabel: String {
-        switch sensorManager.connectivityState {
-        case .synced:
-            return copy.text(.synced)
-        case .queued:
-            return copy.text(.queued)
-        case .watchOnly:
-            return copy.text(.watchOnly)
-        }
-    }
-
-    private var footerStatusColor: Color {
-        switch sensorManager.connectivityState {
-        case .synced:
-            return .green
-        case .queued:
-            return .yellow
-        case .watchOnly:
-            return .orange
-        }
-    }
-}
-
-// MARK: - Debug View
-
-struct DebugNodeView: View {
-    @ObservedObject var sensorManager: WatchSensorManager
-    
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("🛠 Debug Node")
-                    .font(.headline)
-                    .foregroundColor(.orange)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Session: \(sensorManager.sessionState)")
-                        .foregroundColor(.blue)
-                    Text("Link: \(sensorManager.connectionStatus)")
-                        .foregroundColor(.secondary)
-                    
-                    if sensorManager.hasPendingSchedule, let pending = sensorManager.pendingScheduleDescription {
-                        Text("Queue: \(pending)")
-                            .foregroundColor(.orange)
-                    }
-
-                    if sensorManager.hasReadySchedule, let ready = sensorManager.readyScheduleDescription {
-                        Text("Ready: \(ready)")
-                            .foregroundColor(.green)
-                    }
-                }
-                .font(.caption2)
-                
-                Divider()
-                
-                if !sensorManager.lastPayloadSent.isEmpty {
-                    Text("Last Payload:")
-                        .font(.caption2.bold())
-                    Text(sensorManager.lastPayloadSent)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                }
-                
-                Divider()
-                
-                // Manual overrides for testing routing
-                Group {
-                    Button("Simulate Start (5s)") {
-                        sensorManager.scheduleSmartAlarmSession(at: Date().addingTimeInterval(5))
-                    }
-                    .tint(.green)
-                    
-                    Button("Force Stop Session") {
-                        sensorManager.stopSession()
-                    }
-                    .tint(.red)
-                }
-                .font(.caption)
-            }
-            .padding()
-        }
-    }
-}
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
-}
-
-private enum RemoteWatchCopyKey {
-    case appName
-    case wakeUpBy
-    case recordActivity
-    case noActiveAlarms
-    case setOnIPhone
-    case today
-    case tomorrow
-    case monitoring
-    case scheduled
-    case waiting
-    case attention
-    case openWatchToSet
-    case synced
-    case queued
-    case watchOnly
-    case setAlarm
-    case save
-    case saved
-    case syncPending
-    case phoneUnavailable
-    case syncFailed
-    case syncing
-}
-
-private struct RemoteWatchCopy {
-    let localeIdentifier: String
-
-    private var normalizedIdentifier: String {
-        localeIdentifier.replacingOccurrences(of: "_", with: "-").lowercased()
-    }
-
-    private var languageCode: String {
-        if normalizedIdentifier.hasPrefix("zh-hans") { return "zh-Hans" }
-        if normalizedIdentifier.hasPrefix("ar") { return "ar" }
-        if normalizedIdentifier.hasPrefix("it") { return "it" }
-        if normalizedIdentifier.hasPrefix("es") { return "es" }
-        return "en"
-    }
-
-    func text(_ key: RemoteWatchCopyKey) -> String {
-        switch languageCode {
-        case "it":
-            switch key {
-            case .appName: return "Ninety"
-            case .wakeUpBy: return "Sveglia entro"
-            case .recordActivity: return "Registra attività"
+            case .nextAlarm: return "Prossima sveglia"
+            case .tapToChange: return "Tocca per modificare"
             case .noActiveAlarms: return "Nessuna sveglia attiva"
             case .setOnIPhone: return "Imposta la prossima su iPhone"
             case .today: return "Oggi"
@@ -481,8 +77,8 @@ private struct RemoteWatchCopy {
         case "es":
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "Despertar antes de"
-            case .recordActivity: return "Registrar actividad"
+            case .nextAlarm: return "Próxima alarma"
+            case .tapToChange: return "Toca para cambiar"
             case .noActiveAlarms: return "No hay alarmas activas"
             case .setOnIPhone: return "Configura la próxima en iPhone"
             case .today: return "Hoy"
@@ -506,8 +102,8 @@ private struct RemoteWatchCopy {
         case "zh-Hans":
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "最晚唤醒时间"
-            case .recordActivity: return "记录活动"
+            case .nextAlarm: return "下一个闹钟"
+            case .tapToChange: return "点按修改"
             case .noActiveAlarms: return "没有已激活的闹钟"
             case .setOnIPhone: return "请在 iPhone 上设置下一次闹钟"
             case .today: return "今天"
@@ -531,8 +127,8 @@ private struct RemoteWatchCopy {
         case "ar":
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "الاستيقاظ قبل"
-            case .recordActivity: return "تسجيل النشاط"
+            case .nextAlarm: return "المنبه التالي"
+            case .tapToChange: return "اضغط للتعديل"
             case .noActiveAlarms: return "لا توجد منبهات نشطة"
             case .setOnIPhone: return "اضبط المنبه التالي على iPhone"
             case .today: return "اليوم"
@@ -556,8 +152,8 @@ private struct RemoteWatchCopy {
         default:
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "Wake up by"
-            case .recordActivity: return "Record activity"
+            case .nextAlarm: return "Next alarm"
+            case .tapToChange: return "Tap to change"
             case .noActiveAlarms: return "No active alarms"
             case .setOnIPhone: return "Set your next alarm on iPhone"
             case .today: return "Today"
@@ -582,12 +178,12 @@ private struct RemoteWatchCopy {
     }
 }
 
-struct SetAlarmView: View {
+struct ContentView: View {
     @StateObject private var sensorManager = WatchSensorManager.shared
     @StateObject private var hapticManager = HapticWakeUpManager.shared
 
-    private var copy: RemoteWatchCopy {
-        RemoteWatchCopy(localeIdentifier: Locale.autoupdatingCurrent.identifier)
+    private var copy: WatchCopy {
+        WatchCopy(localeIdentifier: Locale.autoupdatingCurrent.identifier)
     }
 
     var body: some View {
@@ -628,48 +224,82 @@ private struct WatchPageBackground: View {
 
 private struct WatchAlarmSetupView: View {
     @ObservedObject var sensorManager: WatchSensorManager
-    let copy: RemoteWatchCopy
+    let copy: WatchCopy
 
     @State private var wakeTime = WatchAlarmSetupView.defaultWakeTime()
     @State private var isApplyingSyncedAlarm = false
+    @State private var isEditingTime = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            VStack(alignment: .leading, spacing: 2) {
-                if let headerEyebrow {
-                    Text(headerEyebrow)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.72))
+        VStack(alignment: .leading, spacing: 10) {
+            if isEditingTime {
+                TimeWheelField(wakeTime: $wakeTime)
+                    .padding(.bottom, -4)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+
+                HStack(spacing: 8) {
+                    Button {
+                        cancelEditing()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .frame(width: 40, height: 40)
+                    }
+                    .buttonStyle(.plain)
+                    .background {
+                        Circle()
+                        .fill(.white.opacity(0.12))
+                            .overlay {
+                                Circle()
+                                    .strokeBorder(.white.opacity(0.18), lineWidth: 0.8)
+                            }
+                    }
+                    .foregroundStyle(.white.opacity(0.92))
+
+                    Button {
+                        sensorManager.setNextAlarm(wakeTime: wakeTime)
+                        withAnimation(.snappy(duration: 0.22)) {
+                            isEditingTime = false
+                        }
+                    } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: buttonIconName)
+                                Text(buttonTitle)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.vertical, 3)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(buttonTint)
+                    .disabled(sensorManager.weeklyAlarmSyncState == .saving)
                 }
-
-                Text(headerTitle)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-            }
-
-            TimeWheelField(wakeTime: $wakeTime)
-
-            Button {
-                sensorManager.setNextAlarm(wakeTime: wakeTime)
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: buttonIconName)
-                    Text(buttonTitle)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-                .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
+                .transition(.opacity)
+            } else {
+                Button {
+                    withAnimation(.snappy(duration: 0.22)) {
+                        isEditingTime = true
+                    }
+                } label: {
+                    WatchAlarmDisplayCard(date: wakeTime, copy: copy)
+                }
+                .buttonStyle(.plain)
+                .transition(.asymmetric(
+                    insertion: .opacity,
+                    removal: .move(edge: .top).combined(with: .opacity)
+                ))
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .tint(buttonTint)
-            .disabled(sensorManager.weeklyAlarmSyncState == .saving)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
+        .animation(.snappy(duration: 0.22), value: isEditingTime)
         .onAppear {
             applySyncedNextAlarm()
         }
@@ -725,44 +355,6 @@ private struct WatchAlarmSetupView: View {
         }
     }
 
-    private var headerTitle: String {
-        guard
-            let nextAlarmDate = sensorManager.nextAlarmDate,
-            nextAlarmDate > Date(),
-            nextAlarmDate.timeIntervalSinceNow <= 24 * 60 * 60
-        else {
-            return copy.text(.setAlarm)
-        }
-
-        let activityDate = nextAlarmDate.addingTimeInterval(-30 * 60)
-        let weekday = nextAlarmDate.formatted(
-            .dateTime
-                .weekday(.wide)
-                .locale(Locale.autoupdatingCurrent)
-        )
-        .capitalized(with: Locale.autoupdatingCurrent)
-        let activityTime = activityDate.formatted(
-            Date.FormatStyle()
-                .locale(Locale.autoupdatingCurrent)
-                .hour()
-                .minute()
-        )
-
-        return "\(weekday) · \(activityTime)"
-    }
-
-    private var headerEyebrow: String? {
-        guard
-            let nextAlarmDate = sensorManager.nextAlarmDate,
-            nextAlarmDate > Date(),
-            nextAlarmDate.timeIntervalSinceNow <= 24 * 60 * 60
-        else {
-            return nil
-        }
-
-        return copy.text(.recordActivity)
-    }
-
     private static func defaultWakeTime() -> Date {
         var components = Calendar.autoupdatingCurrent.dateComponents([.year, .month, .day], from: Date())
         components.hour = 7
@@ -787,6 +379,12 @@ private struct WatchAlarmSetupView: View {
         DispatchQueue.main.async {
             isApplyingSyncedAlarm = false
         }
+
+        if sensorManager.weeklyAlarmSyncState != .saving {
+            withAnimation(.snappy(duration: 0.18)) {
+                isEditingTime = false
+            }
+        }
     }
 
     private static func todayDate(hour: Int, minute: Int) -> Date {
@@ -795,6 +393,68 @@ private struct WatchAlarmSetupView: View {
         components.minute = minute
         components.second = 0
         return Calendar.autoupdatingCurrent.date(from: components) ?? Date()
+    }
+
+    private func cancelEditing() {
+        applySyncedNextAlarm()
+        withAnimation(.snappy(duration: 0.22)) {
+            isEditingTime = false
+        }
+    }
+}
+
+private struct WatchAlarmDisplayCard: View {
+    let date: Date
+    let copy: WatchCopy
+
+    private var timeText: String {
+        date.formatted(
+            Date.FormatStyle()
+                .locale(Locale.autoupdatingCurrent)
+                .hour()
+                .minute()
+        )
+    }
+
+    private var dateText: String {
+        date.formatted(
+            .dateTime
+                .weekday(.abbreviated)
+                .day()
+                .month(.abbreviated)
+                .locale(Locale.autoupdatingCurrent)
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(copy.text(.nextAlarm))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.68))
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(timeText)
+                    .font(.system(size: 32, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.42))
+            }
+
+            Text(copy.text(.tapToChange))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.white.opacity(0.54))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(SoftControlBackground(cornerRadius: 18))
     }
 }
 
@@ -915,7 +575,7 @@ private struct SoftControlBackground: View {
 // MARK: - Debug View
 
 #if DEBUG
-struct RemoteDebugNodeView: View {
+struct DebugNodeView: View {
     @ObservedObject var sensorManager: WatchSensorManager
     
     var body: some View {
@@ -975,8 +635,8 @@ struct RemoteDebugNodeView: View {
 }
 #endif
 
-struct SetAlarmView_Previews: PreviewProvider {
+struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        SetAlarmView()
+        ContentView()
     }
 }
