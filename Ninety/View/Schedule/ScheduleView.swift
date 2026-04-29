@@ -721,7 +721,7 @@ struct CustomWheelPicker: View {
     private let selectionHaptic = UISelectionFeedbackGenerator()
     
     // Keep enough repeated rows to feel infinite without paying for an oversized subtree on open.
-    private let multiplier = 6
+    private let multiplier = 3
     private var count: Int { range.upperBound - range.lowerBound + 1 }
     private var focusTint: Color {
         colorScheme == .light
@@ -735,9 +735,7 @@ struct CustomWheelPicker: View {
 
         ZStack {
             ScrollView(.vertical, showsIndicators: false) {
-                // Using VStack instead of LazyVStack is the crucial fix!
-                // It pre-computes all boundaries instantaneously, meaning .scrollPosition programmatic jumps are flawlessly mathematically exact.
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(0..<(count * multiplier), id: \.self) { index in
                         let value = range.lowerBound + (index % count)
 

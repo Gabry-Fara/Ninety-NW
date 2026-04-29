@@ -227,13 +227,15 @@ private struct WatchAlarmSetupView: View {
     let copy: WatchCopy
 
     @State private var wakeTime = WatchAlarmSetupView.defaultWakeTime()
+    @State private var internalHour = 7
+    @State private var internalMinute = 0
     @State private var isApplyingSyncedAlarm = false
     @State private var isEditingTime = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if isEditingTime {
-                TimeWheelField(wakeTime: $wakeTime)
+                TimeWheelField(hour: $internalHour, minute: $internalMinute)
                     .padding(.bottom, -4)
                     .transition(.asymmetric(
                         insertion: .move(edge: .bottom).combined(with: .opacity),
@@ -260,6 +262,7 @@ private struct WatchAlarmSetupView: View {
                     .foregroundStyle(.white.opacity(0.92))
 
                     Button {
+                        updateWakeTimeFromInternal()
                         sensorManager.setNextAlarm(wakeTime: wakeTime)
                         withAnimation(.snappy(duration: 0.22)) {
                             isEditingTime = false
@@ -303,7 +306,11 @@ private struct WatchAlarmSetupView: View {
         .onAppear {
             applySyncedNextAlarm()
         }
-        .onChange(of: wakeTime) {
+        .onChange(of: internalHour) {
+            guard !isApplyingSyncedAlarm else { return }
+            sensorManager.markNextAlarmDraftChanged()
+        }
+        .onChange(of: internalMinute) {
             guard !isApplyingSyncedAlarm else { return }
             sensorManager.markNextAlarmDraftChanged()
         }
@@ -387,9 +394,12 @@ private struct WatchAlarmSetupView: View {
         let syncedMinute = calendar.component(.minute, from: nextAlarmDate)
 
         isApplyingSyncedAlarm = true
-
+        
+        let newDate = Self.todayDate(hour: syncedHour, minute: syncedMinute)
         withAnimation(.snappy(duration: 0.22)) {
-            wakeTime = Self.todayDate(hour: syncedHour, minute: syncedMinute)
+            wakeTime = newDate
+            internalHour = syncedHour
+            internalMinute = syncedMinute
         }
 
         DispatchQueue.main.async {
@@ -401,6 +411,10 @@ private struct WatchAlarmSetupView: View {
                 isEditingTime = false
             }
         }
+    }
+
+    private func updateWakeTimeFromInternal() {
+        wakeTime = Self.todayDate(hour: internalHour, minute: internalMinute)
     }
 
     private static func todayDate(hour: Int, minute: Int) -> Date {
@@ -495,54 +509,115 @@ private struct WatchAlarmDisplayCard: View {
 }
 
 private struct TimeWheelField: View {
-    @Binding var wakeTime: Date
+    @Binding var hour: Int
+    @Binding var minute: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            WatchCustomWheelPicker(selectedValue: $hour, range: 0...23)
+                .frame(maxWidth: .infinity)
+            
+            Text(":")
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .opacity(0.5)
+                .padding(.bottom, 2)
+
+            WatchCustomWheelPicker(selectedValue: $minute, range: 0...59)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(height: 80)
+        .padding(.horizontal, 10)
+        .background(SoftControlBackground(cornerRadius: 16))
+        .clipped()
+    }
+}
+
+struct WatchCustomWheelPicker: View {
+    @Binding var selectedValue: Int
+    let range: ClosedRange<Int>
+    
+    @State private var viewPosition: Int?
+    @State private var userDidScroll = false
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private let multiplier = 3
+    private var count: Int { range.upperBound - range.lowerBound + 1 }
+    private let itemHeight: CGFloat = 36
+    private let containerHeight: CGFloat = 80
 
     var body: some View {
         ZStack {
-            DatePicker("", selection: $wakeTime, displayedComponents: .hourAndMinute)
-                .datePickerStyle(.wheel)
-                .labelsHidden()
-                .focusable(false)
-                .frame(height: 80)
-                .offset(y: -2)
-                .clipped()
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .black.opacity(0.7), location: 0.18),
-                            .init(color: .black, location: 0.42),
-                            .init(color: .black, location: 0.58),
-                            .init(color: .black.opacity(0.7), location: 0.82),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-        }
-        .frame(height: 80)
-        .background(SoftControlBackground(cornerRadius: 16))
-        .overlay(alignment: .top) {
-            edgeFade
-        }
-        .overlay(alignment: .bottom) {
-            edgeFade.rotationEffect(.degrees(180))
-        }
-        .clipped()
-    }
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(spacing: 0) {
+                    ForEach(0..<(count * multiplier), id: \.self) { index in
+                        let value = range.lowerBound + (index % count)
 
-    private var edgeFade: some View {
-        LinearGradient(
-            colors: [
-                Color.black.opacity(0.3),
-                Color.black.opacity(0)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(height: 20)
-        .allowsHitTesting(false)
+                        Text(String(format: "%02d", value))
+                            .font(.system(size: 38, weight: .light, design: .rounded))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
+                            .frame(height: itemHeight)
+                            .foregroundStyle(.white)
+                            .scrollTransition(axis: .vertical) { content, phase in
+                                content
+                                    .opacity(phase.isIdentity ? 1.0 : 0.3)
+                                    .scaleEffect(phase.isIdentity ? 1.0 : 0.8)
+                                    .rotation3DEffect(
+                                        .degrees(Double(phase.value) * -20),
+                                        axis: (x: 1, y: 0, z: 0),
+                                        perspective: 0.5
+                                    )
+                                    .offset(y: phase.value * 8)
+                            }
+                            .id(index)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .safeAreaPadding(.vertical, (containerHeight - itemHeight) / 2)
+            .scrollPosition(id: $viewPosition, anchor: .center)
+            .scrollTargetBehavior(.viewAligned)
+            .onScrollPhaseChange { _, newPhase in
+                if newPhase == .interacting {
+                    userDidScroll = true
+                } else if newPhase == .idle {
+                    userDidScroll = false
+                    if let pos = viewPosition {
+                        let newValue = range.lowerBound + (pos % count)
+                        if newValue != selectedValue {
+                            selectedValue = newValue
+                        }
+                    }
+                }
+            }
+            .onChange(of: viewPosition) { _, newPos in
+                guard let new = newPos else { return }
+                let newValue = range.lowerBound + (new % count)
+                if userDidScroll && newValue != selectedValue {
+                    selectedValue = newValue
+                    WKInterfaceDevice.current().play(.click)
+                }
+            }
+            .onChange(of: selectedValue) { _, newSelected in
+                if !userDidScroll, let currentPos = viewPosition {
+                    let currentShownValue = range.lowerBound + (currentPos % count)
+                    if currentShownValue != newSelected {
+                        var diff = newSelected - currentShownValue
+                        let half = count / 2
+                        if diff > half { diff -= count }
+                        else if diff < -half { diff += count }
+                        viewPosition = currentPos + diff
+                    }
+                }
+            }
+            .onAppear {
+                let midIndexOrigin = (multiplier / 2) * count
+                let offset = selectedValue - range.lowerBound
+                viewPosition = midIndexOrigin + offset
+            }
+        }
+        .frame(height: containerHeight)
     }
 }
 
