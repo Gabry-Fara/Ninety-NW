@@ -94,6 +94,8 @@ final class ScheduleViewModel: ObservableObject {
     @Published var selectedDayHour: Int = 7
     @Published var selectedDayMinute: Int = 0
     @Published var clockLogs: [String] = []
+
+    private var externalScheduleObserver: NSObjectProtocol?
     
     func logClock(_ msg: String) {
         let formatter = DateFormatter()
@@ -112,50 +114,23 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     init() {
-        let storedWakeTimes = UserDefaults.standard.dictionary(forKey: StorageKey.wakeTimesDict) as? [String: TimeInterval] ?? [:]
-        
-        // Backward compatibility: migrate old single time stored as timeIntervalSince1970
-        var initialWakeTimes = storedWakeTimes
-        if initialWakeTimes.isEmpty {
-            if let oldStored = UserDefaults.standard.object(forKey: StorageKey.wakeTime) as? TimeInterval {
-                // Convert legacy timeIntervalSince1970 to seconds-since-midnight
-                let legacyDate = Date(timeIntervalSince1970: oldStored)
-                let cal = Calendar.current
-                let h = cal.component(.hour, from: legacyDate)
-                let m = cal.component(.minute, from: legacyDate)
-                let midnightOffset = TimeInterval(h * 3600 + m * 60)
-                for i in 1...7 { initialWakeTimes[String(i)] = midnightOffset }
-            }
-        } else {
-            // One-time migration: convert any legacy timestamps to seconds-since-midnight.
-            // Legacy timestamps are either very large (> 86400) or negative.
-            var migrated = false
-            let migrationCal = Calendar(identifier: .gregorian)
-            for (key, value) in initialWakeTimes {
-                if value > 86400 || value < 0 {
-                    let legacyDate = Date(timeIntervalSince1970: value)
-                    let h = migrationCal.component(.hour, from: legacyDate)
-                    let m = migrationCal.component(.minute, from: legacyDate)
-                    // Ensure we don't carry over corrupted sub-minute precision
-                    initialWakeTimes[key] = TimeInterval(h * 3600 + m * 60)
-                    migrated = true
-                }
-            }
-            if migrated {
-                UserDefaults.standard.set(initialWakeTimes, forKey: StorageKey.wakeTimesDict)
-            }
-        }
-        wakeTimes = initialWakeTimes
-        
+        wakeTimes = Self.loadWakeTimesFromStorage()
         currentWakeUpTime = ScheduleViewModel.defaultWakeTime
 
-        self.scheduledWeekdays = Set(UserDefaults.standard.array(forKey: StorageKey.scheduledWeekdays) as? [Int] ?? [])
+        self.scheduledWeekdays = Self.loadScheduledWeekdaysFromStorage()
         self.weekdayMutationTimes = Self.loadWeekdayMutationTimesFromStorage()
         
         lastScheduledSession = nil
+        observeExternalScheduleChanges()
         logClock("INIT ViewModel finished.")
         updateCurrentWakeUpTime()
         lastScheduledSession = nextUpcomingSession
+    }
+
+    deinit {
+        if let externalScheduleObserver {
+            NotificationCenter.default.removeObserver(externalScheduleObserver)
+        }
     }
 
     static var defaultWakeTime: Date {
@@ -267,6 +242,7 @@ final class ScheduleViewModel: ObservableObject {
         } else {
             scheduledWeekdays.insert(weekday)
         }
+        markMutation(for: weekday)
 
         lastScheduledSession = nextUpcomingSession
 
@@ -288,6 +264,7 @@ final class ScheduleViewModel: ObservableObject {
     func updateWakeTime(hour: Int, minute: Int) {
         logClock("updateWakeTime CALLED with \(hour):\(minute) for weekday \(selectedWeekday)")
         storeWakeTime(weekday: selectedWeekday, hour: hour, minute: minute)
+        markMutation(for: selectedWeekday)
         
         SleepSessionManager.shared.log("UI Interaction: Updated wake time to \(String(format: "%02d:%02d", hour, minute)) for weekday \(selectedWeekday)")
         logClock("wakeTimes[\(selectedWeekday)] updated to \(wakeTimes[String(selectedWeekday)]!)")
@@ -339,6 +316,7 @@ final class ScheduleViewModel: ObservableObject {
 
         storeWakeTime(weekday: weekday, hour: hour, minute: minute)
         scheduledWeekdays.insert(weekday)
+        markMutation(for: weekday)
         lastScheduledSession = nextUpcomingSession
 
         SleepSessionManager.shared.log("Siri: Set weekly alarm for weekday \(weekday) at \(String(format: "%02d:%02d", hour, minute))")
@@ -416,6 +394,7 @@ final class ScheduleViewModel: ObservableObject {
 
         let previousAlarm = alarmSnapshot(for: weekday)
         scheduledWeekdays.remove(weekday)
+        markMutation(for: weekday)
         lastScheduledSession = nextUpcomingSession
 
         SleepSessionManager.shared.log("Siri: Cancel weekly alarm for weekday \(weekday)")
@@ -450,6 +429,76 @@ final class ScheduleViewModel: ObservableObject {
             object: self,
             userInfo: [Self.externalScheduleChangedWeekdayKey: weekday]
         )
+    }
+
+    private func observeExternalScheduleChanges() {
+        externalScheduleObserver = NotificationCenter.default.addObserver(
+            forName: Self.externalScheduleDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let changedWeekday = notification.userInfo?[Self.externalScheduleChangedWeekdayKey] as? Int
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.reloadScheduleFromStorage(changedWeekday: changedWeekday)
+            }
+        }
+    }
+
+    private func reloadScheduleFromStorage(changedWeekday: Int?) {
+        wakeTimes = Self.loadWakeTimesFromStorage()
+        scheduledWeekdays = Self.loadScheduledWeekdaysFromStorage()
+        weekdayMutationTimes = Self.loadWeekdayMutationTimesFromStorage()
+        updateCurrentWakeUpTime()
+        lastScheduledSession = nextUpcomingSession
+
+        if let changedWeekday {
+            logClock("External schedule change reloaded for weekday \(changedWeekday).")
+        } else {
+            logClock("External schedule change reloaded.")
+        }
+    }
+
+    private static func loadWakeTimesFromStorage() -> [String: TimeInterval] {
+        let storedWakeTimes = UserDefaults.standard.dictionary(forKey: StorageKey.wakeTimesDict) as? [String: TimeInterval] ?? [:]
+
+        // Backward compatibility: migrate old single time stored as timeIntervalSince1970
+        var initialWakeTimes = storedWakeTimes
+        if initialWakeTimes.isEmpty {
+            if let oldStored = UserDefaults.standard.object(forKey: StorageKey.wakeTime) as? TimeInterval {
+                // Convert legacy timeIntervalSince1970 to seconds-since-midnight
+                let legacyDate = Date(timeIntervalSince1970: oldStored)
+                let cal = Calendar.current
+                let h = cal.component(.hour, from: legacyDate)
+                let m = cal.component(.minute, from: legacyDate)
+                let midnightOffset = TimeInterval(h * 3600 + m * 60)
+                for i in 1...7 { initialWakeTimes[String(i)] = midnightOffset }
+            }
+        } else {
+            // One-time migration: convert any legacy timestamps to seconds-since-midnight.
+            // Legacy timestamps are either very large (> 86400) or negative.
+            var migrated = false
+            let migrationCal = Calendar(identifier: .gregorian)
+            for (key, value) in initialWakeTimes {
+                if value > 86400 || value < 0 {
+                    let legacyDate = Date(timeIntervalSince1970: value)
+                    let h = migrationCal.component(.hour, from: legacyDate)
+                    let m = migrationCal.component(.minute, from: legacyDate)
+                    // Ensure we don't carry over corrupted sub-minute precision
+                    initialWakeTimes[key] = TimeInterval(h * 3600 + m * 60)
+                    migrated = true
+                }
+            }
+            if migrated {
+                UserDefaults.standard.set(initialWakeTimes, forKey: StorageKey.wakeTimesDict)
+            }
+        }
+
+        return initialWakeTimes
+    }
+
+    private static func loadScheduledWeekdaysFromStorage() -> Set<Int> {
+        Set(UserDefaults.standard.array(forKey: StorageKey.scheduledWeekdays) as? [Int] ?? [])
     }
 
     private static func loadWeekdayMutationTimesFromStorage() -> [String: TimeInterval] {

@@ -613,7 +613,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     private func sendNextAlarmCommand(_ command: PendingNextAlarmCommand) {
-        guard !isSendingNextAlarmCommand else { return }
+        guard !isSendingNextAlarmCommand else {
+            persistPendingNextAlarmCommand(command, state: .pending)
+            return
+        }
 
         guard let session = wcSession, session.activationState == .activated else {
             persistPendingNextAlarmCommand(command, state: .pending)
@@ -626,6 +629,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
 
         isSendingNextAlarmCommand = true
+        persistPendingNextAlarmCommand(command, state: .saving)
         weeklyAlarmSyncState = .saving
         weeklyAlarmSyncDetail = nil
 
@@ -637,14 +641,27 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.isSendingNextAlarmCommand = false
-                self.persistPendingNextAlarmCommand(command, state: .pending)
-                self.weeklyAlarmSyncDetail = error.localizedDescription
+                if let pendingCommand = self.pendingNextAlarmCommand(), pendingCommand != command {
+                    self.weeklyAlarmSyncState = .pending
+                    self.weeklyAlarmSyncDetail = nil
+                    self.flushPendingNextAlarmCommandIfNeeded()
+                } else {
+                    self.persistPendingNextAlarmCommand(command, state: .pending)
+                    self.weeklyAlarmSyncDetail = error.localizedDescription
+                }
             }
         })
     }
 
     private func handleNextAlarmReply(_ reply: [String: Any], command: PendingNextAlarmCommand) {
         isSendingNextAlarmCommand = false
+
+        if let pendingCommand = pendingNextAlarmCommand(), pendingCommand != command {
+            weeklyAlarmSyncState = .pending
+            weeklyAlarmSyncDetail = nil
+            flushPendingNextAlarmCommandIfNeeded()
+            return
+        }
 
         if let error = reply["error"] as? String {
             clearPendingNextAlarmCommand()
