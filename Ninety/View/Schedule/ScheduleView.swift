@@ -22,7 +22,7 @@ struct ScheduleView: View {
         let tint: Color
     }
 
-    private let timeBlockOffset: CGFloat = -60
+    private var timeBlockOffset: CGFloat { showingWakeTimePicker ? -30 : -90 }
     private let daySelectorOffset: CGFloat = 70
     private let alarmButtonBottomPadding: CGFloat = 64
     private let watchBannerSlotHeight: CGFloat = 190
@@ -133,22 +133,15 @@ struct ScheduleView: View {
                     Spacer().frame(height: 60)
                     ZStack {
                         if !showingWakeTimePicker {
-                            VStack(spacing: 10) {
-                                Text("Wake-up target".localized(for: appLanguage))
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .tracking(0.5)
-                                    .foregroundStyle(.secondary)
-
-                                Text(
-                                    isSelectedDayActive
-                                    ? "Tap to adjust your time".localized(for: appLanguage)
-                                    : "Set a time for this day".localized(for: appLanguage)
-                                )
-                                .font(.system(size: 15, weight: .medium, design: .rounded))
-                                .foregroundStyle(.primary.opacity(isSelectedDayActive ? 0.72 : 0.52))
-                            }
-                            .offset(y: -86)
-                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            Text("Wake up by".localized(for: appLanguage))
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .tracking(0.5)
+                                .foregroundStyle(.primary.opacity(0.8))
+                                .offset(y: -82)
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .top)),
+                                    removal: .opacity.combined(with: .move(edge: .bottom))
+                                ))
                         }
 
                         RoundedRectangle(cornerRadius: 38, style: .continuous)
@@ -174,17 +167,7 @@ struct ScheduleView: View {
                             }
                             .tourTarget(.clockPill)
                         if showingWakeTimePicker {
-                            VStack(spacing: 14) {
-                                VStack(spacing: 4) {
-                                    Text("Choose wake-up time".localized(for: appLanguage))
-                                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.secondary)
-
-                                    Text("Scroll to set hour and minutes".localized(for: appLanguage))
-                                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                                        .foregroundStyle(.primary.opacity(0.82))
-                                }
-                                .padding(.top, 8)
+                            ZStack {
 
                                 HStack(spacing: 12) {
                                     CustomWheelPicker(
@@ -196,10 +179,10 @@ struct ScheduleView: View {
                                     )
                                         .frame(width: 100)
                                     Text(":")
-                                        .font(.system(size: 64, weight: .light, design: .rounded))
+                                        .font(.system(size: 58, weight: .regular, design: .rounded))
                                         .foregroundStyle(.primary)
-                                        .opacity(0.8)
-                                        .offset(y: -4)
+                                        .opacity(0.72)
+                                        .offset(y: -3)
                                     CustomWheelPicker(
                                         selectedValue: $internalMinute,
                                         range: 0...59,
@@ -209,20 +192,25 @@ struct ScheduleView: View {
                                     )
                                         .frame(width: 100)
                                 }
+                                .frame(height: 228)
+                                .mask(
+                                    LinearGradient(
+                                        stops: [
+                                            .init(color: .clear, location: 0),
+                                            .init(color: .black, location: 0.25),
+                                            .init(color: .black, location: 0.75),
+                                            .init(color: .clear, location: 1)
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
                             }
                             .frame(width: 286, height: 280)
-                            .mask(
-                                LinearGradient(
-                                    stops: [
-                                        .init(color: .clear, location: 0),
-                                        .init(color: .black, location: 0.28),
-                                        .init(color: .black, location: 0.72),
-                                        .init(color: .clear, location: 1)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .move(edge: .top)),
+                                removal: .opacity.combined(with: .move(edge: .bottom))
+                            ))
                             .transaction { transaction in
                                 transaction.animation = nil
                             }
@@ -233,33 +221,10 @@ struct ScheduleView: View {
                                     minute: internalMinute,
                                     isActive: isSelectedDayActive
                                 )
-                                .overlay(alignment: .bottom) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: isSelectedDayActive ? "slider.horizontal.3" : "bell.slash")
-                                            .font(.system(size: 12, weight: .semibold))
-                                        Text(
-                                            isSelectedDayActive
-                                            ? "Tap to edit".localized(for: appLanguage)
-                                            : "Alarm off for this day".localized(for: appLanguage)
-                                        )
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    }
-                                    .foregroundStyle(.primary.opacity(isSelectedDayActive ? 0.62 : 0.42))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                                    .background {
-                                        Capsule(style: .continuous)
-                                            .fill(.ultraThinMaterial)
-                                            .overlay {
-                                                Capsule(style: .continuous)
-                                                    .strokeBorder(
-                                                        Color.white.opacity(colorScheme == .light ? 0.36 : 0.08),
-                                                        lineWidth: 0.8
-                                                    )
-                                            }
-                                    }
-                                    .padding(.bottom, 34)
-                                }
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .top)),
+                                    removal: .opacity.combined(with: .move(edge: .bottom))
+                                ))
                                 
                                 if let summary = watchSetupSummary, isSelectedDayActive {
                                     Button {
@@ -677,14 +642,6 @@ private struct IdleTimeDisplay: View {
             .minimumScaleFactor(0.5)
             .frame(width: 100, height: 96)
             .foregroundStyle(.primary)
-            .background {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(.white.opacity(isActive ? 0.12 : 0.06))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .strokeBorder(.white.opacity(isActive ? 0.22 : 0.10), lineWidth: 0.8)
-                    }
-            }
             .opacity(isActive ? 1.0 : 0.4)
     }
 }
@@ -777,113 +734,6 @@ struct CustomWheelPicker: View {
         let blurOpacity = isActive ? 0.3 : 0.1
 
         ZStack {
-            LinearGradient(
-                colors: colorScheme == .light
-                ? [
-                    Color.white.opacity(0.08),
-                    Color.white.opacity(0.02)
-                ]
-                : [
-                    Color.white.opacity(0.07),
-                    Color.white.opacity(0.02)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .strokeBorder(.white.opacity(colorScheme == .light ? 0.16 : 0.10), lineWidth: 0.8)
-            }
-
-            VStack(spacing: 0) {
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(colorScheme == .light ? 0.22 : 0.10),
-                        .clear
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 1)
-
-                Spacer(minLength: 0)
-
-                LinearGradient(
-                    colors: [
-                        .clear,
-                        Color.white.opacity(colorScheme == .light ? 0.14 : 0.08)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 1)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(focusTint)
-                .frame(height: 82)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(.white.opacity(colorScheme == .light ? 0.34 : 0.14), lineWidth: 0.8)
-                }
-                .shadow(color: .black.opacity(colorScheme == .light ? 0.06 : 0.18), radius: 10, y: 1)
-
-            VStack {
-                Spacer()
-                Capsule(style: .continuous)
-                    .fill(.white.opacity(colorScheme == .light ? 0.52 : 0.16))
-                    .frame(width: 28, height: 3)
-                    .blur(radius: 0.3)
-                    .offset(y: -10)
-                    .opacity(0.85)
-                Spacer()
-            }
-
-            VStack(spacing: 0) {
-                LinearGradient(
-                    colors: colorScheme == .light
-                    ? [Color.white.opacity(0.92), Color.white.opacity(0.02)]
-                    : [Color.black.opacity(0.70), Color.clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 56)
-
-                Spacer(minLength: 0)
-
-                LinearGradient(
-                    colors: colorScheme == .light
-                    ? [Color.white.opacity(0.02), Color.white.opacity(0.92)]
-                    : [Color.clear, Color.black.opacity(0.72)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 56)
-            }
-            .allowsHitTesting(false)
-
-            if isMinutes {
-                HStack {
-                    Spacer()
-                    Text("min")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .padding(.trailing, 8)
-                        .offset(y: 1)
-                }
-            } else {
-                HStack {
-                    Spacer()
-                    Text("hr")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .padding(.trailing, 10)
-                        .offset(y: 1)
-                }
-            }
-
             ScrollView(.vertical, showsIndicators: false) {
                 // Using VStack instead of LazyVStack is the crucial fix!
                 // It pre-computes all boundaries instantaneously, meaning .scrollPosition programmatic jumps are flawlessly mathematically exact.
@@ -901,15 +751,20 @@ struct CustomWheelPicker: View {
                             .scrollTransition(axis: .vertical) { content, phase in
                                 content
                                     .opacity(phase.isIdentity ? baseOpacity : (isPickerMode ? blurOpacity : 0.0))
-                                    .scaleEffect(phase.isIdentity ? 1.0 : (isPickerMode ? 0.72 : 1.0))
-                                    .blur(radius: phase.isIdentity ? 0 : 0.4)
+                                    .scaleEffect(phase.isIdentity ? 1.0 : (isPickerMode ? 0.82 : 1.0))
+                                    .rotation3DEffect(
+                                        .degrees(Double(phase.value) * -20),
+                                        axis: (x: 1, y: 0, z: 0),
+                                        perspective: 0.5
+                                    )
+                                    .offset(y: phase.value * 12)
                             }
                             .id(index)
                     }
                 }
                 .scrollTargetLayout()
             }
-            .safeAreaPadding(.vertical, 92)
+            .safeAreaPadding(.vertical, 66) // (Container 228 - Item 96) / 2
             .scrollPosition(id: $viewPosition, anchor: .center)
             .scrollTargetBehavior(.viewAligned)
             .onScrollPhaseChange { _, newPhase in
@@ -917,25 +772,33 @@ struct CustomWheelPicker: View {
                     userDidScroll = true
                     if hapticFeedbackEnabled { selectionHaptic.prepare() }
                 } else if newPhase == .idle {
-                    if userDidScroll, let pos = viewPosition {
+                    userDidScroll = false
+                    // Ensure the selection matches the final idle position
+                    if let pos = viewPosition {
                         let newValue = range.lowerBound + (pos % count)
+                        if newValue != selectedValue {
+                            selectedValue = newValue
+                        }
+                    }
+                }
+            }
+            .onChange(of: viewPosition) { oldPos, newPos in
+                guard let new = newPos else { return }
+                let newValue = range.lowerBound + (new % count)
+                
+                if newValue != selectedValue {
+                    // Update value while scrolling for immediate feedback
+                    if userDidScroll {
                         selectedValue = newValue
-                        userDidScroll = false
-                    } else if let pos = viewPosition {
-                        let currentShownValue = range.lowerBound + (pos % count)
-                        if currentShownValue != selectedValue {
-                            var diff = selectedValue - currentShownValue
-                            let half = count / 2
-                            if diff > half { diff -= count }
-                            else if diff < -half { diff += count }
-                            
-                            DispatchQueue.main.async { viewPosition = pos + diff }
+                        if hapticFeedbackEnabled {
+                            selectionHaptic.selectionChanged()
+                            selectionHaptic.prepare()
                         }
                     }
                 }
             }
             .onChange(of: selectedValue) { _, newSelected in
-                if let currentPos = viewPosition {
+                if !userDidScroll, let currentPos = viewPosition {
                     let currentShownValue = range.lowerBound + (currentPos % count)
                     if currentShownValue != newSelected {
                         var diff = newSelected - currentShownValue
@@ -951,16 +814,6 @@ struct CustomWheelPicker: View {
                 let midIndexOrigin = (multiplier / 2) * count
                 let offset = selectedValue - range.lowerBound
                 viewPosition = midIndexOrigin + offset
-            }
-            .onChange(of: viewPosition) { oldPos, newPos in
-                guard userDidScroll, hapticFeedbackEnabled else { return }
-                guard let old = oldPos, let new = newPos, old != new else { return }
-                let oldValue = range.lowerBound + (old % count)
-                let newValue = range.lowerBound + (new % count)
-                if oldValue != newValue {
-                    selectionHaptic.selectionChanged()
-                    selectionHaptic.prepare()
-                }
             }
         }
     }

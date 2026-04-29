@@ -471,9 +471,21 @@ private struct WatchAlarmDisplayCard: View {
                     .foregroundStyle(.white.opacity(0.42))
             }
 
-            Text(date == nil ? copy.text(.setOnIPhone) : copy.text(.tapToChange))
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.white.opacity(0.54))
+            if date == nil {
+                Text(copy.text(.setOnIPhone))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.54))
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(dateText)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.66))
+
+                    Text(copy.text(.tapToChange))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.52))
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 14)
