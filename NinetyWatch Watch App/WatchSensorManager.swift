@@ -1054,11 +1054,20 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.readyScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
+        let shouldShowSyncedState = pendingNextAlarmCommand() == nil
         if Thread.isMainThread {
             nextAlarmDate = nil
+            if shouldShowSyncedState {
+                weeklyAlarmSyncState = .synced
+                weeklyAlarmSyncDetail = nil
+            }
         } else {
             DispatchQueue.main.async {
                 self.nextAlarmDate = nil
+                if shouldShowSyncedState {
+                    self.weeklyAlarmSyncState = .synced
+                    self.weeklyAlarmSyncDetail = nil
+                }
             }
         }
     }

@@ -288,7 +288,7 @@ private struct WatchAlarmSetupView: View {
                         isEditingTime = true
                     }
                 } label: {
-                    WatchAlarmDisplayCard(date: wakeTime, copy: copy)
+                    WatchAlarmDisplayCard(date: displayedAlarmDate, copy: copy)
                 }
                 .buttonStyle(.plain)
                 .transition(.asymmetric(
@@ -355,6 +355,15 @@ private struct WatchAlarmSetupView: View {
         }
     }
 
+    private var displayedAlarmDate: Date? {
+        switch sensorManager.weeklyAlarmSyncState {
+        case .saving, .pending, .unreachable:
+            return wakeTime
+        case .synced, .saved, .failed:
+            return sensorManager.nextAlarmDate
+        }
+    }
+
     private static func defaultWakeTime() -> Date {
         var components = Calendar.autoupdatingCurrent.dateComponents([.year, .month, .day], from: Date())
         components.hour = 7
@@ -364,7 +373,14 @@ private struct WatchAlarmSetupView: View {
     }
 
     private func applySyncedNextAlarm() {
-        guard let nextAlarmDate = sensorManager.nextAlarmDate else { return }
+        guard let nextAlarmDate = sensorManager.nextAlarmDate else {
+            if sensorManager.weeklyAlarmSyncState != .saving {
+                withAnimation(.snappy(duration: 0.18)) {
+                    isEditingTime = false
+                }
+            }
+            return
+        }
 
         let calendar = Calendar.autoupdatingCurrent
         let syncedHour = calendar.component(.hour, from: nextAlarmDate)
@@ -404,11 +420,15 @@ private struct WatchAlarmSetupView: View {
 }
 
 private struct WatchAlarmDisplayCard: View {
-    let date: Date
+    let date: Date?
     let copy: WatchCopy
 
     private var timeText: String {
-        date.formatted(
+        guard let date else {
+            return "--:--"
+        }
+
+        return date.formatted(
             Date.FormatStyle()
                 .locale(Locale.autoupdatingCurrent)
                 .hour()
@@ -417,7 +437,11 @@ private struct WatchAlarmDisplayCard: View {
     }
 
     private var dateText: String {
-        date.formatted(
+        guard let date else {
+            return copy.text(.setOnIPhone)
+        }
+
+        return date.formatted(
             .dateTime
                 .weekday(.abbreviated)
                 .day()
@@ -428,7 +452,7 @@ private struct WatchAlarmDisplayCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(copy.text(.nextAlarm))
+            Text(date == nil ? copy.text(.noActiveAlarms) : copy.text(.nextAlarm))
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.68))
 
@@ -447,7 +471,7 @@ private struct WatchAlarmDisplayCard: View {
                     .foregroundStyle(.white.opacity(0.42))
             }
 
-            Text(copy.text(.tapToChange))
+            Text(date == nil ? copy.text(.setOnIPhone) : copy.text(.tapToChange))
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.white.opacity(0.54))
         }
