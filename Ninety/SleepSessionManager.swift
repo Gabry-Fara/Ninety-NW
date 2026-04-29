@@ -376,6 +376,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         log("WCSession Activated: \(activationState == .activated)")
     }
 
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        let status = session.isReachable ? "Reachable" : "Unreachable"
+        log("📱 iPhone WCSession: \(status)")
+    }
+
     func sessionDidBecomeInactive(_ session: WCSession) {}
 
     func sessionDidDeactivate(_ session: WCSession) {
@@ -511,7 +516,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             self.watchStatus = status
 
             if let connectionStatus {
+                let shouldLogConnection = self.watchConnectionStatus != connectionStatus
                 self.watchConnectionStatus = connectionStatus
+                if shouldLogConnection {
+                    self.log("⌚️ Conn: \(connectionStatus)")
+                }
             }
 
             self.watchQueuedStartDate = queuedScheduleDate
@@ -522,7 +531,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             }
 
             if let replayStatus {
+                let shouldLogReplay = self.replayStatus != replayStatus
                 self.replayStatus = replayStatus
+                if shouldLogReplay && replayStatus != "No backlog activity" {
+                    self.log("⌚️ Replay: \(replayStatus)")
+                }
             }
 
             if let pendingPayloadCount, pendingPayloadCount > 0 {

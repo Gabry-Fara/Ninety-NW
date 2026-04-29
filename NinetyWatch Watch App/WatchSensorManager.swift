@@ -303,6 +303,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             // We must notify the user to wake them up and prevent the system from reporting a failure.
             extendedRuntimeSession.notifyUser(hapticType: .notification)
             HapticWakeUpManager.shared.startGradualWakeUp()
+            self.updatePipelineState(.completed, detail: "Fallback Alarm (Expired)")
             self.clearAlarmTracking()
         }
     }
@@ -449,6 +450,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 print("WATCH: Triggering fallback alarm, target date reached.")
                 self.runtimeSession?.notifyUser(hapticType: .notification)
                 HapticWakeUpManager.shared.startGradualWakeUp()
+                self.updatePipelineState(.completed, detail: "Fallback Alarm (Local)")
                 self.clearAlarmTracking()
             }
         }
