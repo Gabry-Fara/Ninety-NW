@@ -535,9 +535,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
     }
 
-        }
-    }
-
     func setNextAlarm(wakeTime: Date) {
         let components = Calendar.current.dateComponents([.hour, .minute], from: wakeTime)
         setNextAlarm(
