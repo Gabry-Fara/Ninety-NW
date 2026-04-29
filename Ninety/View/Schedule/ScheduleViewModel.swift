@@ -152,7 +152,6 @@ final class ScheduleViewModel: ObservableObject {
         self.scheduledWeekdays = Set(UserDefaults.standard.array(forKey: StorageKey.scheduledWeekdays) as? [Int] ?? [])
         self.weekdayMutationTimes = Self.loadWeekdayMutationTimesFromStorage()
         
-        let components = Calendar.current.dateComponents([.hour, .minute], from: Date())
         lastScheduledSession = nil
         logClock("INIT ViewModel finished.")
         updateCurrentWakeUpTime()
