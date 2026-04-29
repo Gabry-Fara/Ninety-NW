@@ -10,6 +10,7 @@ import SwiftUI
 private enum WatchCopyKey {
     case appName
     case wakeUpBy
+    case recordActivity
     case noActiveAlarms
     case setOnIPhone
     case today
@@ -52,6 +53,7 @@ private struct WatchCopy {
             switch key {
             case .appName: return "Ninety"
             case .wakeUpBy: return "Sveglia entro"
+            case .recordActivity: return "Registra attività"
             case .noActiveAlarms: return "Nessuna sveglia attiva"
             case .setOnIPhone: return "Imposta la prossima su iPhone"
             case .today: return "Oggi"
@@ -76,6 +78,7 @@ private struct WatchCopy {
             switch key {
             case .appName: return "Ninety"
             case .wakeUpBy: return "Despertar antes de"
+            case .recordActivity: return "Registrar actividad"
             case .noActiveAlarms: return "No hay alarmas activas"
             case .setOnIPhone: return "Configura la próxima en iPhone"
             case .today: return "Hoy"
@@ -100,6 +103,7 @@ private struct WatchCopy {
             switch key {
             case .appName: return "Ninety"
             case .wakeUpBy: return "最晚唤醒时间"
+            case .recordActivity: return "记录活动"
             case .noActiveAlarms: return "没有已激活的闹钟"
             case .setOnIPhone: return "请在 iPhone 上设置下一次闹钟"
             case .today: return "今天"
@@ -124,6 +128,7 @@ private struct WatchCopy {
             switch key {
             case .appName: return "Ninety"
             case .wakeUpBy: return "الاستيقاظ قبل"
+            case .recordActivity: return "تسجيل النشاط"
             case .noActiveAlarms: return "لا توجد منبهات نشطة"
             case .setOnIPhone: return "اضبط المنبه التالي على iPhone"
             case .today: return "اليوم"
@@ -148,6 +153,7 @@ private struct WatchCopy {
             switch key {
             case .appName: return "Ninety"
             case .wakeUpBy: return "Wake up by"
+            case .recordActivity: return "Record activity"
             case .noActiveAlarms: return "No active alarms"
             case .setOnIPhone: return "Set your next alarm on iPhone"
             case .today: return "Today"
@@ -225,11 +231,19 @@ private struct WatchAlarmSetupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(headerTitle)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.58)
+            VStack(alignment: .leading, spacing: 2) {
+                if let headerEyebrow {
+                    Text(headerEyebrow)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+
+                Text(headerTitle)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+            }
 
             TimeWheelField(wakeTime: $wakeTime)
 
@@ -330,7 +344,19 @@ private struct WatchAlarmSetupView: View {
                 .minute()
         )
 
-        return "\(weekday) · Record activity \(activityTime)"
+        return "\(weekday) · \(activityTime)"
+    }
+
+    private var headerEyebrow: String? {
+        guard
+            let nextAlarmDate = sensorManager.nextAlarmDate,
+            nextAlarmDate > Date(),
+            nextAlarmDate.timeIntervalSinceNow <= 24 * 60 * 60
+        else {
+            return nil
+        }
+
+        return copy.text(.recordActivity)
     }
 
     private static func defaultWakeTime() -> Date {
