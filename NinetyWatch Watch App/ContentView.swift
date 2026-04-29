@@ -9,8 +9,8 @@ import SwiftUI
 
 private enum WatchCopyKey {
     case appName
-    case wakeUpBy
-    case recordActivity
+    case nextAlarm
+    case tapToChange
     case noActiveAlarms
     case setOnIPhone
     case today
@@ -52,8 +52,8 @@ private struct WatchCopy {
         case "it":
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "Sveglia entro"
-            case .recordActivity: return "Registra attività"
+            case .nextAlarm: return "Prossima sveglia"
+            case .tapToChange: return "Tocca per modificare"
             case .noActiveAlarms: return "Nessuna sveglia attiva"
             case .setOnIPhone: return "Imposta la prossima su iPhone"
             case .today: return "Oggi"
@@ -77,8 +77,8 @@ private struct WatchCopy {
         case "es":
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "Despertar antes de"
-            case .recordActivity: return "Registrar actividad"
+            case .nextAlarm: return "Próxima alarma"
+            case .tapToChange: return "Toca para cambiar"
             case .noActiveAlarms: return "No hay alarmas activas"
             case .setOnIPhone: return "Configura la próxima en iPhone"
             case .today: return "Hoy"
@@ -102,8 +102,8 @@ private struct WatchCopy {
         case "zh-Hans":
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "最晚唤醒时间"
-            case .recordActivity: return "记录活动"
+            case .nextAlarm: return "下一个闹钟"
+            case .tapToChange: return "点按修改"
             case .noActiveAlarms: return "没有已激活的闹钟"
             case .setOnIPhone: return "请在 iPhone 上设置下一次闹钟"
             case .today: return "今天"
@@ -127,8 +127,8 @@ private struct WatchCopy {
         case "ar":
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "الاستيقاظ قبل"
-            case .recordActivity: return "تسجيل النشاط"
+            case .nextAlarm: return "المنبه التالي"
+            case .tapToChange: return "اضغط للتعديل"
             case .noActiveAlarms: return "لا توجد منبهات نشطة"
             case .setOnIPhone: return "اضبط المنبه التالي على iPhone"
             case .today: return "اليوم"
@@ -152,8 +152,8 @@ private struct WatchCopy {
         default:
             switch key {
             case .appName: return "Ninety"
-            case .wakeUpBy: return "Wake up by"
-            case .recordActivity: return "Record activity"
+            case .nextAlarm: return "Next alarm"
+            case .tapToChange: return "Tap to change"
             case .noActiveAlarms: return "No active alarms"
             case .setOnIPhone: return "Set your next alarm on iPhone"
             case .today: return "Today"
@@ -228,44 +228,78 @@ private struct WatchAlarmSetupView: View {
 
     @State private var wakeTime = WatchAlarmSetupView.defaultWakeTime()
     @State private var isApplyingSyncedAlarm = false
+    @State private var isEditingTime = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            VStack(alignment: .leading, spacing: 2) {
-                if let headerEyebrow {
-                    Text(headerEyebrow)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.72))
+        VStack(alignment: .leading, spacing: 10) {
+            if isEditingTime {
+                TimeWheelField(wakeTime: $wakeTime)
+                    .padding(.bottom, -4)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+
+                HStack(spacing: 8) {
+                    Button {
+                        cancelEditing()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .frame(width: 40, height: 40)
+                    }
+                    .buttonStyle(.plain)
+                    .background {
+                        Circle()
+                        .fill(.white.opacity(0.12))
+                            .overlay {
+                                Circle()
+                                    .strokeBorder(.white.opacity(0.18), lineWidth: 0.8)
+                            }
+                    }
+                    .foregroundStyle(.white.opacity(0.92))
+
+                    Button {
+                        sensorManager.setNextAlarm(wakeTime: wakeTime)
+                        withAnimation(.snappy(duration: 0.22)) {
+                            isEditingTime = false
+                        }
+                    } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: buttonIconName)
+                                Text(buttonTitle)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.vertical, 3)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(buttonTint)
+                    .disabled(sensorManager.weeklyAlarmSyncState == .saving)
                 }
-
-                Text(headerTitle)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-            }
-
-            TimeWheelField(wakeTime: $wakeTime)
-
-            Button {
-                sensorManager.setNextAlarm(wakeTime: wakeTime)
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: buttonIconName)
-                    Text(buttonTitle)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-                .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
+                .transition(.opacity)
+            } else {
+                Button {
+                    withAnimation(.snappy(duration: 0.22)) {
+                        isEditingTime = true
+                    }
+                } label: {
+                    WatchAlarmDisplayCard(date: wakeTime, copy: copy)
+                }
+                .buttonStyle(.plain)
+                .transition(.asymmetric(
+                    insertion: .opacity,
+                    removal: .move(edge: .top).combined(with: .opacity)
+                ))
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .tint(buttonTint)
-            .disabled(sensorManager.weeklyAlarmSyncState == .saving)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
+        .animation(.snappy(duration: 0.22), value: isEditingTime)
         .onAppear {
             applySyncedNextAlarm()
         }
@@ -321,44 +355,6 @@ private struct WatchAlarmSetupView: View {
         }
     }
 
-    private var headerTitle: String {
-        guard
-            let nextAlarmDate = sensorManager.nextAlarmDate,
-            nextAlarmDate > Date(),
-            nextAlarmDate.timeIntervalSinceNow <= 24 * 60 * 60
-        else {
-            return copy.text(.setAlarm)
-        }
-
-        let activityDate = nextAlarmDate.addingTimeInterval(-30 * 60)
-        let weekday = nextAlarmDate.formatted(
-            .dateTime
-                .weekday(.wide)
-                .locale(Locale.autoupdatingCurrent)
-        )
-        .capitalized(with: Locale.autoupdatingCurrent)
-        let activityTime = activityDate.formatted(
-            Date.FormatStyle()
-                .locale(Locale.autoupdatingCurrent)
-                .hour()
-                .minute()
-        )
-
-        return "\(weekday) · \(activityTime)"
-    }
-
-    private var headerEyebrow: String? {
-        guard
-            let nextAlarmDate = sensorManager.nextAlarmDate,
-            nextAlarmDate > Date(),
-            nextAlarmDate.timeIntervalSinceNow <= 24 * 60 * 60
-        else {
-            return nil
-        }
-
-        return copy.text(.recordActivity)
-    }
-
     private static func defaultWakeTime() -> Date {
         var components = Calendar.autoupdatingCurrent.dateComponents([.year, .month, .day], from: Date())
         components.hour = 7
@@ -383,6 +379,12 @@ private struct WatchAlarmSetupView: View {
         DispatchQueue.main.async {
             isApplyingSyncedAlarm = false
         }
+
+        if sensorManager.weeklyAlarmSyncState != .saving {
+            withAnimation(.snappy(duration: 0.18)) {
+                isEditingTime = false
+            }
+        }
     }
 
     private static func todayDate(hour: Int, minute: Int) -> Date {
@@ -391,6 +393,68 @@ private struct WatchAlarmSetupView: View {
         components.minute = minute
         components.second = 0
         return Calendar.autoupdatingCurrent.date(from: components) ?? Date()
+    }
+
+    private func cancelEditing() {
+        applySyncedNextAlarm()
+        withAnimation(.snappy(duration: 0.22)) {
+            isEditingTime = false
+        }
+    }
+}
+
+private struct WatchAlarmDisplayCard: View {
+    let date: Date
+    let copy: WatchCopy
+
+    private var timeText: String {
+        date.formatted(
+            Date.FormatStyle()
+                .locale(Locale.autoupdatingCurrent)
+                .hour()
+                .minute()
+        )
+    }
+
+    private var dateText: String {
+        date.formatted(
+            .dateTime
+                .weekday(.abbreviated)
+                .day()
+                .month(.abbreviated)
+                .locale(Locale.autoupdatingCurrent)
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(copy.text(.nextAlarm))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.68))
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(timeText)
+                    .font(.system(size: 32, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.42))
+            }
+
+            Text(copy.text(.tapToChange))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.white.opacity(0.54))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(SoftControlBackground(cornerRadius: 18))
     }
 }
 
