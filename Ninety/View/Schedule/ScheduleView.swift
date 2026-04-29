@@ -277,8 +277,6 @@ struct ScheduleView: View {
                             // 3. Spacer(40)
                             // 4. Day selector with offset(70) -> Visual top at 450
                             // We place the card in that ~170pt gap.
-                            let clockBottom: CGFloat = 280
-                            let selectorTop: CGFloat = 450
                             
                             // Center of gap is 365. We use 350 to push it slightly higher 
                             // toward the pill as requested.

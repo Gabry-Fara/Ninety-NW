@@ -18,6 +18,7 @@ struct AlarmView: View {
             
             Button(action: {
                 hapticManager.stop()
+                WatchSensorManager.shared.sendStopAlarmMessage()
             }) {
                 Text("STOP")
                     .fontWeight(.bold)

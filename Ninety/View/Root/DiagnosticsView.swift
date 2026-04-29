@@ -116,7 +116,7 @@ struct DiagnosticsView: View {
                     }
 
                     diagnosticSection("Log Stream".localized(for: appLanguage)) {
-                        VStack(alignment: .leading, spacing: 8) {
+                        LazyVStack(alignment: .leading, spacing: 8) {
                             if !sleepManager.logs.isEmpty {
                                 Button("Clear Logs".localized(for: appLanguage)) {
                                     sleepManager.clearLogs()
@@ -129,12 +129,12 @@ struct DiagnosticsView: View {
                                 Text("No logs yet. Schedule an alarm to begin.".localized(for: appLanguage))
                                     .foregroundColor(.secondary)
                             } else {
-                                let displayLogs = Array(sleepManager.logs.reversed().prefix(100))
+                                let displayLogs = Array(sleepManager.logs.prefix(5000).reversed())
                                 ForEach(displayLogs, id: \.self) { logMsg in
                                     coloredLogRow(logMsg)
                                 }
-                                if sleepManager.logs.count > 100 {
-                                    Text("… \(sleepManager.logs.count - 100) older entries")
+                                if sleepManager.logs.count > 5000 {
+                                    Text("… \(sleepManager.logs.count - 5000) older entries")
                                         .font(.system(size: 9, design: .monospaced))
                                         .foregroundStyle(.tertiary)
                                 }
@@ -218,7 +218,10 @@ struct DiagnosticsView: View {
             Text("HR mean".localized(for: appLanguage))
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
-            Text("Motion mean".localized(for: appLanguage))
+            Text("Motion".localized(for: appLanguage))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                
+            Text("Stage".localized(for: appLanguage))
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .font(.system(size: 10, design: .monospaced).weight(.semibold))
@@ -235,6 +238,9 @@ struct DiagnosticsView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
             Text(String(format: "%.1f", epoch.motionMagMean))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                
+            Text(epoch.modelStage)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .font(.system(size: 11, design: .monospaced))

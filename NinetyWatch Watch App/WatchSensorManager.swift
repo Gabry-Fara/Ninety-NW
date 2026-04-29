@@ -72,6 +72,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private var lastBacklogFlushDate: Date?
     private var pipelineState: WatchPipelineState = .idle
     private var replayStatusText: String = "No backlog activity"
+    private var hasTriggeredHapticPreview = false
     
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
@@ -444,14 +445,28 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         
         transmit(payload: payload)
         
-        // Fallback: If iPhone is disconnected, trigger the alarm locally when the time is reached
-        if let alarmDate = nextAlarmDate, Date() >= alarmDate {
-            DispatchQueue.main.async {
-                print("WATCH: Triggering fallback alarm, target date reached.")
-                self.runtimeSession?.notifyUser(hapticType: .notification)
-                HapticWakeUpManager.shared.startGradualWakeUp()
-                self.updatePipelineState(.completed, detail: "Fallback Alarm (Local)")
-                self.clearAlarmTracking()
+        if let alarmDate = nextAlarmDate {
+            let now = Date()
+            
+            // 1. Gradual Haptic Preview (60 seconds before target)
+            if now >= alarmDate.addingTimeInterval(-60) && !hasTriggeredHapticPreview {
+                DispatchQueue.main.async {
+                    print("WATCH: Starting 60s gradual haptic preview for fallback alarm.")
+                    self.hasTriggeredHapticPreview = true
+                    HapticWakeUpManager.shared.startGradualWakeUp()
+                }
+            }
+            
+            // 2. Fallback: If iPhone is disconnected, trigger the alarm locally when the time is reached
+            if now >= alarmDate {
+                DispatchQueue.main.async {
+                    print("WATCH: Triggering fallback alarm, target date reached.")
+                    self.runtimeSession?.notifyUser(hapticType: .notification)
+                    // HapticWakeUpManager should already be playing, but just in case:
+                    HapticWakeUpManager.shared.startGradualWakeUp()
+                    self.updatePipelineState(.completed, detail: "Fallback Alarm (Local)")
+                    self.clearAlarmTracking()
+                }
             }
         }
     }
@@ -563,7 +578,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 prepareForNewSession()
                 UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
                 refreshNextAlarmDate()
-                var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
+                var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-29 * 60)
                 if wakeWindowStartDate <= Date() {
                     wakeWindowStartDate = Date().addingTimeInterval(2)
                 }
@@ -844,6 +859,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     private func clearAlarmTracking() {
+        hasTriggeredHapticPreview = false
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.readyScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
@@ -876,6 +892,15 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             message["readySchedule"] = readySchedule
         }
 
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(message)
+        }
+    }
+    func sendStopAlarmMessage() {
+        guard let session = wcSession, session.activationState == .activated else { return }
+        let message = ["action": "stopAlarm"]
         if session.isReachable {
             session.sendMessage(message, replyHandler: nil, errorHandler: nil)
         } else {

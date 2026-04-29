@@ -9,11 +9,11 @@
 // using WKInterfaceDevice, ramping from gentle taps to urgent pulses
 // so the wake-up is smooth and doesn't cancel the sleep-cycle benefit.
 //
-// Haptic phases:
-//   Phase 1 (0–12s)   → gentle .notification every 3s
-//   Phase 2 (12–24s)  → medium .directionUp every 2s
-//   Phase 3 (24–36s)  → strong .click every 1.5s
-//   Phase 4 (36s+)    → urgent .notification every 1s, for 30s max
+// Haptic phases (Optimized Rhythmic Wake-Up):
+//   Phase 1 (0–15s)   → very light .click every 3s
+//   Phase 2 (15–30s)  → slightly faster .click every 1.5s
+//   Phase 3 (30–45s)  → stronger .directionUp every 1s
+//   Phase 4 (45s+)    → urgent .notification every 0.5s
 
 import WatchKit
 import Foundation
@@ -39,10 +39,10 @@ class HapticWakeUpManager: ObservableObject {
     }
 
     private let phases: [Phase] = [
-        Phase(hapticType: .notification,  interval: 3.0, duration: 12),  // gentle
-        Phase(hapticType: .directionUp,   interval: 2.0, duration: 12),  // medium
-        Phase(hapticType: .click,         interval: 1.5, duration: 12),  // strong
-        Phase(hapticType: .notification,  interval: 1.0, duration: 30),  // urgent
+        Phase(hapticType: .click,         interval: 3.0, duration: 15),  // Phase 1: gentle pulse
+        Phase(hapticType: .click,         interval: 1.5, duration: 15),  // Phase 2: faster pulse
+        Phase(hapticType: .directionUp,   interval: 1.0, duration: 15),  // Phase 3: emerging
+        Phase(hapticType: .notification,  interval: 0.5, duration: 20),  // Phase 4: urgent
     ]
 
     // MARK: - Public API

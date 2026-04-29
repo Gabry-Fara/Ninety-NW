@@ -11,7 +11,7 @@ import AlarmKit
 @MainActor
 class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = SmartAlarmManager()
-    nonisolated static let monitoringLeadTime: TimeInterval = 30 * 60
+    nonisolated static let monitoringLeadTime: TimeInterval = 29 * 60
 
     struct ScheduledSleepSession {
         let wakeUpDate: Date
@@ -22,8 +22,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     @Published var monitoringCountdown: String = ""
     
     private var absoluteAlarmID: UUID?
-    private var monitoringTimer: Timer?   // fires when the 30-min tracking window opens
+    private var monitoringTimer: Timer?   // fires when the 29-min tracking window opens
     private var countdownTimer: Timer?    // updates the countdown string every second
+    private var layer2Task: Task<Void, Never>?
     private let speechSynthesizer = AVSpeechSynthesizer()
     
     override init() {
@@ -93,6 +94,10 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         countdownTimer = nil
         monitoringCountdown = ""
 
+        layer2Task?.cancel()
+        layer2Task = nil
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+
         let previousAlarmID = absoluteAlarmID
         absoluteAlarmID = nil
 
@@ -132,7 +137,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
 
         if monitoringStart <= now {
-            // We're already inside the 30-min window — start immediately
+            // We're already inside the 29-min window — start immediately
             self.alarmStatus = "Tracking window open on Apple Watch"
         } else {
             // The watch is armed immediately; the phone keeps a local countdown
@@ -209,29 +214,33 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         Task {
             do {
                 // Layer 2 (Dynamic Heuristic Trigger) — near-immediate fire
-                let targetTime = Date().addingTimeInterval(2) // AlarmKit requires at least a few seconds in the future
+                // DELAYED BY 60 SECONDS FOR GRADUAL WAKE UP
+                let targetTime = Date().addingTimeInterval(60) 
                 let configuration = AlarmManager.AlarmConfiguration(
                     schedule: .fixed(targetTime),
                     attributes: createDefaultAttributes()
                 )
-                _ = try await AlarmManager.shared.schedule(id: UUID(), configuration: configuration)
-                self.alarmStatus = "✅ Livello 2 Executed! 🔥 Waking User!"
+                let newAlarmID = UUID()
+                self.absoluteAlarmID = newAlarmID // Store it so it can be cancelled if Watch stops it
+                _ = try await AlarmManager.shared.schedule(id: newAlarmID, configuration: configuration)
+                self.alarmStatus = "✅ Livello 2 Executed! 🔥 Waking User in 60s!"
             } catch {
                 self.alarmStatus = "Dynamic execution failed: \(error)"
             }
         }
         #else
-        self.alarmStatus = "[Mock] Livello 2 Executed! 🔥 Waking User!"
+        self.alarmStatus = "[Mock] Livello 2 Executed! 🔥 Waking User in 60s!"
         
-        Task {
+        layer2Task = Task {
             let content = UNMutableNotificationContent()
             content.title = "NINETY: OPTIMAL WAKE TIME!"
             content.body = "You are in a light sleep phase. Wake up now!"
             content.sound = .defaultCritical
             
-            // Add a slight delay to ensure the request processes safely if tapped quickly
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+            let requestID = UUID().uuidString
+            // Add a 60-second delay for gradual wake up
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: false)
+            let request = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)
             
             do {
                 let _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
@@ -240,7 +249,14 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
                 print("Failed mock notification: \(error)")
             }
             
-            self.playMockAlarmSound()
+            do {
+                try await Task.sleep(nanoseconds: 60_000_000_000)
+                if !Task.isCancelled {
+                    self.playMockAlarmSound()
+                }
+            } catch {
+                // Task was cancelled
+            }
         }
         #endif
     }

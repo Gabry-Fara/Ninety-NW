@@ -114,6 +114,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let motionMagMean: Double
         let motionMagMax: Double
         let motionJerk: Double
+        let modelStage: String
     }
 
     private struct PredictionSnapshot {
@@ -173,22 +174,33 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 heartRateRange: epoch.heartRateRange,
                 motionMagMean: epoch.motionMagMean,
                 motionMagMax: epoch.motionMagMax,
-                motionJerk: epoch.motionJerk
+                motionJerk: epoch.motionJerk,
+                modelStage: smoothedPredictionHistory.last?.title ?? "-"
             )
         }
     }
 
     var recentEpochDiagnostics: [EpochDiagnosticsSnapshot] {
         performOnProcessingQueueSync {
-            epochHistory.reversed().map { epoch in
-                EpochDiagnosticsSnapshot(
+            let offset = epochHistory.count - smoothedPredictionHistory.count
+            return epochHistory.enumerated().reversed().map { index, epoch in
+                let stageText: String
+                let predIndex = index - offset
+                if predIndex >= 0 && predIndex < smoothedPredictionHistory.count {
+                    stageText = smoothedPredictionHistory[predIndex].title
+                } else {
+                    stageText = "-"
+                }
+                
+                return EpochDiagnosticsSnapshot(
                     timestamp: epoch.timestamp,
                     heartRateMean: epoch.heartRateMean,
                     heartRateStd: epoch.heartRateStd,
                     heartRateRange: epoch.heartRateRange,
                     motionMagMean: epoch.motionMagMean,
                     motionMagMax: epoch.motionMagMax,
-                    motionJerk: epoch.motionJerk
+                    motionJerk: epoch.motionJerk,
+                    modelStage: stageText
                 )
             }
         }
@@ -430,6 +442,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 } else {
                     self.syncAlarmState(targetDate: nil)
                 }
+            }
+            return
+        }
+
+        // 0.5. Cancel Alarm Request
+        if let action = payloadDictionary["action"] as? String, action == "stopAlarm" {
+            DispatchQueue.main.async {
+                SmartAlarmManager.shared.cancelSession()
             }
             return
         }
@@ -1298,7 +1318,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func scheduledMonitoringStartDate(for wakeTargetDate: Date) -> Date {
-        let requestedStart = wakeTargetDate.addingTimeInterval(-30 * 60)
+        let requestedStart = wakeTargetDate.addingTimeInterval(-29 * 60)
         if requestedStart <= Date() {
             return Date().addingTimeInterval(2)
         }
@@ -1308,7 +1328,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     func log(_ message: String) {
         DispatchQueue.main.async {
             self.logs.insert("[\(Date().formatted(date: .omitted, time: .standard))] \(message)", at: 0)
-            if self.logs.count > 100 {
+            if self.logs.count > 5000 {
                 self.logs.removeLast()
             }
             self.engineLog = message
@@ -1319,6 +1339,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     func clearLogs() {
         DispatchQueue.main.async {
             self.logs.removeAll()
+            self.epochHistory.removeAll()
+            self.rawPredictionHistory.removeAll()
+            self.smoothedPredictionHistory.removeAll()
+            self.rawPredictions.removeAll()
+            self.confirmationBuffer.removeAll()
             self.requestPersistedSessionSave()
         }
     }
