@@ -25,11 +25,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private static let readyScheduleKey = "readySmartAlarmSchedule"
     private static let actualAlarmTimeKey = "actualSmartAlarmTime"
     private static let pendingNextAlarmCommandKey = "pendingNextAlarmCommand"
+    private static let lastProcessedPhoneCommandSequenceKey = "lastProcessedPhoneCommandSequence"
     private let payloadInterval: TimeInterval = 5
     private let motionThreshold = 0.08
     private let maxPendingPayloads = 12_000
     private let backlogReplayBatchSize = 24
     private let minimumBacklogFlushInterval: TimeInterval = 8
+    private let runtimeExpiryAlarmTolerance: TimeInterval = 10
 
     private enum WatchPipelineState: String, Codable {
         case idle
@@ -99,7 +101,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private var lastBacklogFlushDate: Date?
     private var pipelineState: WatchPipelineState = .idle
     private var replayStatusText: String = "No backlog activity"
-    private var hasTriggeredHapticPreview = false
     private var isSendingNextAlarmCommand = false
     private var alarmDeadlineTimer: Timer?
     
@@ -295,31 +296,17 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
     
     func stopSession() {
-        if runtimeSession?.state == .running || runtimeSession?.state == .scheduled {
-            suppressNextRuntimeInvalidation = true
-            runtimeSession?.invalidate()
-        }
-        runtimeSession = nil
-        clearAlarmTracking()
-        stopSensors()
-        HapticWakeUpManager.shared.stop()
-        clearPendingPayloadQueue()
-        updatePipelineState(.completed, detail: "Manually Stopped")
-        sendWatchStatusUpdate(sessionState)
+        clearScheduledAlarmAndMonitoring(
+            detail: "Manually Stopped",
+            state: .completed
+        )
     }
 
     func pauseMonitoring() {
-        if runtimeSession?.state == .running || runtimeSession?.state == .scheduled {
-            suppressNextRuntimeInvalidation = true
-            runtimeSession?.invalidate()
-        }
-        runtimeSession = nil
-        clearAlarmTracking()
-        stopSensors()
-        HapticWakeUpManager.shared.stop()
-        clearPendingPayloadQueue()
-        updatePipelineState(.completed, detail: "Monitoring Paused After Alarm")
-        sendWatchStatusUpdate(sessionState)
+        clearScheduledAlarmAndMonitoring(
+            detail: "Monitoring Paused After Alarm",
+            state: .completed
+        )
     }
 
     // MARK: - WKExtendedRuntimeSessionDelegate
@@ -338,13 +325,15 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         DispatchQueue.main.async {
             self.updatePipelineState(.recording, detail: "Session Expiring Soon")
             self.sendWatchStatusUpdate(self.sessionState)
-            
-            // Fallback: if the session is expiring (30 mins passed), the alarm time has been reached.
-            // We must notify the user to wake them up and prevent the system from reporting a failure.
-            extendedRuntimeSession.notifyUser(hapticType: .notification)
-            HapticWakeUpManager.shared.startGradualWakeUp()
-            self.updatePipelineState(.completed, detail: "Fallback Alarm (Expired)")
-            self.clearAlarmTracking()
+
+            guard
+                let nextAlarmDate = self.nextAlarmDate,
+                nextAlarmDate.timeIntervalSinceNow <= self.runtimeExpiryAlarmTolerance
+            else {
+                return
+            }
+
+            self.handleScheduledAlarmReached(reason: "Fallback Alarm (Expired)")
         }
     }
     
@@ -487,28 +476,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         
         transmit(payload: payload)
         
-        if let alarmDate = nextAlarmDate {
-            let now = Date()
-            
-            // 1. Gradual Haptic Preview (60 seconds before target)
-            if now >= alarmDate.addingTimeInterval(-60) && !hasTriggeredHapticPreview {
-                DispatchQueue.main.async {
-                    print("WATCH: Starting 60s gradual haptic preview for fallback alarm.")
-                    self.hasTriggeredHapticPreview = true
-                    HapticWakeUpManager.shared.startGradualWakeUp()
-                }
-            }
-            
-            // 2. Fallback: If iPhone is disconnected, trigger the alarm locally when the time is reached
-            if now >= alarmDate {
-                DispatchQueue.main.async {
-                    print("WATCH: Triggering fallback alarm, target date reached.")
-                    self.runtimeSession?.notifyUser(hapticType: .notification)
-                    // HapticWakeUpManager should already be playing, but just in case:
-                    HapticWakeUpManager.shared.startGradualWakeUp()
-                    self.updatePipelineState(.completed, detail: "Fallback Alarm (Local)")
-                    self.clearAlarmTracking()
-                }
+        if let alarmDate = nextAlarmDate, Date() >= alarmDate {
+            DispatchQueue.main.async {
+                print("WATCH: Reached scheduled wake time.")
+                self.handleScheduledAlarmReached(reason: "Fallback Alarm (Local)")
             }
         }
     }
@@ -763,11 +734,12 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                     self.acknowledgePayloads(withIDs: idStrings.compactMap(UUID.init(uuidString:)))
                 }
             } else if action == "startSession" {
+                guard shouldProcessPhoneCommand(payload) else { return }
                 guard let targetInterval = payload["targetDate"] as? TimeInterval else { return }
                 prepareForNewSession()
                 UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
                 refreshNextAlarmDate()
-                var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-29 * 60)
+                var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
                 if wakeWindowStartDate <= Date() {
                     wakeWindowStartDate = Date().addingTimeInterval(2)
                 }
@@ -775,10 +747,12 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                     self.queueOrScheduleSmartAlarmSession(at: wakeWindowStartDate)
                 }
             } else if action == "stopSession" {
+                guard shouldProcessPhoneCommand(payload) else { return }
                 DispatchQueue.main.async {
                     self.stopSession()
                 }
             } else if action == "pauseMonitoring" {
+                guard shouldProcessPhoneCommand(payload) else { return }
                 DispatchQueue.main.async {
                     self.pauseMonitoring()
                 }
@@ -790,15 +764,21 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                     self.clearAlarmTracking()
                 }
             } else if action == "syncAlarmState" {
+                guard shouldProcessPhoneCommand(payload) else { return }
                 if let targetInterval = payload["targetDate"] as? TimeInterval {
                     UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
                     print("WATCH: Received syncAlarmState for \(Date(timeIntervalSince1970: targetInterval))")
+                    DispatchQueue.main.async {
+                        self.refreshNextAlarmDate()
+                    }
                 } else {
-                    clearAlarmTracking()
+                    DispatchQueue.main.async {
+                        self.clearScheduledAlarmAndMonitoring(
+                            detail: "Alarm Removed",
+                            state: .idle
+                        )
+                    }
                     print("WATCH: Received syncAlarmState (clear)")
-                }
-                DispatchQueue.main.async {
-                    self.refreshNextAlarmDate()
                 }
             }
         }
@@ -841,6 +821,49 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         clearPendingPayloadQueue()
         replayStatusText = "No backlog activity"
         updatePipelineState(.idle)
+    }
+
+    private func invalidateRuntimeSessionIfNeeded() {
+        if runtimeSession?.state == .running || runtimeSession?.state == .scheduled {
+            suppressNextRuntimeInvalidation = true
+            runtimeSession?.invalidate()
+        }
+        runtimeSession = nil
+    }
+
+    private func clearScheduledAlarmAndMonitoring(
+        detail: String,
+        state: WatchPipelineState,
+        keepHapticsRunning: Bool = false
+    ) {
+        invalidateRuntimeSessionIfNeeded()
+        clearAlarmTracking()
+        stopSensors()
+        if !keepHapticsRunning {
+            HapticWakeUpManager.shared.stop()
+        }
+        clearPendingPayloadQueue()
+        updatePipelineState(state, detail: detail)
+        sendWatchStatusUpdate(sessionState)
+    }
+
+    private func handleScheduledAlarmReached(reason: String) {
+        let phoneReachable = wcSession?.activationState == .activated && wcSession?.isReachable == true
+        if phoneReachable {
+            clearScheduledAlarmAndMonitoring(
+                detail: "Alarm handled by iPhone",
+                state: .completed
+            )
+            return
+        }
+
+        runtimeSession?.notifyUser(hapticType: .notification)
+        HapticWakeUpManager.shared.startGradualWakeUp()
+        clearScheduledAlarmAndMonitoring(
+            detail: reason,
+            state: .completed,
+            keepHapticsRunning: true
+        )
     }
 
     private func enqueuePendingPayload(_ payload: SensorPayload) {
@@ -1025,6 +1048,38 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         scheduleAlarmDeadlineTimer(for: refreshedDate)
     }
 
+    private func shouldProcessPhoneCommand(_ payload: [String: Any]) -> Bool {
+        guard let sequence = intValue(from: payload["commandSequence"]) else {
+            return true
+        }
+
+        let lastProcessedSequence = UserDefaults.standard.integer(
+            forKey: Self.lastProcessedPhoneCommandSequenceKey
+        )
+        guard sequence > lastProcessedSequence else {
+            return false
+        }
+
+        UserDefaults.standard.set(sequence, forKey: Self.lastProcessedPhoneCommandSequenceKey)
+        return true
+    }
+
+    private func intValue(from value: Any?) -> Int? {
+        if let intValue = value as? Int {
+            return intValue
+        }
+
+        if let number = value as? NSNumber {
+            return number.intValue
+        }
+
+        if let stringValue = value as? String {
+            return Int(stringValue)
+        }
+
+        return nil
+    }
+
     private func queueOrScheduleSmartAlarmSession(at date: Date) {
         guard WKExtension.shared().applicationState == .active else {
             UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.pendingScheduleKey)
@@ -1050,7 +1105,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     private func clearAlarmTracking() {
-        hasTriggeredHapticPreview = false
         alarmDeadlineTimer?.invalidate()
         alarmDeadlineTimer = nil
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
@@ -1121,7 +1175,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             return
         }
 
-        pauseMonitoring()
+        handleScheduledAlarmReached(reason: "Fallback Alarm (Deadline)")
     }
 
     private func sendWatchStatusUpdate(_ status: String) {
