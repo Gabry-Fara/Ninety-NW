@@ -745,7 +745,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func triggerLocalSmartWake(reason: String) {
         runtimeSession?.notifyUser(hapticType: .notification)
         HapticWakeUpManager.shared.startGradualWakeUp()
-        sendStopAlarmMessage()
+        
+        // Tell the phone to start its gradual wake sequence as well
+        sendTriggerAlarmMessage()
+        
         clearScheduledAlarmAndMonitoring(
             detail: reason,
             state: .completed,
@@ -1141,7 +1144,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                     print("WATCH: Received hapticWakeUp from iPhone.")
                     self.runtimeSession?.notifyUser(hapticType: .notification)
                     HapticWakeUpManager.shared.startGradualWakeUp()
-                    self.clearAlarmTracking()
+                    self.clearScheduledAlarmAndMonitoring(detail: "Alarm Triggered by Phone", state: .completed, keepHapticsRunning: true)
                 }
             } else if action == "syncAlarmState" {
                 guard shouldProcessPhoneCommand(payload) else { return }
@@ -1217,13 +1220,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         state: WatchPipelineState,
         keepHapticsRunning: Bool = false
     ) {
-        invalidateRuntimeSessionIfNeeded()
+        if !keepHapticsRunning {
+            invalidateRuntimeSessionIfNeeded()
+            HapticWakeUpManager.shared.stop()
+        }
         clearAlarmTracking()
         stopSensors()
         resetLocalAnalysis()
-        if !keepHapticsRunning {
-            HapticWakeUpManager.shared.stop()
-        }
         clearPendingPayloadQueue()
         updatePipelineState(state, detail: detail)
         sendWatchStatusUpdate(sessionState)
@@ -1231,21 +1234,29 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
     private func handleScheduledAlarmReached(reason: String) {
         let phoneReachable = wcSession?.activationState == .activated && wcSession?.isReachable == true
-        if phoneReachable {
-            clearScheduledAlarmAndMonitoring(
-                detail: "Alarm handled by iPhone",
-                state: .completed
-            )
-            return
-        }
-
+        
+        // Start the gradual haptic sequence locally immediately
         runtimeSession?.notifyUser(hapticType: .notification)
         HapticWakeUpManager.shared.startGradualWakeUp()
-        clearScheduledAlarmAndMonitoring(
-            detail: reason,
-            state: .completed,
-            keepHapticsRunning: true
-        )
+
+        if phoneReachable {
+            // Tell the phone to start its gradual wake sequence (loud alarm in 60s)
+            sendTriggerAlarmMessage()
+            
+            clearScheduledAlarmAndMonitoring(
+                detail: "Alarm triggered (Syncing with iPhone)",
+                state: .completed,
+                keepHapticsRunning: true
+            )
+        } else {
+            // Standalone fallback: we start haptics now. 
+            // Note: Watch doesn't have a 'loud' speaker like iPhone, so haptics are the primary alert.
+            clearScheduledAlarmAndMonitoring(
+                detail: reason,
+                state: .completed,
+                keepHapticsRunning: true
+            )
+        }
     }
 
     private func enqueuePendingPayload(_ payload: SensorPayload) {
@@ -1519,7 +1530,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 return
             }
 
-            let delay = alarmDate.timeIntervalSinceNow
+            // Fire the haptic deadline 60 seconds BEFORE the actual alarm
+            let hapticDeadlineDate = alarmDate.addingTimeInterval(-60)
+            let delay = hapticDeadlineDate.timeIntervalSinceNow
             guard delay > 0 else {
                 _ = self.stopMonitoringIfAlarmDeadlineReached()
                 return
@@ -1544,7 +1557,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
 
         let alarmDate = Date(timeIntervalSince1970: interval)
-        guard now >= alarmDate else {
+        // Check against the 60-second advanced deadline
+        let hapticDeadlineDate = alarmDate.addingTimeInterval(-60)
+        guard now >= hapticDeadlineDate else {
             return false
         }
 
@@ -1589,6 +1604,16 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     func sendStopAlarmMessage() {
         guard let session = wcSession, session.activationState == .activated else { return }
         let message = ["action": "stopAlarm"]
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(message)
+        }
+    }
+    
+    func sendTriggerAlarmMessage() {
+        guard let session = wcSession, session.activationState == .activated else { return }
+        let message = ["action": "triggerAlarm"]
         if session.isReachable {
             session.sendMessage(message, replyHandler: nil, errorHandler: nil)
         } else {

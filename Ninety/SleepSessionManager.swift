@@ -484,6 +484,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
+        // 0.7. Trigger Alarm Request (from Watch smart wake or fallback)
+        if let action = payloadDictionary["action"] as? String, action == "triggerAlarm" {
+            DispatchQueue.main.async {
+                SmartAlarmManager.shared.triggerDynamicAlarm()
+            }
+            return
+        }
+
         // 1. Weekly plan edit command from the native Watch UI
         if let action = payloadDictionary["action"] as? String, action == "setNextAlarm" {
             handleSetNextAlarmFromWatch(payloadDictionary, replyHandler: replyHandler)
