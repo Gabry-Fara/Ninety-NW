@@ -29,7 +29,6 @@ struct ScheduleView: View {
 
     @EnvironmentObject private var viewModel: ScheduleViewModel
     @Environment(\.colorScheme) private var colorScheme
-    @ObservedObject private var smartAlarm = SmartAlarmManager.shared
     @ObservedObject private var sleepManager = SleepSessionManager.shared
     @State private var showingSettings = false
     @State private var isSettingsNavigationPending = false
@@ -426,13 +425,6 @@ struct ScheduleView: View {
                 .presentationDragIndicator(.visible)
             }
             .overlay {
-                if smartAlarm.isWakeAlarmActive {
-                    activeWakeAlarmOverlay
-                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                        .zIndex(20)
-                }
-            }
-            .overlay {
                 if showGuidedTour {
                     ZStack {
                         Rectangle()
@@ -446,50 +438,6 @@ struct ScheduleView: View {
                     }
                 }
             }
-        }
-    }
-
-    private var activeWakeAlarmOverlay: some View {
-        ZStack {
-            Rectangle()
-                .fill(Color.black.opacity(colorScheme == .light ? 0.22 : 0.46))
-                .ignoresSafeArea()
-
-            VStack(spacing: 18) {
-                Image(systemName: "alarm.fill")
-                    .font(.system(size: 44, weight: .semibold))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(accent)
-
-                VStack(spacing: 6) {
-                    Text("Sveglia")
-                        .font(.system(.title2, design: .rounded).weight(.bold))
-                    Text("Fase graduale attiva")
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(.secondary)
-                }
-
-                Button {
-                    if hapticFeedbackEnabled { impactHaptic.impactOccurred() }
-                    smartAlarm.cancelSession()
-                } label: {
-                    Label("Stop", systemImage: "stop.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(GlassButtonStyle(isProminent: true, tint: .red))
-            }
-            .padding(24)
-            .frame(maxWidth: 320)
-            .background {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(.ultraThinMaterial)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-            }
-            .padding(24)
         }
     }
 

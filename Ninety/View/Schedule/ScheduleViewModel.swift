@@ -570,11 +570,17 @@ final class ScheduleViewModel: ObservableObject {
         if status.localizedCaseInsensitiveContains("Authorized") {
             return "Ready".localized(for: preferredLang)
         }
-        if status.localizedCaseInsensitiveContains("Failsafe Alarm Scheduled") || status.localizedCaseInsensitiveContains("Active Failsafe Alarm Scheduled") {
+        if status.localizedCaseInsensitiveContains("AlarmKit alarm set") ||
+            status.localizedCaseInsensitiveContains("Alarm set") {
             return "Scheduled".localized(for: preferredLang)
         }
-        if status.localizedCaseInsensitiveContains("DYNAMIC WAKE EVENT") || status.localizedCaseInsensitiveContains("Executed") {
+        if status.localizedCaseInsensitiveContains("Alarm active") ||
+            status.localizedCaseInsensitiveContains("DYNAMIC WAKE EVENT") ||
+            status.localizedCaseInsensitiveContains("Executed") {
             return "Wake-up triggered".localized(for: preferredLang)
+        }
+        if status.localizedCaseInsensitiveContains("Alarm alerting") {
+            return "Wake-up delivered".localized(for: preferredLang)
         }
         return status
     }

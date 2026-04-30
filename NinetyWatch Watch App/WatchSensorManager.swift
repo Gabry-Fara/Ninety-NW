@@ -39,7 +39,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private let confirmationRequired = 3
     private let confirmationThreshold = 2
     private let maximumDynamicPredictionAge: TimeInterval = 90
-    private let dynamicTriggerFailsafeBuffer: TimeInterval = 60
+    private let alarmFinalMinuteBuffer: TimeInterval = 60
     #if DEBUG
     private let testLightEpochInjectionEnabled = true
     private let testLightEpochInjectionDelay: TimeInterval = 5 * 60
@@ -394,7 +394,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 return
             }
 
-            self.handleScheduledAlarmReached(reason: "Fallback Alarm (Expired)")
+            self.handleScheduledAlarmReached(reason: "Alarm active (runtime deadline)")
         }
     }
     
@@ -544,7 +544,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         if let alarmDate = nextAlarmDate, Date() >= alarmDate {
             DispatchQueue.main.async {
                 print("WATCH: Reached scheduled wake time.")
-                self.handleScheduledAlarmReached(reason: "Fallback Alarm (Local)")
+                self.handleScheduledAlarmReached(reason: "Alarm active (local deadline)")
             }
         }
     }
@@ -838,7 +838,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func localSmartWakeCanTrigger(for prediction: WatchPredictionSnapshot, targetDate: Date) -> Bool {
         let now = Date()
         guard now < targetDate else { return false }
-        guard now < targetDate.addingTimeInterval(-dynamicTriggerFailsafeBuffer) else {
+        guard now < targetDate.addingTimeInterval(-alarmFinalMinuteBuffer) else {
             confirmationBuffer.removeAll()
             isConfirmingSmartWake = false
             return false
@@ -858,7 +858,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         runtimeSession?.notifyUser(hapticType: .notification)
         HapticWakeUpManager.shared.startGradualWakeUp()
         
-        // Tell the phone to start its gradual wake sequence as well
+        // Tell the phone to start the same Ninety alarm.
         sendTriggerAlarmMessage()
         
         clearScheduledAlarmAndMonitoring(
@@ -1355,22 +1355,21 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func handleScheduledAlarmReached(reason: String) {
         let phoneReachable = wcSession?.activationState == .activated && wcSession?.isReachable == true
         
-        // Start the gradual haptic sequence locally immediately
+        // Start the silent Watch phase of the same Ninety alarm locally.
         runtimeSession?.notifyUser(hapticType: .notification)
         HapticWakeUpManager.shared.startGradualWakeUp()
 
         if phoneReachable {
-            // Tell the phone to start its gradual wake sequence (loud alarm in 60s)
+            // Tell the phone to put the same AlarmKit alarm into countdown.
             sendTriggerAlarmMessage()
             
             clearScheduledAlarmAndMonitoring(
-                detail: "Alarm triggered (Syncing with iPhone)",
+                detail: "Alarm active (syncing with iPhone)",
                 state: .completed,
                 keepHapticsRunning: true
             )
         } else {
-            // Standalone fallback: we start haptics now. 
-            // Note: Watch doesn't have a 'loud' speaker like iPhone, so haptics are the primary alert.
+            // Watch-only path: haptics are the available alert surface.
             clearScheduledAlarmAndMonitoring(
                 detail: reason,
                 state: .completed,
@@ -1692,7 +1691,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             return
         }
 
-        handleScheduledAlarmReached(reason: "Fallback Alarm (Deadline)")
+        handleScheduledAlarmReached(reason: "Alarm active (deadline)")
     }
 
     private func sendWatchStatusUpdate(_ status: String) {

@@ -13,13 +13,28 @@ import AlarmKit
 class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = SmartAlarmManager()
     nonisolated static let monitoringLeadTime: TimeInterval = 30 * 60
-    private static let gradualWakeNotificationID = "ninety_gradual_wake"
-    private static let gradualWakeCategoryID = "ninety_gradual_wake_category"
-    private static let stopAlarmActionID = "ninety_stop_alarm"
+    nonisolated static let wakePreAlertDuration: TimeInterval = 60
 
     struct ScheduledSleepSession {
         let wakeUpDate: Date
         let monitoringStartDate: Date
+    }
+
+    private enum WakeAlarmStartReason {
+        case lightSleep
+        case deadlineFallback
+        case watchRequest
+
+        var statusText: String {
+            switch self {
+            case .lightSleep:
+                return "Alarm active: light sleep confirmed"
+            case .deadlineFallback:
+                return "Alarm active: final minute"
+            case .watchRequest:
+                return "Alarm active from Apple Watch"
+            }
+        }
     }
     
     @Published var alarmStatus: String = "No alarms configured."
@@ -30,14 +45,14 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     private var monitoringTimer: Timer?   // fires when the 30-minute tracking window opens
     private var countdownTimer: Timer?    // updates the countdown string every second
     private var layer2Task: Task<Void, Never>?
-    private var monitoringStopTimer: Timer?
-    private var monitoringStopTargetDate: Date?
+    private var alarmStartTimer: Timer?
+    private var alarmAlertTimer: Timer?
+    private var wakeTargetDate: Date?
     private let speechSynthesizer = AVSpeechSynthesizer()
     
     override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
-        configureNotificationActions()
         Task { @MainActor in
             await cleanupOrphanedSystemAlarmsIfNeeded()
         }
@@ -75,14 +90,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
 #if canImport(AlarmKit)
     struct NinetyAlarmMetadata: AlarmMetadata {}
     
-    private func createDefaultAttributes() -> AlarmAttributes<NinetyAlarmMetadata> {
-        let presentation = AlarmPresentation(
-            alert: .init(title: "Ninety Wake Up")
-        )
-        return AlarmAttributes(presentation: presentation, tintColor: .blue)
-    }
-
-    private func createGradualWakeAttributes() -> AlarmAttributes<NinetyAlarmMetadata> {
+    private func createWakeAlarmAttributes() -> AlarmAttributes<NinetyAlarmMetadata> {
         let stopButton = AlarmButton(
             text: "Stop",
             textColor: .red,
@@ -127,9 +135,11 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         monitoringTimer = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
-        monitoringStopTimer?.invalidate()
-        monitoringStopTimer = nil
-        monitoringStopTargetDate = nil
+        alarmStartTimer?.invalidate()
+        alarmStartTimer = nil
+        alarmAlertTimer?.invalidate()
+        alarmAlertTimer = nil
+        wakeTargetDate = nil
         monitoringCountdown = ""
         isWakeAlarmActive = false
 
@@ -148,38 +158,6 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         if resetStatus {
             self.alarmStatus = "No alarms configured."
         }
-    }
-
-    private func configureNotificationActions() {
-        let stopAction = UNNotificationAction(
-            identifier: Self.stopAlarmActionID,
-            title: "Stop",
-            options: [.destructive]
-        )
-        let category = UNNotificationCategory(
-            identifier: Self.gradualWakeCategoryID,
-            actions: [stopAction],
-            intentIdentifiers: [],
-            options: []
-        )
-        UNUserNotificationCenter.current().setNotificationCategories([category])
-    }
-
-    private func showGradualWakeNotification() {
-        let content = UNMutableNotificationContent()
-        content.title = "Ninety"
-        content.body = "Sveglia graduale attiva. Tocca per fermarla."
-        content.categoryIdentifier = Self.gradualWakeCategoryID
-        content.sound = nil
-
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.gradualWakeNotificationID])
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [Self.gradualWakeNotificationID])
-        let request = UNNotificationRequest(
-            identifier: Self.gradualWakeNotificationID,
-            content: content,
-            trigger: nil
-        )
-        UNUserNotificationCenter.current().add(request)
     }
     
     func scheduleSystemAlarm(for targetDate: Date) {
@@ -200,10 +178,11 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         // Cancel any previous pending monitoring timer
         monitoringTimer?.invalidate()
         countdownTimer?.invalidate()
-        monitoringStopTimer?.invalidate()
+        alarmStartTimer?.invalidate()
+        alarmAlertTimer?.invalidate()
+        wakeTargetDate = targetDate
 
         SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
-        scheduleMonitoringStop(at: targetDate)
 
         if monitoringStart <= now {
             // We're already inside the 30-minute window — start immediately.
@@ -242,64 +221,88 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         }
 
         self.alarmStatus = monitoringStart <= now
-            ? "🟢 Tracking window open | Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened))"
-            : "⏳ Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
+            ? "🟢 Tracking window open | Alarm set: \(targetDate.formatted(date: .omitted, time: .shortened))"
+            : "⏳ Alarm set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
 
         #if canImport(AlarmKit)
         do {
+            let countdownDuration = Alarm.CountdownDuration(
+                preAlert: Self.wakePreAlertDuration,
+                postAlert: nil
+            )
             let configuration = AlarmManager.AlarmConfiguration(
+                countdownDuration: countdownDuration,
                 schedule: .fixed(targetDate),
-                attributes: createDefaultAttributes()
+                attributes: createWakeAlarmAttributes(),
+                stopIntent: StopNinetyWakeAlarmIntent()
             )
             _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
-            self.alarmStatus = self.alarmStatus.contains("🟢")
-                ? "🟢 Tracking window open | ✅ Failsafe set: \(targetDate.formatted(date: .omitted, time: .shortened))"
-                : "⏳ ✅ Failsafe set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
+            scheduleLocalWakeStart(at: targetDate)
+            if !isWakeAlarmActive {
+                self.alarmStatus = self.alarmStatus.contains("🟢")
+                    ? "🟢 Tracking window open | ✅ AlarmKit alarm set: \(targetDate.formatted(date: .omitted, time: .shortened))"
+                    : "⏳ ✅ AlarmKit alarm set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
+            }
         } catch {
             self.alarmStatus = "System Alarm Schedule failed: \(error)"
         }
         #else
-        self.alarmStatus = "[Sim] Failsafe: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
+        scheduleLocalWakeStart(at: targetDate)
+        if !isWakeAlarmActive {
+            self.alarmStatus = "[Sim] Alarm set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
+        }
         #endif
     }
     
     // Layer Two: The Dynamic Heuristic Trigger
     func triggerDynamicAlarm() {
+        startWakeAlarm(reason: .lightSleep)
+    }
+
+    func startDeadlineWakeAlarm() {
+        startWakeAlarm(reason: .deadlineFallback)
+    }
+
+    func startWakeAlarmFromWatch() {
+        startWakeAlarm(reason: .watchRequest)
+    }
+
+    private func startWakeAlarm(reason: WakeAlarmStartReason) {
         guard !isWakeAlarmActive else { return }
         isWakeAlarmActive = true
-        self.alarmStatus = "Wake alarm active: gradual phase"
-        cancelMonitoringStopTimer()
+        self.alarmStatus = reason.statusText
+        cancelLocalWakeStartTimer()
+        scheduleAlarmAlertStatus(at: Date().addingTimeInterval(Self.wakePreAlertDuration))
+        monitoringTimer?.invalidate()
+        monitoringTimer = nil
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+        monitoringCountdown = ""
         
-        // 1. Start the gradual haptic sequence on the Watch immediately.
-        // Scientific rationale: Gentle tactile stimuli facilitate the transition from N1/N2 
-        // to wakefulness without triggering a sympathetic 'fight-or-flight' response.
         SleepSessionManager.shared.triggerWatchHapticWakeUp()
-
-        cancelAllSystemAlarms()
-        absoluteAlarmID = nil
-
-        // 2. Schedule the loud 'failsafe' alarm on the Phone after a 60-second delay.
-        // This gives the user a window to wake up gently via haptics before the audio stimulus.
-        let loudAlarmDelay: TimeInterval = 60 
+        SleepSessionManager.shared.finishMonitoringAfterAlarmFired()
 
         #if canImport(AlarmKit)
-        Task {
-            do {
-                let configuration = AlarmManager.AlarmConfiguration.timer(
-                    duration: loudAlarmDelay,
-                    attributes: createGradualWakeAttributes(),
-                    stopIntent: StopNinetyWakeAlarmIntent()
-                )
-                let smartAlarmID = UUID()
-                self.absoluteAlarmID = smartAlarmID
-                _ = try await AlarmManager.shared.schedule(id: smartAlarmID, configuration: configuration)
-                self.alarmStatus = "Wake alarm active: loud alarm in \(Int(loudAlarmDelay))s"
-            } catch {
-                self.alarmStatus = "Smart wake failed: \(error)"
+        guard let alarmID = currentAlarmID() else {
+            self.alarmStatus = "Alarm active, but AlarmKit alarm was not found"
+            return
+        }
+        absoluteAlarmID = alarmID
+
+        do {
+            if let alarm = currentSystemAlarm(for: alarmID), alarm.state == .alerting {
+                self.alarmStatus = "Alarm alerting"
+            } else if let alarm = currentSystemAlarm(for: alarmID), alarm.state == .countdown {
+                self.alarmStatus = "Alarm active: countdown"
+            } else {
+                try AlarmManager.shared.countdown(id: alarmID)
+                self.alarmStatus = "Alarm active: countdown"
             }
+        } catch {
+            self.alarmStatus = "Alarm active; AlarmKit countdown unavailable: \(error)"
         }
         #else
-        self.alarmStatus = "[Sim] Gradual wake: Loud alarm in \(Int(loudAlarmDelay))s"
+        self.alarmStatus = "[Sim] Alarm active: countdown"
 
         layer2Task = Task {
             let content = UNMutableNotificationContent()
@@ -308,7 +311,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
             content.sound = .defaultCritical
 
             let requestID = UUID().uuidString
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: loudAlarmDelay, repeats: false)
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Self.wakePreAlertDuration, repeats: false)
             let request = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)
 
             do {
@@ -319,8 +322,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
             }
 
             do {
-                try await Task.sleep(nanoseconds: UInt64(loudAlarmDelay * 1_000_000_000))
+                try await Task.sleep(nanoseconds: UInt64(Self.wakePreAlertDuration * 1_000_000_000))
                 if !Task.isCancelled {
+                    self.alarmStatus = "[Sim] Alarm alerting"
                     self.playMockAlarmSound()
                 }
             } catch {
@@ -330,47 +334,68 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         #endif
     }
 
-    private func scheduleMonitoringStop(at targetDate: Date) {
-        monitoringStopTimer?.invalidate()
-        monitoringStopTargetDate = targetDate
+    private func scheduleLocalWakeStart(at targetDate: Date) {
+        alarmStartTimer?.invalidate()
+        wakeTargetDate = targetDate
 
-        let delay = max(0, targetDate.timeIntervalSinceNow)
-        monitoringStopTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+        let wakeStartDate = targetDate.addingTimeInterval(-Self.wakePreAlertDuration)
+        let delay = wakeStartDate.timeIntervalSinceNow
+        guard delay > 0 else {
+            if targetDate > Date() {
+                startWakeAlarm(reason: .deadlineFallback)
+            }
+            return
+        }
+
+        alarmStartTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard
                     let self,
-                    let scheduledTarget = self.monitoringStopTargetDate,
+                    let scheduledTarget = self.wakeTargetDate,
                     abs(scheduledTarget.timeIntervalSince(targetDate)) < 1
                 else {
                     return
                 }
 
-                self.finishMonitoringAtWakeTarget(targetDate)
+                self.startWakeAlarm(reason: .deadlineFallback)
             }
         }
     }
 
-    private func finishMonitoringAtWakeTarget(_ targetDate: Date) {
-        cancelMonitoringStopTimer()
-        monitoringTimer?.invalidate()
-        monitoringTimer = nil
-        countdownTimer?.invalidate()
-        countdownTimer = nil
-        monitoringCountdown = ""
-        absoluteAlarmID = nil
-        isWakeAlarmActive = false
+    private func scheduleAlarmAlertStatus(at alertDate: Date) {
+        alarmAlertTimer?.invalidate()
+        let delay = alertDate.timeIntervalSinceNow
+        guard delay > 0 else {
+            alarmStatus = "Alarm alerting"
+            return
+        }
 
-        SleepSessionManager.shared.finishMonitoringAfterAlarmFired()
-        SleepSessionManager.shared.stopWatchAlarmPlayback()
-        SleepSessionManager.shared.syncAlarmState(targetDate: nil)
-        alarmStatus = "Wake alarm fired. Monitoring stopped."
+        alarmAlertTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isWakeAlarmActive else { return }
+                self.alarmStatus = "Alarm alerting"
+            }
+        }
     }
 
-    private func cancelMonitoringStopTimer() {
-        monitoringStopTimer?.invalidate()
-        monitoringStopTimer = nil
-        monitoringStopTargetDate = nil
+    private func cancelLocalWakeStartTimer() {
+        alarmStartTimer?.invalidate()
+        alarmStartTimer = nil
     }
+
+    #if canImport(AlarmKit)
+    private func currentAlarmID() -> UUID? {
+        if let absoluteAlarmID {
+            return absoluteAlarmID
+        }
+
+        return (try? AlarmManager.shared.alarms.first?.id) ?? nil
+    }
+
+    private func currentSystemAlarm(for alarmID: UUID) -> Alarm? {
+        (try? AlarmManager.shared.alarms.first { $0.id == alarmID }) ?? nil
+    }
+    #endif
 
     private func cleanupOrphanedSystemAlarmsIfNeeded() async {
         let scheduleViewModel = ScheduleViewModel(observesExternalChanges: false)
