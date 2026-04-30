@@ -103,8 +103,9 @@ struct GuidedTourView: View {
             ZStack {
                 // Full-screen tap blocker so controls underneath the tour
                 // never receive touches while onboarding is visible.
+                // Background opacity
                 Rectangle()
-                    .fill(Color.black.opacity(0.1))
+                    .fill(Color.black.opacity(0.001))
                     .contentShape(Rectangle())
                     .ignoresSafeArea()
                     .onTapGesture {}
@@ -154,7 +155,7 @@ struct GuidedTourView: View {
             // Dimmed mask with cutout
             SpotlightShape(cutout: hFrame, radius: step.isFullScreen ? 0 : spotR + pad)
                 .fill(style: FillStyle(eoFill: true))
-                .foregroundStyle(Color.black.opacity(0.1))
+                .foregroundStyle(Color.black.opacity(0.5))
                 .ignoresSafeArea()
 
             // Accent ring
