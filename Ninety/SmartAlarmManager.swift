@@ -20,6 +20,17 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         let monitoringStartDate: Date
     }
 
+    private enum StorageKey {
+        static let stopTombstone = "NinetyAlarmStopTombstone"
+    }
+
+    private struct AlarmStopTombstone: Codable {
+        let alarmInstanceID: UUID?
+        let targetDate: Date?
+        let stoppedAt: Date
+        let createdAt: Date?
+    }
+
     private enum WakeAlarmStartReason {
         case lightSleep
         case deadlineFallback
@@ -48,6 +59,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     private var alarmStartTimer: Timer?
     private var alarmAlertTimer: Timer?
     private var wakeTargetDate: Date?
+    private var alarmCreatedAt: Date?
     private let speechSynthesizer = AVSpeechSynthesizer()
     
     override init() {
@@ -91,46 +103,70 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     struct NinetyAlarmMetadata: AlarmMetadata {}
     
     private func createWakeAlarmAttributes() -> AlarmAttributes<NinetyAlarmMetadata> {
-        let stopButton = AlarmButton(
-            text: "Stop",
-            textColor: .red,
-            systemImageName: "stop.fill"
-        )
+        let pauseButton = AlarmButton(text: "Pause", textColor: .blue, systemImageName: "pause.fill")
+        let resumeButton = AlarmButton(text: "Resume", textColor: .blue, systemImageName: "play.fill")
         let presentation = AlarmPresentation(
-            alert: .init(
-                title: "Ninety Wake Up",
-                secondaryButton: stopButton,
-                secondaryButtonBehavior: .countdown
-            ),
-            countdown: .init(title: "Ninety Wake Up")
+            alert: .init(title: "Ninety Wake Up"),
+            countdown: .init(title: "Ninety Wake Up", pauseButton: pauseButton),
+            paused: .init(title: "Ninety Wake Up", resumeButton: resumeButton)
         )
         return AlarmAttributes(presentation: presentation, tintColor: .blue)
     }
     #endif
 
-    func scheduleSleepSession(endingAt requestedWakeUpDate: Date) -> ScheduledSleepSession {
+    func scheduleSleepSession(endingAt requestedWakeUpDate: Date, alarmID: UUID? = nil, createdAt: Date? = nil) -> ScheduledSleepSession {
         let wakeUpDate = normalizedWakeUpDate(from: requestedWakeUpDate)
         let monitoringStartDate = monitoringStartDate(for: wakeUpDate)
-        scheduleSystemAlarm(for: wakeUpDate)
+        scheduleSystemAlarm(for: wakeUpDate, alarmID: alarmID, createdAt: createdAt)
         return ScheduledSleepSession(wakeUpDate: wakeUpDate, monitoringStartDate: monitoringStartDate)
     }
     
-    func cancelSession() {
+    func cancelSession(alarmID: UUID? = nil, stoppedAt: Date? = nil) {
         Task {
-            await cancelSessionNow()
+            await cancelSessionNow(alarmID: alarmID, stoppedAt: stoppedAt)
         }
     }
 
-    func cancelSessionNow() async {
-        await clearScheduledSession(resetStatus: true)
+    func cancelSessionNow(alarmID: UUID? = nil, stoppedAt: Date? = nil) async {
+        if let alarmID, let absoluteAlarmID, alarmID != absoluteAlarmID {
+            let stopDate = stoppedAt ?? Date()
+            recordStopTombstone(
+                alarmID: alarmID,
+                targetDate: nil,
+                stoppedAt: stopDate,
+                createdAt: nil
+            )
+            cancelSystemAlarm(id: alarmID)
+            SleepSessionManager.shared.stopWatchAlarmPlayback(
+                alarmID: alarmID,
+                targetDate: nil,
+                stoppedAt: stopDate
+            )
+            return
+        }
+
+        await clearScheduledSession(resetStatus: true, stoppedAt: stoppedAt ?? Date())
     }
 
-    func rescheduleSystemAlarm(for targetDate: Date) async {
+    func rescheduleSystemAlarm(for targetDate: Date, alarmID: UUID? = nil, createdAt: Date? = nil) async {
         await clearScheduledSession(resetStatus: false)
-        await scheduleSystemAlarmAfterClearing(for: targetDate)
+        await scheduleSystemAlarmAfterClearing(for: targetDate, alarmID: alarmID, createdAt: createdAt)
     }
 
-    private func clearScheduledSession(resetStatus: Bool) async {
+    private func clearScheduledSession(resetStatus: Bool, stoppedAt: Date? = nil) async {
+        let cancelledAlarmID = absoluteAlarmID
+        let cancelledTargetDate = wakeTargetDate
+        let cancelledCreatedAt = alarmCreatedAt
+
+        if let stoppedAt {
+            recordStopTombstone(
+                alarmID: cancelledAlarmID,
+                targetDate: cancelledTargetDate,
+                stoppedAt: stoppedAt,
+                createdAt: cancelledCreatedAt
+            )
+        }
+
         monitoringTimer?.invalidate()
         monitoringTimer = nil
         countdownTimer?.invalidate()
@@ -140,6 +176,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         alarmAlertTimer?.invalidate()
         alarmAlertTimer = nil
         wakeTargetDate = nil
+        alarmCreatedAt = nil
         monitoringCountdown = ""
         isWakeAlarmActive = false
 
@@ -151,8 +188,19 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         cancelAllSystemAlarms()
         absoluteAlarmID = nil
 
-        SleepSessionManager.shared.syncAlarmState(targetDate: nil)
-        SleepSessionManager.shared.stopWatchAlarmPlayback()
+        SleepSessionManager.shared.syncAlarmState(
+            targetDate: nil,
+            alarmID: cancelledAlarmID,
+            createdAt: cancelledCreatedAt,
+            stoppedAt: stoppedAt
+        )
+        if resetStatus || stoppedAt != nil {
+            SleepSessionManager.shared.stopWatchAlarmPlayback(
+                alarmID: cancelledAlarmID,
+                targetDate: cancelledTargetDate,
+                stoppedAt: stoppedAt
+            )
+        }
         SleepSessionManager.shared.pauseWatchMonitoring()
 
         if resetStatus {
@@ -160,17 +208,28 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         }
     }
     
-    func scheduleSystemAlarm(for targetDate: Date) {
+    func scheduleSystemAlarm(for targetDate: Date, alarmID: UUID? = nil, createdAt: Date? = nil) {
         Task {
-            await rescheduleSystemAlarm(for: targetDate)
+            await rescheduleSystemAlarm(for: targetDate, alarmID: alarmID, createdAt: createdAt)
         }
     }
 
-    private func scheduleSystemAlarmAfterClearing(for targetDate: Date) async {
-        let alarmID = UUID()
-        self.absoluteAlarmID = alarmID
+    private func scheduleSystemAlarmAfterClearing(for targetDate: Date, alarmID requestedAlarmID: UUID? = nil, createdAt requestedCreatedAt: Date? = nil) async {
+        let alarmID = requestedAlarmID ?? UUID()
+        let createdAt = requestedCreatedAt ?? Date()
+        guard !shouldIgnoreScheduleDueToStop(alarmID: alarmID, targetDate: targetDate, createdAt: createdAt) else {
+            self.alarmStatus = "Alarm ignored because it was already stopped."
+            return
+        }
 
-        SleepSessionManager.shared.syncAlarmState(targetDate: targetDate)
+        self.absoluteAlarmID = alarmID
+        self.alarmCreatedAt = createdAt
+
+        SleepSessionManager.shared.syncAlarmState(
+            targetDate: targetDate,
+            alarmID: alarmID,
+            createdAt: createdAt
+        )
 
         let monitoringStart = monitoringStartDate(for: targetDate)
         let now = Date()
@@ -182,7 +241,11 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         alarmAlertTimer?.invalidate()
         wakeTargetDate = targetDate
 
-        SleepSessionManager.shared.startWatchSession(targetDate: targetDate)
+        SleepSessionManager.shared.startWatchSession(
+            targetDate: targetDate,
+            alarmID: alarmID,
+            createdAt: createdAt
+        )
 
         if monitoringStart <= now {
             // We're already inside the 30-minute window — start immediately.
@@ -263,8 +326,15 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         startWakeAlarm(reason: .deadlineFallback)
     }
 
-    func startWakeAlarmFromWatch() {
+    func startWakeAlarmFromWatch(alarmID: UUID? = nil) {
+        if let alarmID {
+            absoluteAlarmID = alarmID
+        }
         startWakeAlarm(reason: .watchRequest)
+    }
+
+    func currentAlarmInstanceID() -> UUID? {
+        absoluteAlarmID
     }
 
     private func startWakeAlarm(reason: WakeAlarmStartReason) {
@@ -397,6 +467,50 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     }
     #endif
 
+    private func stopTombstone() -> AlarmStopTombstone? {
+        guard let data = UserDefaults.standard.data(forKey: StorageKey.stopTombstone) else {
+            return nil
+        }
+
+        guard let tombstone = try? JSONDecoder().decode(AlarmStopTombstone.self, from: data) else {
+            UserDefaults.standard.removeObject(forKey: StorageKey.stopTombstone)
+            return nil
+        }
+
+        return tombstone
+    }
+
+    private func recordStopTombstone(alarmID: UUID?, targetDate: Date?, stoppedAt: Date, createdAt: Date?) {
+        let tombstone = AlarmStopTombstone(
+            alarmInstanceID: alarmID,
+            targetDate: targetDate,
+            stoppedAt: stoppedAt,
+            createdAt: createdAt
+        )
+
+        if let existing = stopTombstone(), existing.stoppedAt > stoppedAt {
+            return
+        }
+
+        guard let data = try? JSONEncoder().encode(tombstone) else { return }
+        UserDefaults.standard.set(data, forKey: StorageKey.stopTombstone)
+    }
+
+    private func shouldIgnoreScheduleDueToStop(alarmID: UUID, targetDate: Date, createdAt: Date) -> Bool {
+        guard let tombstone = stopTombstone() else { return false }
+        guard tombstone.stoppedAt >= createdAt else { return false }
+
+        if let stoppedID = tombstone.alarmInstanceID, stoppedID == alarmID {
+            return true
+        }
+
+        if let stoppedTarget = tombstone.targetDate, abs(stoppedTarget.timeIntervalSince(targetDate)) < 1 {
+            return true
+        }
+
+        return false
+    }
+
     private func cleanupOrphanedSystemAlarmsIfNeeded() async {
         let scheduleViewModel = ScheduleViewModel(observesExternalChanges: false)
         guard scheduleViewModel.nextUpcomingSession == nil else { return }
@@ -409,6 +523,12 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         for alarmID in trackedAlarmIDs {
             try? AlarmManager.shared.cancel(id: alarmID)
         }
+        #endif
+    }
+
+    private func cancelSystemAlarm(id alarmID: UUID) {
+        #if canImport(AlarmKit)
+        try? AlarmManager.shared.cancel(id: alarmID)
         #endif
     }
     

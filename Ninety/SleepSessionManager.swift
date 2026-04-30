@@ -10,6 +10,10 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         static let sequence = "NinetyPhoneToWatchCommandSequence"
     }
 
+    private enum AlarmSyncKey {
+        static let stopTombstone = "NinetyPhoneAlarmStopTombstone"
+    }
+
     // MARK: - Sleep Stage Classification
     // Model output: 0=Wake, 1=N1/N2(light), 2=N3(deep), 3=REM
     enum SleepStage: Int, CaseIterable, Codable {
@@ -127,6 +131,13 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let rawStage: SleepStage
         let smoothedStage: SleepStage
         let epoch: EpochAggregate
+    }
+
+    private struct AlarmStopTombstone: Codable {
+        let alarmInstanceID: UUID?
+        let targetDate: Date?
+        let stoppedAt: Date
+        let createdAt: Date?
     }
 
     // MARK: - Configuration
@@ -276,7 +287,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
-    func startWatchSession(targetDate: Date) {
+    func startWatchSession(targetDate: Date, alarmID: UUID? = nil, createdAt: Date? = nil) {
         resetSession()
         let monitoringStartDate = scheduledMonitoringStartDate(for: targetDate)
         activeWakeTargetDate = targetDate
@@ -301,10 +312,19 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         guard let session = wcSession else { return }
 
-        let command = makeWatchCommand(
-            action: "startSession",
-            extra: ["targetDate": targetDate.timeIntervalSince1970]
-        )
+        var extra: [String: Any] = [
+            "targetDate": targetDate.timeIntervalSince1970,
+            "monitoringStartDate": monitoringStartDate.timeIntervalSince1970,
+            "weekday": Calendar.current.component(.weekday, from: targetDate),
+            "hour": Calendar.current.component(.hour, from: targetDate),
+            "minute": Calendar.current.component(.minute, from: targetDate),
+            "createdAt": (createdAt ?? Date()).timeIntervalSince1970
+        ]
+        if let alarmID {
+            extra["alarmInstanceID"] = alarmID.uuidString
+        }
+
+        let command = makeWatchCommand(action: "startSession", extra: extra)
 
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil) { error in
@@ -417,9 +437,19 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
-    func stopWatchAlarmPlayback() {
+    func stopWatchAlarmPlayback(alarmID: UUID? = nil, targetDate: Date? = nil, stoppedAt: Date? = nil) {
         guard let session = wcSession else { return }
-        let command = makeWatchCommand(action: "stopAlarm")
+        var extra: [String: Any] = [:]
+        if let alarmID {
+            extra["alarmInstanceID"] = alarmID.uuidString
+        }
+        if let targetDate {
+            extra["targetDate"] = targetDate.timeIntervalSince1970
+        }
+        if let stoppedAt {
+            extra["stoppedAt"] = stoppedAt.timeIntervalSince1970
+        }
+        let command = makeWatchCommand(action: "stopAlarm", extra: extra)
         cancelOutstandingWatchControlTransfers(on: session)
         try? session.updateApplicationContext(command)
 
@@ -433,11 +463,24 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
-    func syncAlarmState(targetDate: Date?) {
+    func syncAlarmState(targetDate: Date?, alarmID: UUID? = nil, createdAt: Date? = nil, stoppedAt: Date? = nil) {
         guard let session = wcSession else { return }
         var extra: [String: Any] = [:]
         if let targetDate {
             extra["targetDate"] = targetDate.timeIntervalSince1970
+            extra["weekday"] = Calendar.current.component(.weekday, from: targetDate)
+            extra["hour"] = Calendar.current.component(.hour, from: targetDate)
+            extra["minute"] = Calendar.current.component(.minute, from: targetDate)
+            extra["monitoringStartDate"] = scheduledMonitoringStartDate(for: targetDate).timeIntervalSince1970
+        }
+        if let alarmID {
+            extra["alarmInstanceID"] = alarmID.uuidString
+        }
+        if let createdAt {
+            extra["createdAt"] = createdAt.timeIntervalSince1970
+        }
+        if let stoppedAt {
+            extra["stoppedAt"] = stoppedAt.timeIntervalSince1970
         }
         let command = makeWatchCommand(action: "syncAlarmState", extra: extra)
         if targetDate == nil {
@@ -509,9 +552,15 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         if let action = payloadDictionary["action"] as? String, action == "requestAlarmSync" {
             DispatchQueue.main.async {
                 if let activeWakeTargetDate = self.activeWakeTargetDate, activeWakeTargetDate > Date() {
-                    self.syncAlarmState(targetDate: activeWakeTargetDate)
+                    self.syncAlarmState(
+                        targetDate: activeWakeTargetDate,
+                        alarmID: SmartAlarmManager.shared.currentAlarmInstanceID()
+                    )
                 } else if let nextSession = ScheduleViewModel(observesExternalChanges: false).nextUpcomingSession {
-                    self.syncAlarmState(targetDate: nextSession.wakeUpDate)
+                    self.syncAlarmState(
+                        targetDate: nextSession.wakeUpDate,
+                        alarmID: SmartAlarmManager.shared.currentAlarmInstanceID()
+                    )
                 } else {
                     self.syncAlarmState(targetDate: nil)
                 }
@@ -521,8 +570,13 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         // 0.5. Cancel Alarm Request
         if let action = payloadDictionary["action"] as? String, action == "stopAlarm" {
+            let tombstone = stopTombstone(from: payloadDictionary)
+            recordStopTombstone(tombstone)
             DispatchQueue.main.async {
-                SmartAlarmManager.shared.cancelSession()
+                SmartAlarmManager.shared.cancelSession(
+                    alarmID: tombstone.alarmInstanceID,
+                    stoppedAt: tombstone.stoppedAt
+                )
             }
             return
         }
@@ -534,8 +588,18 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         // 0.7. Trigger Alarm Request (from Watch smart wake or fallback)
         if let action = payloadDictionary["action"] as? String, action == "triggerAlarm" {
+            guard !shouldIgnoreIncomingAlarmEvent(payloadDictionary) else {
+                return
+            }
+
+            if let targetDate = dateValue(from: payloadDictionary["targetDate"]),
+               targetDate.addingTimeInterval(5 * 60) < Date() {
+                return
+            }
+
+            let alarmID = uuidValue(from: payloadDictionary["alarmInstanceID"])
             DispatchQueue.main.async {
-                SmartAlarmManager.shared.startWakeAlarmFromWatch()
+                SmartAlarmManager.shared.startWakeAlarmFromWatch(alarmID: alarmID)
             }
             return
         }
@@ -636,6 +700,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func handleSetNextAlarmFromWatch(_ payloadDictionary: [String: Any], replyHandler: (([String: Any]) -> Void)?) {
+        guard !shouldIgnoreIncomingAlarmEvent(payloadDictionary) else {
+            replyHandler?(["status": "stopped", "applied": false, "dialog": "Sveglia già fermata."])
+            return
+        }
+
         guard
             let hour = intValue(from: payloadDictionary["hour"]),
             let minute = intValue(from: payloadDictionary["minute"])
@@ -649,7 +718,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
-        guard let targetDate = nextWatchAlarmTargetDate(hour: hour, minute: minute) else {
+        guard let targetDate = dateValue(from: payloadDictionary["targetDate"]) ?? nextWatchAlarmTargetDate(hour: hour, minute: minute) else {
             replyHandler?(["error": "Non sono riuscito a calcolare la prossima sveglia."])
             return
         }
@@ -657,6 +726,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let targetWeekday = Calendar.current.component(.weekday, from: targetDate)
         let createdAt = doubleValue(from: payloadDictionary["createdAt"])
             .map(Date.init(timeIntervalSince1970:)) ?? Date()
+        let alarmID = uuidValue(from: payloadDictionary["alarmInstanceID"])
 
         Task { @MainActor in
             do {
@@ -672,10 +742,15 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                     weekday: targetWeekday,
                     hour: hour,
                     minute: minute,
-                    createdAt: createdAt
+                    createdAt: createdAt,
+                    alarmID: alarmID
                 )
                 let nextWakeDate = result.nextAlarm?.wakeUpDate
-                self.syncAlarmState(targetDate: nextWakeDate)
+                self.syncAlarmState(
+                    targetDate: nextWakeDate,
+                    alarmID: alarmID,
+                    createdAt: createdAt
+                )
 
                 var reply: [String: Any] = [
                     "status": result.isStale ? "stale" : "ok",
@@ -693,6 +768,9 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
                 if let nextWakeDate {
                     reply["targetDate"] = nextWakeDate.timeIntervalSince1970
+                }
+                if let alarmID {
+                    reply["alarmInstanceID"] = alarmID.uuidString
                 }
 
                 replyHandler?(reply)
@@ -732,6 +810,71 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
 
         return nil
+    }
+
+    private func dateValue(from value: Any?) -> Date? {
+        doubleValue(from: value).map(Date.init(timeIntervalSince1970:))
+    }
+
+    private func uuidValue(from value: Any?) -> UUID? {
+        if let uuid = value as? UUID {
+            return uuid
+        }
+
+        if let stringValue = value as? String {
+            return UUID(uuidString: stringValue)
+        }
+
+        return nil
+    }
+
+    private func stopTombstone(from payload: [String: Any]) -> AlarmStopTombstone {
+        AlarmStopTombstone(
+            alarmInstanceID: uuidValue(from: payload["alarmInstanceID"]),
+            targetDate: dateValue(from: payload["targetDate"]),
+            stoppedAt: dateValue(from: payload["stoppedAt"]) ?? Date(),
+            createdAt: dateValue(from: payload["createdAt"])
+        )
+    }
+
+    private func storedStopTombstone() -> AlarmStopTombstone? {
+        guard let data = UserDefaults.standard.data(forKey: AlarmSyncKey.stopTombstone) else {
+            return nil
+        }
+
+        guard let tombstone = try? JSONDecoder().decode(AlarmStopTombstone.self, from: data) else {
+            UserDefaults.standard.removeObject(forKey: AlarmSyncKey.stopTombstone)
+            return nil
+        }
+
+        return tombstone
+    }
+
+    private func recordStopTombstone(_ tombstone: AlarmStopTombstone) {
+        if let existing = storedStopTombstone(), existing.stoppedAt > tombstone.stoppedAt {
+            return
+        }
+
+        guard let data = try? JSONEncoder().encode(tombstone) else { return }
+        UserDefaults.standard.set(data, forKey: AlarmSyncKey.stopTombstone)
+    }
+
+    private func shouldIgnoreIncomingAlarmEvent(_ payload: [String: Any]) -> Bool {
+        guard let tombstone = storedStopTombstone() else { return false }
+        let createdAt = dateValue(from: payload["createdAt"]) ?? Date.distantFuture
+        guard tombstone.stoppedAt >= createdAt else { return false }
+
+        if let stoppedID = tombstone.alarmInstanceID,
+           let incomingID = uuidValue(from: payload["alarmInstanceID"]) {
+            return stoppedID == incomingID
+        }
+
+        if let stoppedTarget = tombstone.targetDate,
+           let incomingTarget = dateValue(from: payload["targetDate"]) {
+            return abs(stoppedTarget.timeIntervalSince(incomingTarget)) < 1
+        }
+
+        return false
     }
 
     private func nextWatchAlarmTargetDate(hour: Int, minute: Int, now: Date = Date()) -> Date? {

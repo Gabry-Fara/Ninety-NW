@@ -25,7 +25,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private static let pendingScheduleKey = "pendingSmartAlarmSchedule"
     private static let readyScheduleKey = "readySmartAlarmSchedule"
     private static let actualAlarmTimeKey = "actualSmartAlarmTime"
+    private static let localAlarmRecordKey = "watchLocalAlarmRecord"
+    private static let stopTombstoneKey = "watchAlarmStopTombstone"
     private static let pendingNextAlarmCommandKey = "pendingNextAlarmCommand"
+    private static let pendingStopAlarmCommandKey = "pendingStopAlarmCommand"
     private static let lastProcessedPhoneCommandSequenceKey = "lastProcessedPhoneCommandSequence"
     private let payloadInterval: TimeInterval = 5
     private let motionThreshold = 0.08
@@ -39,12 +42,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private let confirmationRequired = 3
     private let confirmationThreshold = 2
     private let maximumDynamicPredictionAge: TimeInterval = 90
+    private let monitoringLeadTime: TimeInterval = 30 * 60
     private let alarmFinalMinuteBuffer: TimeInterval = 60
-    #if DEBUG
-    private let testLightEpochInjectionEnabled = true
-    private let testLightEpochInjectionDelay: TimeInterval = 5 * 60
-    private let testLightEpochInjectionCount = 3
-    #endif
 
     private enum WatchPipelineState: String, Codable {
         case idle
@@ -113,18 +112,93 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         var deferredDeliveryQueued: Bool
     }
 
-    private struct PendingNextAlarmCommand: Codable, Equatable {
+    private enum WatchLocalAlarmSyncState: String, Codable {
+        case watchOnly
+        case pending
+        case synced
+        case stopped
+    }
+
+    private struct WatchLocalAlarmRecord: Codable, Equatable {
+        let alarmInstanceID: UUID
+        let weekday: Int
         let hour: Int
         let minute: Int
+        let targetDate: Date
+        let monitoringStartDate: Date
+        let createdAt: Date
+        var stoppedAt: Date?
+        var syncState: WatchLocalAlarmSyncState
+    }
+
+    private struct AlarmStopTombstone: Codable, Equatable {
+        let alarmInstanceID: UUID?
+        let targetDate: Date?
+        let stoppedAt: Date
+        let createdAt: Date?
+    }
+
+    private struct PendingNextAlarmCommand: Codable, Equatable {
+        let alarmInstanceID: UUID
+        let weekday: Int
+        let hour: Int
+        let minute: Int
+        let targetDate: Date
+        let monitoringStartDate: Date
         let enqueuedAt: Date
 
         var message: [String: Any] {
             [
                 "action": "setNextAlarm",
+                "alarmInstanceID": alarmInstanceID.uuidString,
+                "weekday": weekday,
                 "hour": hour,
                 "minute": minute,
+                "targetDate": targetDate.timeIntervalSince1970,
+                "monitoringStartDate": monitoringStartDate.timeIntervalSince1970,
                 "createdAt": enqueuedAt.timeIntervalSince1970
             ]
+        }
+
+        init(record: WatchLocalAlarmRecord) {
+            self.alarmInstanceID = record.alarmInstanceID
+            self.weekday = record.weekday
+            self.hour = record.hour
+            self.minute = record.minute
+            self.targetDate = record.targetDate
+            self.monitoringStartDate = record.monitoringStartDate
+            self.enqueuedAt = record.createdAt
+        }
+    }
+
+    private struct PendingStopAlarmCommand: Codable, Equatable {
+        let alarmInstanceID: UUID?
+        let targetDate: Date?
+        let stoppedAt: Date
+        let createdAt: Date?
+
+        var message: [String: Any] {
+            var message: [String: Any] = [
+                "action": "stopAlarm",
+                "stoppedAt": stoppedAt.timeIntervalSince1970
+            ]
+            if let alarmInstanceID {
+                message["alarmInstanceID"] = alarmInstanceID.uuidString
+            }
+            if let targetDate {
+                message["targetDate"] = targetDate.timeIntervalSince1970
+            }
+            if let createdAt {
+                message["createdAt"] = createdAt.timeIntervalSince1970
+            }
+            return message
+        }
+
+        init(tombstone: AlarmStopTombstone) {
+            self.alarmInstanceID = tombstone.alarmInstanceID
+            self.targetDate = tombstone.targetDate
+            self.stoppedAt = tombstone.stoppedAt
+            self.createdAt = tombstone.createdAt
         }
     }
     
@@ -158,10 +232,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private var smartWakeTriggered = false
     private var localAnalysisStartDate: Date?
     private var lastHRJumpEpochIndex = 0
-    #if DEBUG
-    private var testLightEpochsInjected = 0
-    private var didCompleteTestLightEpochInjection = false
-    #endif
     
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
@@ -180,6 +250,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         super.init()
         restorePendingPayloadQueue()
         restorePendingNextAlarmCommand()
+        restorePendingStopAlarmCommand()
         setupWatchConnectivity()
         refreshNextAlarmDate()
         loadWatchModel()
@@ -226,6 +297,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         pipelineState == .deliveringBacklog
     }
 
+    private var hasUnsyncedLocalAlarm: Bool {
+        guard let record = localAlarmRecord(), record.stoppedAt == nil else {
+            return false
+        }
+        return record.syncState != .synced
+    }
+
     func setupWatchConnectivity() {
         if WCSession.isSupported() {
             wcSession = WCSession.default
@@ -255,12 +333,14 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         sendWatchStatusUpdate(sessionState)
         flushPendingPayloadsIfNeeded(force: session.isReachable)
         flushPendingNextAlarmCommandIfNeeded()
+        flushPendingStopAlarmCommandIfNeeded()
     }
 
     func retryPendingPayloadDelivery() {
         refreshConnectionStatus()
         flushPendingPayloadsIfNeeded(force: true)
         flushPendingNextAlarmCommandIfNeeded()
+        flushPendingStopAlarmCommandIfNeeded()
     }
 
     func resumeScheduledSession(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
@@ -590,10 +670,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         smartWakeTriggered = false
         lastHRJumpEpochIndex = 0
         localAnalysisStartDate = startDate
-        #if DEBUG
-        testLightEpochsInjected = 0
-        didCompleteTestLightEpochInjection = false
-        #endif
     }
 
     private func processPayloadForLocalSmartWake(_ payload: SensorPayload) {
@@ -668,7 +744,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             return
         }
 
-        guard var prediction = makeWatchPrediction(forEpochAt: epochHistory.count - 1) else {
+        guard let prediction = makeWatchPrediction(forEpochAt: epochHistory.count - 1) else {
             sendWatchEpochDiagnostic(
                 for: epoch,
                 rawStage: nil,
@@ -679,7 +755,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             return
         }
 
-        prediction = predictionAfterApplyingTestLightInjection(prediction)
         sendWatchEpochDiagnostic(
             for: prediction.epoch,
             rawStage: prediction.rawStage,
@@ -730,39 +805,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             replayStatusText = "Watch ML prediction failed: \(error.localizedDescription)"
             return nil
         }
-    }
-
-    private func predictionAfterApplyingTestLightInjection(_ prediction: WatchPredictionSnapshot) -> WatchPredictionSnapshot {
-        #if DEBUG
-        guard testLightEpochInjectionEnabled, !didCompleteTestLightEpochInjection, !smartWakeTriggered else {
-            return prediction
-        }
-
-        let startDate = localAnalysisStartDate ?? epochHistory.first?.timestamp ?? prediction.epoch.timestamp
-        guard prediction.epoch.timestamp.timeIntervalSince(startDate) >= testLightEpochInjectionDelay else {
-            return prediction
-        }
-
-        if testLightEpochsInjected == 0 {
-            confirmationBuffer.removeAll()
-            isConfirmingSmartWake = false
-        }
-
-        testLightEpochsInjected += 1
-        if testLightEpochsInjected >= testLightEpochInjectionCount {
-            didCompleteTestLightEpochInjection = true
-        }
-
-        replayStatusText = "TEST Light \(testLightEpochsInjected)/\(testLightEpochInjectionCount)"
-        return WatchPredictionSnapshot(
-            rawStage: .light,
-            smoothedStage: .light,
-            epoch: prediction.epoch,
-            isTestInjected: true
-        )
-        #else
-        return prediction
-        #endif
     }
 
     private func evaluateLocalSmartWake(for prediction: WatchPredictionSnapshot, targetDate: Date) {
@@ -855,7 +897,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     private func triggerLocalSmartWake(reason: String) {
-        HapticWakeUpManager.shared.startGradualWakeUp()
+        startWatchHapticWakePhase()
         
         // Tell the phone to start the same Ninety alarm.
         sendTriggerAlarmMessage()
@@ -865,6 +907,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             state: .completed,
             keepHapticsRunning: true
         )
+    }
+
+    private func startWatchHapticWakePhase() {
+        HapticWakeUpManager.shared.startGradualWakeUp()
     }
 
     private func currentAlarmTargetDate() -> Date? {
@@ -878,6 +924,32 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
         let storedDate = Date(timeIntervalSince1970: interval)
         return storedDate > Date() ? storedDate : nil
+    }
+
+    private func nextLocalAlarmTargetDate(hour: Int, minute: Int, now: Date = Date()) -> Date? {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: now)
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+
+        guard var candidate = calendar.date(from: components) else {
+            return nil
+        }
+
+        if candidate <= now {
+            candidate = calendar.date(byAdding: .day, value: 1, to: candidate) ?? candidate
+        }
+
+        return candidate
+    }
+
+    private func scheduledMonitoringStartDate(for targetDate: Date) -> Date {
+        let requestedStart = targetDate.addingTimeInterval(-monitoringLeadTime)
+        if requestedStart <= Date() {
+            return Date().addingTimeInterval(2)
+        }
+        return requestedStart
     }
 
     private func createPaddedWindow(endIndex: Int, requiredCount: Int) -> [WatchEpochAggregate] {
@@ -1035,11 +1107,34 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             return
         }
 
-        let command = PendingNextAlarmCommand(
+        guard let targetDate = nextLocalAlarmTargetDate(hour: hour, minute: minute) else {
+            weeklyAlarmSyncState = .failed
+            weeklyAlarmSyncDetail = "Unable to schedule alarm"
+            return
+        }
+
+        let createdAt = Date()
+        let record = WatchLocalAlarmRecord(
+            alarmInstanceID: UUID(),
+            weekday: Calendar.current.component(.weekday, from: targetDate),
             hour: hour,
             minute: minute,
-            enqueuedAt: Date()
+            targetDate: targetDate,
+            monitoringStartDate: scheduledMonitoringStartDate(for: targetDate),
+            createdAt: createdAt,
+            stoppedAt: nil,
+            syncState: .watchOnly
         )
+
+        saveLocalAlarmRecord(record)
+        UserDefaults.standard.set(targetDate.timeIntervalSince1970, forKey: Self.actualAlarmTimeKey)
+        refreshNextAlarmDate()
+        scheduleSmartAlarmSession(at: record.monitoringStartDate)
+
+        weeklyAlarmSyncState = .saved
+        weeklyAlarmSyncDetail = "Saved on Watch"
+
+        let command = PendingNextAlarmCommand(record: record)
         sendNextAlarmCommand(command)
     }
 
@@ -1080,6 +1175,65 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         UserDefaults.standard.removeObject(forKey: Self.pendingNextAlarmCommandKey)
     }
 
+    private func localAlarmRecord() -> WatchLocalAlarmRecord? {
+        guard let data = UserDefaults.standard.data(forKey: Self.localAlarmRecordKey) else {
+            return nil
+        }
+
+        guard let record = try? JSONDecoder().decode(WatchLocalAlarmRecord.self, from: data) else {
+            UserDefaults.standard.removeObject(forKey: Self.localAlarmRecordKey)
+            return nil
+        }
+
+        return record
+    }
+
+    private func saveLocalAlarmRecord(_ record: WatchLocalAlarmRecord) {
+        guard let data = try? JSONEncoder().encode(record) else { return }
+        UserDefaults.standard.set(data, forKey: Self.localAlarmRecordKey)
+    }
+
+    private func clearLocalAlarmRecord() {
+        UserDefaults.standard.removeObject(forKey: Self.localAlarmRecordKey)
+    }
+
+    private func stopTombstone() -> AlarmStopTombstone? {
+        guard let data = UserDefaults.standard.data(forKey: Self.stopTombstoneKey) else {
+            return nil
+        }
+
+        guard let tombstone = try? JSONDecoder().decode(AlarmStopTombstone.self, from: data) else {
+            UserDefaults.standard.removeObject(forKey: Self.stopTombstoneKey)
+            return nil
+        }
+
+        return tombstone
+    }
+
+    private func saveStopTombstone(_ tombstone: AlarmStopTombstone) {
+        if let existing = stopTombstone(), existing.stoppedAt > tombstone.stoppedAt {
+            return
+        }
+
+        guard let data = try? JSONEncoder().encode(tombstone) else { return }
+        UserDefaults.standard.set(data, forKey: Self.stopTombstoneKey)
+    }
+
+    private func shouldIgnoreDueToStop(_ record: WatchLocalAlarmRecord) -> Bool {
+        guard let tombstone = stopTombstone() else { return false }
+        guard tombstone.stoppedAt >= record.createdAt else { return false }
+
+        if let stoppedAlarmID = tombstone.alarmInstanceID, stoppedAlarmID == record.alarmInstanceID {
+            return true
+        }
+
+        if let stoppedTarget = tombstone.targetDate, abs(stoppedTarget.timeIntervalSince(record.targetDate)) < 1 {
+            return true
+        }
+
+        return false
+    }
+
     private func flushPendingNextAlarmCommandIfNeeded() {
         guard !isSendingNextAlarmCommand, let command = pendingNextAlarmCommand() else {
             return
@@ -1100,7 +1254,8 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         }
 
         guard session.isReachable else {
-            persistPendingNextAlarmCommand(command, state: .unreachable)
+            persistPendingNextAlarmCommand(command, state: .pending)
+            session.transferUserInfo(command.message)
             return
         }
 
@@ -1146,16 +1301,83 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             return
         }
 
+        if (reply["status"] as? String) == "stopped" {
+            clearPendingNextAlarmCommand()
+            weeklyAlarmSyncState = .synced
+            weeklyAlarmSyncDetail = reply["dialog"] as? String
+            return
+        }
+
         clearPendingNextAlarmCommand()
         weeklyAlarmSyncState = (reply["status"] as? String) == "stale" ? .synced : .saved
         weeklyAlarmSyncDetail = reply["dialog"] as? String
 
-        if let targetInterval = reply["targetDate"] as? TimeInterval {
+        if var record = localAlarmRecord(), record.alarmInstanceID == command.alarmInstanceID {
+            record.syncState = .synced
+            saveLocalAlarmRecord(record)
+        }
+
+        if let targetInterval = doubleValue(from: reply["targetDate"]) {
             UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
             refreshNextAlarmDate()
         } else {
             requestAlarmSync()
         }
+    }
+
+    private func restorePendingStopAlarmCommand() {
+        guard pendingStopAlarmCommand() != nil else { return }
+        flushPendingStopAlarmCommandIfNeeded()
+    }
+
+    private func pendingStopAlarmCommand() -> PendingStopAlarmCommand? {
+        guard let data = UserDefaults.standard.data(forKey: Self.pendingStopAlarmCommandKey) else {
+            return nil
+        }
+
+        guard let command = try? JSONDecoder().decode(PendingStopAlarmCommand.self, from: data) else {
+            UserDefaults.standard.removeObject(forKey: Self.pendingStopAlarmCommandKey)
+            return nil
+        }
+
+        return command
+    }
+
+    private func persistPendingStopAlarmCommand(_ command: PendingStopAlarmCommand) {
+        guard let data = try? JSONEncoder().encode(command) else { return }
+        UserDefaults.standard.set(data, forKey: Self.pendingStopAlarmCommandKey)
+    }
+
+    private func clearPendingStopAlarmCommand() {
+        UserDefaults.standard.removeObject(forKey: Self.pendingStopAlarmCommandKey)
+    }
+
+    private func flushPendingStopAlarmCommandIfNeeded() {
+        guard let command = pendingStopAlarmCommand() else { return }
+        sendStopAlarmCommand(command)
+    }
+
+    private func sendStopAlarmCommand(_ command: PendingStopAlarmCommand) {
+        guard let session = wcSession, session.activationState == .activated else {
+            persistPendingStopAlarmCommand(command)
+            return
+        }
+
+        try? session.updateApplicationContext(command.message)
+
+        guard session.isReachable else {
+            session.transferUserInfo(command.message)
+            persistPendingStopAlarmCommand(command)
+            return
+        }
+
+        clearPendingStopAlarmCommand()
+        session.sendMessage(command.message, replyHandler: nil, errorHandler: { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.persistPendingStopAlarmCommand(command)
+                session.transferUserInfo(command.message)
+            }
+        })
     }
 
     private func enableHeartRateBackgroundDelivery() {
@@ -1229,34 +1451,32 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 }
             } else if action == "startSession" {
                 guard shouldProcessPhoneCommand(payload) else { return }
-                guard let targetInterval = payload["targetDate"] as? TimeInterval else { return }
-                prepareForNewSession()
-                UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
-                refreshNextAlarmDate()
-                var wakeWindowStartDate = Date(timeIntervalSince1970: targetInterval).addingTimeInterval(-30 * 60)
-                if wakeWindowStartDate <= Date() {
-                    wakeWindowStartDate = Date().addingTimeInterval(2)
-                }
+                guard let targetInterval = doubleValue(from: payload["targetDate"]) else { return }
+                let targetDate = Date(timeIntervalSince1970: targetInterval)
+                guard let record = incomingAlarmRecord(from: payload, fallbackTargetDate: targetDate) else { return }
                 DispatchQueue.main.async {
-                    self.queueOrScheduleSmartAlarmSession(at: wakeWindowStartDate)
+                    guard self.shouldApplyIncomingRecord(record) else { return }
+                    self.prepareForNewSession()
+                    self.applyIncomingAlarmRecord(record, scheduleSession: false)
+                    self.queueOrScheduleSmartAlarmSession(at: record.monitoringStartDate)
                 }
             } else if action == "stopSession" {
                 guard shouldProcessPhoneCommand(payload) else { return }
                 DispatchQueue.main.async {
+                    guard !self.hasUnsyncedLocalAlarm else { return }
                     self.stopSession()
                 }
             } else if action == "pauseMonitoring" {
                 guard shouldProcessPhoneCommand(payload) else { return }
                 DispatchQueue.main.async {
+                    guard !self.hasUnsyncedLocalAlarm else { return }
                     self.pauseMonitoring()
                 }
             } else if action == "stopAlarm" {
                 guard shouldProcessPhoneCommand(payload) else { return }
+                let tombstone = stopTombstone(from: payload) ?? currentStopTombstone()
                 DispatchQueue.main.async {
-                    self.clearScheduledAlarmAndMonitoring(
-                        detail: "Alarm Stopped",
-                        state: .idle
-                    )
+                    self.applyStopTombstone(tombstone, notifyPhone: false)
                 }
             } else if action == "hapticWakeUp" {
                 DispatchQueue.main.async {
@@ -1266,14 +1486,36 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 }
             } else if action == "syncAlarmState" {
                 guard shouldProcessPhoneCommand(payload) else { return }
-                if let targetInterval = payload["targetDate"] as? TimeInterval {
-                    UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
-                    print("WATCH: Received syncAlarmState for \(Date(timeIntervalSince1970: targetInterval))")
+                if let stoppedAt = payload["stoppedAt"] {
+                    let tombstone = stopTombstone(from: payload) ?? AlarmStopTombstone(
+                        alarmInstanceID: uuidValue(from: payload["alarmInstanceID"]),
+                        targetDate: dateValue(from: payload["targetDate"]),
+                        stoppedAt: dateValue(from: stoppedAt) ?? Date(),
+                        createdAt: dateValue(from: payload["createdAt"])
+                    )
                     DispatchQueue.main.async {
-                        self.refreshNextAlarmDate()
+                        self.applyStopTombstone(tombstone, notifyPhone: false)
+                    }
+                    return
+                }
+
+                if let targetInterval = doubleValue(from: payload["targetDate"]) {
+                    let targetDate = Date(timeIntervalSince1970: targetInterval)
+                    let record = incomingAlarmRecord(from: payload, fallbackTargetDate: targetDate)
+                    print("WATCH: Received syncAlarmState for \(targetDate)")
+                    DispatchQueue.main.async {
+                        if let record {
+                            self.applyIncomingAlarmRecord(record, scheduleSession: false)
+                        } else {
+                            UserDefaults.standard.set(targetInterval, forKey: Self.actualAlarmTimeKey)
+                            self.refreshNextAlarmDate()
+                        }
                     }
                 } else {
                     DispatchQueue.main.async {
+                        if let record = self.localAlarmRecord(), record.syncState != .synced {
+                            return
+                        }
                         self.clearScheduledAlarmAndMonitoring(
                             detail: "Alarm Removed",
                             state: .idle
@@ -1342,7 +1584,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             invalidateRuntimeSessionIfNeeded()
             HapticWakeUpManager.shared.stop()
         }
-        clearAlarmTracking()
+        clearAlarmTracking(preserveLocalAlarmRecord: keepHapticsRunning)
         stopSensors()
         resetLocalAnalysis()
         clearPendingPayloadQueue()
@@ -1354,12 +1596,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         let phoneReachable = wcSession?.activationState == .activated && wcSession?.isReachable == true
         
         // Start the silent Watch phase of the same Ninety alarm locally.
-        HapticWakeUpManager.shared.startGradualWakeUp()
+        startWatchHapticWakePhase()
+        sendTriggerAlarmMessage()
 
         if phoneReachable {
-            // Tell the phone to put the same AlarmKit alarm into countdown.
-            sendTriggerAlarmMessage()
-            
             clearScheduledAlarmAndMonitoring(
                 detail: "Alarm active (syncing with iPhone)",
                 state: .completed,
@@ -1542,6 +1782,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         if interval > 0 {
             let storedDate = Date(timeIntervalSince1970: interval)
             refreshedDate = storedDate > Date() ? storedDate : nil
+        } else if let record = localAlarmRecord(), record.stoppedAt == nil, record.targetDate > Date() {
+            refreshedDate = record.targetDate
+            UserDefaults.standard.set(record.targetDate.timeIntervalSince1970, forKey: Self.actualAlarmTimeKey)
         } else {
             refreshedDate = nil
         }
@@ -1589,6 +1832,165 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         return nil
     }
 
+    private func doubleValue(from value: Any?) -> Double? {
+        if let doubleValue = value as? Double {
+            return doubleValue
+        }
+
+        if let number = value as? NSNumber {
+            return number.doubleValue
+        }
+
+        if let stringValue = value as? String {
+            return Double(stringValue)
+        }
+
+        return nil
+    }
+
+    private func dateValue(from value: Any?) -> Date? {
+        doubleValue(from: value).map(Date.init(timeIntervalSince1970:))
+    }
+
+    private func uuidValue(from value: Any?) -> UUID? {
+        if let uuid = value as? UUID {
+            return uuid
+        }
+
+        if let string = value as? String {
+            return UUID(uuidString: string)
+        }
+
+        return nil
+    }
+
+    private func incomingAlarmRecord(from payload: [String: Any], fallbackTargetDate: Date? = nil) -> WatchLocalAlarmRecord? {
+        guard let targetDate = dateValue(from: payload["targetDate"]) ?? fallbackTargetDate else {
+            return nil
+        }
+
+        let calendar = Calendar.current
+        let alarmID = uuidValue(from: payload["alarmInstanceID"]) ?? UUID()
+        let hour = intValue(from: payload["hour"]) ?? calendar.component(.hour, from: targetDate)
+        let minute = intValue(from: payload["minute"]) ?? calendar.component(.minute, from: targetDate)
+        let weekday = intValue(from: payload["weekday"]) ?? calendar.component(.weekday, from: targetDate)
+        let createdAt = dateValue(from: payload["createdAt"]) ?? Date()
+        let monitoringStart = dateValue(from: payload["monitoringStartDate"]) ?? scheduledMonitoringStartDate(for: targetDate)
+
+        return WatchLocalAlarmRecord(
+            alarmInstanceID: alarmID,
+            weekday: weekday,
+            hour: hour,
+            minute: minute,
+            targetDate: targetDate,
+            monitoringStartDate: monitoringStart,
+            createdAt: createdAt,
+            stoppedAt: nil,
+            syncState: .synced
+        )
+    }
+
+    private func shouldApplyIncomingRecord(_ record: WatchLocalAlarmRecord) -> Bool {
+        if shouldIgnoreDueToStop(record) {
+            return false
+        }
+
+        guard let local = localAlarmRecord() else {
+            return true
+        }
+
+        if let stoppedAt = local.stoppedAt, stoppedAt >= record.createdAt {
+            return false
+        }
+
+        if local.createdAt > record.createdAt {
+            return false
+        }
+
+        if local.createdAt == record.createdAt && local.alarmInstanceID != record.alarmInstanceID {
+            return false
+        }
+
+        return true
+    }
+
+    private func applyIncomingAlarmRecord(_ record: WatchLocalAlarmRecord, scheduleSession: Bool) {
+        guard shouldApplyIncomingRecord(record) else { return }
+        saveLocalAlarmRecord(record)
+        UserDefaults.standard.set(record.targetDate.timeIntervalSince1970, forKey: Self.actualAlarmTimeKey)
+        refreshNextAlarmDate()
+        weeklyAlarmSyncState = .synced
+        weeklyAlarmSyncDetail = nil
+        if scheduleSession {
+            scheduleSmartAlarmSession(at: record.monitoringStartDate)
+        }
+    }
+
+    private func stopTombstone(from payload: [String: Any]) -> AlarmStopTombstone? {
+        let stoppedAt = dateValue(from: payload["stoppedAt"]) ?? Date()
+        let alarmID = uuidValue(from: payload["alarmInstanceID"])
+        let targetDate = dateValue(from: payload["targetDate"])
+        let createdAt = dateValue(from: payload["createdAt"])
+        return AlarmStopTombstone(
+            alarmInstanceID: alarmID,
+            targetDate: targetDate,
+            stoppedAt: stoppedAt,
+            createdAt: createdAt
+        )
+    }
+
+    private func currentStopTombstone(stoppedAt: Date = Date()) -> AlarmStopTombstone {
+        let record = localAlarmRecord()
+        return AlarmStopTombstone(
+            alarmInstanceID: record?.alarmInstanceID,
+            targetDate: record?.targetDate ?? nextAlarmDate,
+            stoppedAt: stoppedAt,
+            createdAt: record?.createdAt
+        )
+    }
+
+    private func shouldApplyStop(_ tombstone: AlarmStopTombstone, to record: WatchLocalAlarmRecord?) -> Bool {
+        guard let record else {
+            return true
+        }
+
+        guard tombstone.stoppedAt >= record.createdAt else {
+            return false
+        }
+
+        if let alarmID = tombstone.alarmInstanceID {
+            return alarmID == record.alarmInstanceID
+        }
+
+        if let targetDate = tombstone.targetDate {
+            return abs(targetDate.timeIntervalSince(record.targetDate)) < 1
+        }
+
+        return true
+    }
+
+    private func applyStopTombstone(_ tombstone: AlarmStopTombstone, notifyPhone: Bool) {
+        let record = localAlarmRecord()
+        guard shouldApplyStop(tombstone, to: record) else { return }
+
+        saveStopTombstone(tombstone)
+        clearPendingNextAlarmCommand()
+        if var record, tombstone.stoppedAt >= record.createdAt {
+            record.stoppedAt = tombstone.stoppedAt
+            record.syncState = .stopped
+            saveLocalAlarmRecord(record)
+        }
+
+        clearScheduledAlarmAndMonitoring(
+            detail: "Alarm Stopped",
+            state: .idle
+        )
+
+        if notifyPhone {
+            sendStopAlarmCommand(PendingStopAlarmCommand(tombstone: tombstone))
+        }
+    }
+
     private func queueOrScheduleSmartAlarmSession(at date: Date) {
         guard WKExtension.shared().applicationState == .active else {
             UserDefaults.standard.set(date.timeIntervalSince1970, forKey: Self.pendingScheduleKey)
@@ -1613,12 +2015,15 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         UserDefaults.standard.removeObject(forKey: Self.readyScheduleKey)
     }
 
-    private func clearAlarmTracking() {
+    private func clearAlarmTracking(preserveLocalAlarmRecord: Bool = false) {
         alarmDeadlineTimer?.invalidate()
         alarmDeadlineTimer = nil
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.readyScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
+        if !preserveLocalAlarmRecord {
+            clearLocalAlarmRecord()
+        }
         let shouldShowSyncedState = pendingNextAlarmCommand() == nil
         if Thread.isMainThread {
             nextAlarmDate = nil
@@ -1717,21 +2122,35 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             session.transferUserInfo(message)
         }
     }
+    func stopActiveAlarmFromWatch() {
+        let tombstone = currentStopTombstone()
+        applyStopTombstone(tombstone, notifyPhone: true)
+    }
+
     func sendStopAlarmMessage() {
-        guard let session = wcSession, session.activationState == .activated else { return }
-        let message = ["action": "stopAlarm"]
-        if session.isReachable {
-            session.sendMessage(message, replyHandler: nil, errorHandler: nil)
-        } else {
-            session.transferUserInfo(message)
-        }
+        let tombstone = currentStopTombstone()
+        sendStopAlarmCommand(PendingStopAlarmCommand(tombstone: tombstone))
     }
     
     func sendTriggerAlarmMessage() {
         guard let session = wcSession, session.activationState == .activated else { return }
-        let message = ["action": "triggerAlarm"]
+        var message: [String: Any] = ["action": "triggerAlarm"]
+        if let record = localAlarmRecord() {
+            message["alarmInstanceID"] = record.alarmInstanceID.uuidString
+            message["weekday"] = record.weekday
+            message["hour"] = record.hour
+            message["minute"] = record.minute
+            message["targetDate"] = record.targetDate.timeIntervalSince1970
+            message["monitoringStartDate"] = record.monitoringStartDate.timeIntervalSince1970
+            message["createdAt"] = record.createdAt.timeIntervalSince1970
+        } else if let nextAlarmDate {
+            message["targetDate"] = nextAlarmDate.timeIntervalSince1970
+        }
+
         if session.isReachable {
             session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(message)
         }
     }
 }

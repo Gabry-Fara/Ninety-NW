@@ -206,7 +206,7 @@ final class ScheduleViewModel: ObservableObject {
     }
 
     @discardableResult
-    func scheduleSession() async -> Bool {
+    func scheduleSession(alarmID: UUID? = nil, createdAt: Date? = nil) async -> Bool {
         guard !isScheduling else { return false }
         guard let nextUpcomingSession else {
             await SmartAlarmManager.shared.cancelSessionNow()
@@ -226,7 +226,11 @@ final class ScheduleViewModel: ObservableObject {
             return false
         }
 
-        await SmartAlarmManager.shared.rescheduleSystemAlarm(for: nextUpcomingSession.wakeUpDate)
+        await SmartAlarmManager.shared.rescheduleSystemAlarm(
+            for: nextUpcomingSession.wakeUpDate,
+            alarmID: alarmID,
+            createdAt: createdAt
+        )
         lastScheduledSession = nextUpcomingSession
         return true
     }
@@ -330,7 +334,7 @@ final class ScheduleViewModel: ObservableObject {
         )
     }
 
-    func applyWatchWeeklyAlarm(weekday: Int, hour: Int, minute: Int, createdAt: Date) async throws -> WatchWeeklyAlarmApplyResult {
+    func applyWatchWeeklyAlarm(weekday: Int, hour: Int, minute: Int, createdAt: Date, alarmID: UUID? = nil) async throws -> WatchWeeklyAlarmApplyResult {
         try validate(weekday: weekday, hour: hour, minute: minute)
 
         let createdAtInterval = createdAt.timeIntervalSince1970
@@ -358,7 +362,7 @@ final class ScheduleViewModel: ObservableObject {
             "Watch UI: Updated weekly alarm for weekday \(weekday) to \(String(format: "%02d:%02d", hour, minute))"
         )
 
-        let didSchedule = await scheduleSession()
+        let didSchedule = await scheduleSession(alarmID: alarmID, createdAt: createdAt)
         postExternalScheduleChange(weekday: weekday)
 
         return WatchWeeklyAlarmApplyResult(
