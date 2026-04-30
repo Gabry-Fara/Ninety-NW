@@ -37,6 +37,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     // Stores all raw data needed for feature engineering across rolling windows.
     private struct EpochAggregate: Codable {
         let timestamp: Date
+        let processedAt: Date?
         let heartRateMean: Double
         let heartRateStd: Double
         let heartRateRange: Double    // max - min of HR within epoch
@@ -111,6 +112,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         var id: Date { timestamp }
 
         let timestamp: Date
+        let processedAt: Date?
         let heartRateMean: Double
         let heartRateStd: Double
         let heartRateRange: Double
@@ -174,6 +176,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             guard let epoch = epochHistory.last else { return nil }
             return EpochDiagnosticsSnapshot(
                 timestamp: epoch.timestamp,
+                processedAt: epoch.processedAt,
                 heartRateMean: epoch.heartRateMean,
                 heartRateStd: epoch.heartRateStd,
                 heartRateRange: epoch.heartRateRange,
@@ -199,6 +202,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 
                 return EpochDiagnosticsSnapshot(
                     timestamp: epoch.timestamp,
+                    processedAt: epoch.processedAt,
                     heartRateMean: epoch.heartRateMean,
                     heartRateStd: epoch.heartRateStd,
                     heartRateRange: epoch.heartRateRange,
@@ -879,6 +883,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         let epoch = EpochAggregate(
             timestamp: payload.timestamp,
+            processedAt: Date(),
             heartRateMean: hrMean,
             heartRateStd: hrStd,
             heartRateRange: hrRange,
@@ -1816,6 +1821,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             // Build a fake PredictionSnapshot for the confirmation logic
             let fakeEpoch = EpochAggregate(
                 timestamp: Date(),
+                processedAt: Date(),
                 heartRateMean: featureRow["hr_hist10m_mean_raw"] ?? 0,
                 heartRateStd: featureRow["hr_hist5m_std_raw"] ?? 0,
                 heartRateRange: 0,

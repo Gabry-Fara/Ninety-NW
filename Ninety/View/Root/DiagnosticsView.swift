@@ -215,6 +215,9 @@ struct DiagnosticsView: View {
             Text("Time".localized(for: appLanguage))
                 .frame(width: 86, alignment: .leading)
 
+            Text("Received".localized(for: appLanguage))
+                .frame(width: 86, alignment: .leading)
+
             Text("HR mean".localized(for: appLanguage))
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
@@ -232,6 +235,9 @@ struct DiagnosticsView: View {
     private func epochProcessingRow(_ epoch: SleepSessionManager.EpochDiagnosticsSnapshot) -> some View {
         HStack(spacing: 12) {
             Text(epoch.timestamp.formatted(date: .omitted, time: .standard))
+                .frame(width: 86, alignment: .leading)
+
+            Text(epoch.processedAt?.formatted(date: .omitted, time: .standard) ?? "-")
                 .frame(width: 86, alignment: .leading)
 
             Text(String(format: "%.1f", epoch.heartRateMean))
