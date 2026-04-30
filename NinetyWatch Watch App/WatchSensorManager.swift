@@ -855,7 +855,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     private func triggerLocalSmartWake(reason: String) {
-        runtimeSession?.notifyUser(hapticType: .notification)
         HapticWakeUpManager.shared.startGradualWakeUp()
         
         // Tell the phone to start the same Ninety alarm.
@@ -1262,7 +1261,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             } else if action == "hapticWakeUp" {
                 DispatchQueue.main.async {
                     print("WATCH: Received hapticWakeUp from iPhone.")
-                    self.runtimeSession?.notifyUser(hapticType: .notification)
                     HapticWakeUpManager.shared.startGradualWakeUp()
                     self.clearScheduledAlarmAndMonitoring(detail: "Alarm Triggered by Phone", state: .completed, keepHapticsRunning: true)
                 }
@@ -1356,7 +1354,6 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         let phoneReachable = wcSession?.activationState == .activated && wcSession?.isReachable == true
         
         // Start the silent Watch phase of the same Ninety alarm locally.
-        runtimeSession?.notifyUser(hapticType: .notification)
         HapticWakeUpManager.shared.startGradualWakeUp()
 
         if phoneReachable {

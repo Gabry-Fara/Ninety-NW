@@ -18,7 +18,6 @@
 import WatchKit
 import Foundation
 import Combine
-import UserNotifications
 
 @MainActor
 class HapticWakeUpManager: ObservableObject {
@@ -67,17 +66,6 @@ class HapticWakeUpManager: ObservableObject {
                 manager.tick()
             }
         }
-        
-        // Show a local notification so the user can easily tap to open the app and stop it
-        let content = UNMutableNotificationContent()
-        content.title = "Ninety"
-        content.body = "Tocca per fermare la sveglia"
-        content.sound = nil
-        
-        let request = UNNotificationRequest(identifier: "gradual_wake_up", content: content, trigger: nil)
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in
-            UNUserNotificationCenter.current().add(request)
-        }
     }
 
     /// Stops the haptic sequence immediately (e.g., user dismissed the alarm).
@@ -86,9 +74,6 @@ class HapticWakeUpManager: ObservableObject {
         hapticTimer = nil
         isPlaying = false
         elapsedTicks = 0
-        
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["gradual_wake_up"])
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["gradual_wake_up"])
     }
 
     // MARK: - Internal
