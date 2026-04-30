@@ -40,6 +40,11 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private let confirmationThreshold = 2
     private let maximumDynamicPredictionAge: TimeInterval = 90
     private let dynamicTriggerFailsafeBuffer: TimeInterval = 60
+    #if DEBUG
+    private let testLightEpochInjectionEnabled = true
+    private let testLightEpochInjectionDelay: TimeInterval = 5 * 60
+    private let testLightEpochInjectionCount = 3
+    #endif
 
     private enum WatchPipelineState: String, Codable {
         case idle
@@ -97,6 +102,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         let rawStage: WatchSleepStage
         let smoothedStage: WatchSleepStage
         let epoch: WatchEpochAggregate
+        let isTestInjected: Bool
     }
 
     private struct PendingPayloadEnvelope: Codable {
@@ -152,6 +158,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private var smartWakeTriggered = false
     private var localAnalysisStartDate: Date?
     private var lastHRJumpEpochIndex = 0
+    #if DEBUG
+    private var testLightEpochsInjected = 0
+    private var didCompleteTestLightEpochInjection = false
+    #endif
     
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
@@ -580,6 +590,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         smartWakeTriggered = false
         lastHRJumpEpochIndex = 0
         localAnalysisStartDate = startDate
+        #if DEBUG
+        testLightEpochsInjected = 0
+        didCompleteTestLightEpochInjection = false
+        #endif
     }
 
     private func processPayloadForLocalSmartWake(_ payload: SensorPayload) {
@@ -644,13 +658,35 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
         guard epochHistory.count >= minimumEpochsForFeatures else {
             updatePipelineState(.recording, detail: "Watch ML warming \(epochHistory.count)/\(minimumEpochsForFeatures)")
+            sendWatchEpochDiagnostic(
+                for: epoch,
+                rawStage: nil,
+                smoothedStage: nil,
+                stageTitle: "Warming \(epochHistory.count)/\(minimumEpochsForFeatures)",
+                isTestInjected: false
+            )
             return
         }
 
-        guard let prediction = makeWatchPrediction(forEpochAt: epochHistory.count - 1) else {
+        guard var prediction = makeWatchPrediction(forEpochAt: epochHistory.count - 1) else {
+            sendWatchEpochDiagnostic(
+                for: epoch,
+                rawStage: nil,
+                smoothedStage: nil,
+                stageTitle: "Unavailable",
+                isTestInjected: false
+            )
             return
         }
 
+        prediction = predictionAfterApplyingTestLightInjection(prediction)
+        sendWatchEpochDiagnostic(
+            for: prediction.epoch,
+            rawStage: prediction.rawStage,
+            smoothedStage: prediction.smoothedStage,
+            stageTitle: prediction.smoothedStage.title,
+            isTestInjected: prediction.isTestInjected
+        )
         updatePipelineState(.recording, detail: "Watch ML \(prediction.smoothedStage.title)")
         evaluateLocalSmartWake(for: prediction, targetDate: targetDate)
     }
@@ -684,11 +720,49 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
             let smoothedStage = modeStage(from: rawPredictions) ?? rawStage
             replayStatusText = "Watch ML raw \(rawStage.title), smooth \(smoothedStage.title)"
-            return WatchPredictionSnapshot(rawStage: rawStage, smoothedStage: smoothedStage, epoch: epoch)
+            return WatchPredictionSnapshot(
+                rawStage: rawStage,
+                smoothedStage: smoothedStage,
+                epoch: epoch,
+                isTestInjected: false
+            )
         } catch {
             replayStatusText = "Watch ML prediction failed: \(error.localizedDescription)"
             return nil
         }
+    }
+
+    private func predictionAfterApplyingTestLightInjection(_ prediction: WatchPredictionSnapshot) -> WatchPredictionSnapshot {
+        #if DEBUG
+        guard testLightEpochInjectionEnabled, !didCompleteTestLightEpochInjection, !smartWakeTriggered else {
+            return prediction
+        }
+
+        let startDate = localAnalysisStartDate ?? epochHistory.first?.timestamp ?? prediction.epoch.timestamp
+        guard prediction.epoch.timestamp.timeIntervalSince(startDate) >= testLightEpochInjectionDelay else {
+            return prediction
+        }
+
+        if testLightEpochsInjected == 0 {
+            confirmationBuffer.removeAll()
+            isConfirmingSmartWake = false
+        }
+
+        testLightEpochsInjected += 1
+        if testLightEpochsInjected >= testLightEpochInjectionCount {
+            didCompleteTestLightEpochInjection = true
+        }
+
+        replayStatusText = "TEST Light \(testLightEpochsInjected)/\(testLightEpochInjectionCount)"
+        return WatchPredictionSnapshot(
+            rawStage: .light,
+            smoothedStage: .light,
+            epoch: prediction.epoch,
+            isTestInjected: true
+        )
+        #else
+        return prediction
+        #endif
     }
 
     private func evaluateLocalSmartWake(for prediction: WatchPredictionSnapshot, targetDate: Date) {
@@ -720,6 +794,44 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         } else {
             confirmationBuffer.removeAll()
             isConfirmingSmartWake = false
+        }
+    }
+
+    private func sendWatchEpochDiagnostic(
+        for epoch: WatchEpochAggregate,
+        rawStage: WatchSleepStage?,
+        smoothedStage: WatchSleepStage?,
+        stageTitle: String,
+        isTestInjected: Bool
+    ) {
+        guard let session = wcSession, session.activationState == .activated else { return }
+
+        let diagnostic = WatchEpochDiagnostic(
+            id: UUID(),
+            timestamp: epoch.timestamp,
+            processedAt: Date(),
+            heartRateMean: epoch.heartRateMean,
+            heartRateStd: epoch.heartRateStd,
+            heartRateRange: epoch.heartRateRange,
+            motionMagMean: epoch.motionMagMean,
+            motionMagMax: epoch.motionMagMax,
+            motionJerk: epoch.motionJerk,
+            rawStage: rawStage?.rawValue,
+            smoothedStage: smoothedStage?.rawValue,
+            stageTitle: stageTitle,
+            isTestInjected: isTestInjected
+        )
+
+        guard let encoded = try? JSONEncoder().encode(diagnostic) else { return }
+
+        let message: [String: Any] = [
+            "action": "watchEpochDiagnostic",
+            "watchEpochData": encoded
+        ]
+
+        session.transferUserInfo(message)
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil, errorHandler: nil)
         }
     }
 

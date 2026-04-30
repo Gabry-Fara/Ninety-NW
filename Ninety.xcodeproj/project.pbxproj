@@ -34,7 +34,6 @@
 		C0D3B0040000000000000001 /* UpdateNinetyAlarmIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3F0040000000000000001 /* UpdateNinetyAlarmIntent.swift */; };
 		C0D3B0050000000000000001 /* CancelNinetyAlarmIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3F0050000000000000001 /* CancelNinetyAlarmIntent.swift */; };
 		C0D3B0060000000000000001 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = C0D3F0060000000000000001 /* AppShortcuts.strings */; };
-		E1A2B3C52F96800000112233 /* NeuralWakeUP.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C42F96800000112233 /* NeuralWakeUP.mlmodel */; };
 		E1A2B3C92F96820000112233 /* TestModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C82F96820000112233 /* TestModeView.swift */; };
 /* End PBXBuildFile section */
 
@@ -376,7 +375,6 @@
 				5BB3ED7C2C3ADCAB00CD4274 /* OnboardingView.swift in Sources */,
 				B1C2D3E42F90123400AABBCC /* GuidedTourView.swift in Sources */,
 				E1A2B3C92F96820000112233 /* TestModeView.swift in Sources */,
-				E1A2B3C52F96800000112233 /* NeuralWakeUP.mlmodel in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
