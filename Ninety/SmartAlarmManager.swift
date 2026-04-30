@@ -12,6 +12,9 @@ import AlarmKit
 class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = SmartAlarmManager()
     nonisolated static let monitoringLeadTime: TimeInterval = 30 * 60
+    private static let gradualWakeNotificationID = "ninety_gradual_wake"
+    private static let gradualWakeCategoryID = "ninety_gradual_wake_category"
+    private static let stopAlarmActionID = "ninety_stop_alarm"
 
     struct ScheduledSleepSession {
         let wakeUpDate: Date
@@ -32,6 +35,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        configureNotificationActions()
         Task { @MainActor in
             await cleanupOrphanedSystemAlarmsIfNeeded()
         }
@@ -39,6 +43,13 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        Task { @MainActor in
+            SmartAlarmManager.shared.cancelSession()
+        }
+        completionHandler()
     }
     
     func requestPermissions(completion: @escaping (Bool) -> Void) {
@@ -111,11 +122,44 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         absoluteAlarmID = nil
 
         SleepSessionManager.shared.syncAlarmState(targetDate: nil)
+        SleepSessionManager.shared.stopWatchAlarmPlayback()
         SleepSessionManager.shared.pauseWatchMonitoring()
 
         if resetStatus {
             self.alarmStatus = "No alarms configured."
         }
+    }
+
+    private func configureNotificationActions() {
+        let stopAction = UNNotificationAction(
+            identifier: Self.stopAlarmActionID,
+            title: "Stop",
+            options: [.destructive]
+        )
+        let category = UNNotificationCategory(
+            identifier: Self.gradualWakeCategoryID,
+            actions: [stopAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
+    private func showGradualWakeNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Ninety"
+        content.body = "Sveglia graduale attiva. Tocca per fermarla."
+        content.categoryIdentifier = Self.gradualWakeCategoryID
+        content.sound = nil
+
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.gradualWakeNotificationID])
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [Self.gradualWakeNotificationID])
+        let request = UNNotificationRequest(
+            identifier: Self.gradualWakeNotificationID,
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
     }
     
     func scheduleSystemAlarm(for targetDate: Date) {
@@ -201,18 +245,27 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     
     // Layer Two: The Dynamic Heuristic Trigger
     func triggerDynamicAlarm() {
-        self.alarmStatus = "Smart wake triggered. Waking user now."
+        self.alarmStatus = "Gradual wake started on Watch..."
         cancelMonitoringStopTimer()
-        SleepSessionManager.shared.pauseWatchMonitoring()
+        
+        // 1. Start the gradual haptic sequence on the Watch immediately.
+        // Scientific rationale: Gentle tactile stimuli facilitate the transition from N1/N2 
+        // to wakefulness without triggering a sympathetic 'fight-or-flight' response.
         SleepSessionManager.shared.triggerWatchHapticWakeUp()
 
         cancelAllSystemAlarms()
         absoluteAlarmID = nil
 
+        showGradualWakeNotification()
+
+        // 2. Schedule the loud 'failsafe' alarm on the Phone after a 60-second delay.
+        // This gives the user a window to wake up gently via haptics before the audio stimulus.
+        let loudAlarmDelay: TimeInterval = 60 
+
         #if canImport(AlarmKit)
         Task {
             do {
-                let triggerDate = Date().addingTimeInterval(2)
+                let triggerDate = Date().addingTimeInterval(loudAlarmDelay)
                 let configuration = AlarmManager.AlarmConfiguration(
                     schedule: .fixed(triggerDate),
                     attributes: createDefaultAttributes()
@@ -220,13 +273,13 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
                 let smartAlarmID = UUID()
                 self.absoluteAlarmID = smartAlarmID
                 _ = try await AlarmManager.shared.schedule(id: smartAlarmID, configuration: configuration)
-                self.alarmStatus = "Smart wake alarm scheduled."
+                self.alarmStatus = "Smart wake: Haptics active, loud alarm in \(Int(loudAlarmDelay))s"
             } catch {
                 self.alarmStatus = "Smart wake failed: \(error)"
             }
         }
         #else
-        self.alarmStatus = "[Sim] Smart wake triggered."
+        self.alarmStatus = "[Sim] Gradual wake: Loud alarm in \(Int(loudAlarmDelay))s"
 
         layer2Task = Task {
             let content = UNMutableNotificationContent()
@@ -235,7 +288,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
             content.sound = .defaultCritical
 
             let requestID = UUID().uuidString
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: loudAlarmDelay, repeats: false)
             let request = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)
 
             do {
@@ -246,7 +299,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
             }
 
             do {
-                try await Task.sleep(nanoseconds: 1_000_000_000)
+                try await Task.sleep(nanoseconds: UInt64(loudAlarmDelay * 1_000_000_000))
                 if !Task.isCancelled {
                     self.playMockAlarmSound()
                 }

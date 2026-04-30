@@ -18,6 +18,7 @@
 import WatchKit
 import Foundation
 import Combine
+import UserNotifications
 
 @MainActor
 class HapticWakeUpManager: ObservableObject {
@@ -38,11 +39,17 @@ class HapticWakeUpManager: ObservableObject {
         let duration: TimeInterval
     }
 
+    // Scientific Pattern for Sleep Inertia Reduction:
+    // 1. Pre-arousal: Very low frequency to avoid sympathetic nervous shock (cortisol spike).
+    // 2. Light Arousal: Mimics resting heart rate (~60bpm -> 1Hz) to gently stimulate.
+    // 3. Emergence: Slightly elevated heart rate pacing, increasing intensity.
+    // 4. Wakefulness: High frequency and intensity to clear sleep inertia and ensure wakefulness.
     private let phases: [Phase] = [
-        Phase(hapticType: .click,         interval: 3.0, duration: 15),  // Phase 1: gentle pulse
-        Phase(hapticType: .click,         interval: 1.5, duration: 15),  // Phase 2: faster pulse
-        Phase(hapticType: .directionUp,   interval: 1.0, duration: 15),  // Phase 3: emerging
-        Phase(hapticType: .notification,  interval: 0.5, duration: 20),  // Phase 4: urgent
+        Phase(hapticType: .start,         interval: 4.0, duration: 20),  // Phase 1: Pre-arousal (gentle, 4s gap)
+        Phase(hapticType: .click,         interval: 2.0, duration: 20),  // Phase 2: Light Arousal (moderate, 2s gap)
+        Phase(hapticType: .directionUp,   interval: 1.0, duration: 20),  // Phase 3: Emergence (stronger, 1s gap)
+        Phase(hapticType: .success,       interval: 0.5, duration: 20),  // Phase 4: Wakefulness (double tap, 0.5s gap)
+        Phase(hapticType: .notification,  interval: 0.5, duration: 30)   // Phase 5: Urgent (sustained)
     ]
 
     // MARK: - Public API
@@ -60,6 +67,17 @@ class HapticWakeUpManager: ObservableObject {
                 manager.tick()
             }
         }
+        
+        // Show a local notification so the user can easily tap to open the app and stop it
+        let content = UNMutableNotificationContent()
+        content.title = "Ninety"
+        content.body = "Tocca per fermare la sveglia"
+        content.sound = nil
+        
+        let request = UNNotificationRequest(identifier: "gradual_wake_up", content: content, trigger: nil)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in
+            UNUserNotificationCenter.current().add(request)
+        }
     }
 
     /// Stops the haptic sequence immediately (e.g., user dismissed the alarm).
@@ -68,6 +86,9 @@ class HapticWakeUpManager: ObservableObject {
         hapticTimer = nil
         isPlaying = false
         elapsedTicks = 0
+        
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["gradual_wake_up"])
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["gradual_wake_up"])
     }
 
     // MARK: - Internal

@@ -338,11 +338,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         clearPersistedSessionState()
         guard let session = wcSession else { return }
         let command = makeWatchCommand(action: "stopSession")
+        cancelOutstandingWatchControlTransfers(on: session)
+        try? session.updateApplicationContext(command)
         if session.isReachable {
-            session.sendMessage(command, replyHandler: nil, errorHandler: nil)
+            session.sendMessage(command, replyHandler: nil) { [weak self] error in
+                self?.log("Failed to stop Watch via sendMessage: \(error.localizedDescription). Queuing stop.")
+                session.transferUserInfo(command)
+            }
         } else {
-            try? session.updateApplicationContext(command)
-            cancelOutstandingWatchControlTransfers(on: session)
             session.transferUserInfo(command)
         }
     }
@@ -367,11 +370,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         clearPersistedSessionState()
         guard let session = wcSession else { return }
         let command = makeWatchCommand(action: "pauseMonitoring")
+        cancelOutstandingWatchControlTransfers(on: session)
+        try? session.updateApplicationContext(command)
         if session.isReachable {
-            session.sendMessage(command, replyHandler: nil, errorHandler: nil)
+            session.sendMessage(command, replyHandler: nil) { [weak self] error in
+                self?.log("Failed to pause Watch via sendMessage: \(error.localizedDescription). Queuing pause.")
+                session.transferUserInfo(command)
+            }
         } else {
-            try? session.updateApplicationContext(command)
-            cancelOutstandingWatchControlTransfers(on: session)
             session.transferUserInfo(command)
         }
     }
@@ -394,6 +400,22 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    func stopWatchAlarmPlayback() {
+        guard let session = wcSession else { return }
+        let command = makeWatchCommand(action: "stopAlarm")
+        cancelOutstandingWatchControlTransfers(on: session)
+        try? session.updateApplicationContext(command)
+
+        if session.isReachable {
+            session.sendMessage(command, replyHandler: nil) { [weak self] error in
+                self?.log("Failed to stop Watch alarm playback: \(error.localizedDescription). Queuing stop.")
+                session.transferUserInfo(command)
+            }
+        } else {
+            session.transferUserInfo(command)
+        }
+    }
+
     func syncAlarmState(targetDate: Date?) {
         guard let session = wcSession else { return }
         var extra: [String: Any] = [:]
@@ -401,16 +423,18 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             extra["targetDate"] = targetDate.timeIntervalSince1970
         }
         let command = makeWatchCommand(action: "syncAlarmState", extra: extra)
-        
+        if targetDate == nil {
+            cancelOutstandingWatchControlTransfers(on: session)
+        }
+        try? session.updateApplicationContext(command)
+
         if session.isReachable {
-            session.sendMessage(command, replyHandler: nil, errorHandler: nil)
-        } else {
-            do {
-                try session.updateApplicationContext(command)
-            } catch {
-                cancelOutstandingWatchControlTransfers(on: session)
+            session.sendMessage(command, replyHandler: nil) { [weak self] error in
+                self?.log("Failed to sync alarm state to Watch: \(error.localizedDescription). Queuing state.")
                 session.transferUserInfo(command)
             }
+        } else {
+            session.transferUserInfo(command)
         }
     }
 
@@ -488,6 +512,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         if let action = payloadDictionary["action"] as? String, action == "watchEpochDiagnostic" {
             handleWatchEpochDiagnostic(payloadDictionary)
+            return
+        }
+
+        // 0.7. Trigger Alarm Request (from Watch smart wake or fallback)
+        if let action = payloadDictionary["action"] as? String, action == "triggerAlarm" {
+            DispatchQueue.main.async {
+                SmartAlarmManager.shared.triggerDynamicAlarm()
+            }
             return
         }
 
@@ -1707,7 +1739,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func cancelOutstandingWatchControlTransfers(on session: WCSession) {
-        let controlActions: Set<String> = ["startSession", "stopSession", "pauseMonitoring", "syncAlarmState"]
+        let controlActions: Set<String> = ["startSession", "stopSession", "pauseMonitoring", "syncAlarmState", "stopAlarm"]
         for transfer in session.outstandingUserInfoTransfers {
             guard
                 let action = transfer.userInfo["action"] as? String,
