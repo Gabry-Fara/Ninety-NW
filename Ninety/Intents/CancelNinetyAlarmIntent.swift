@@ -23,3 +23,15 @@ struct CancelNinetyAlarmIntent: AppIntent {
         return .result(dialog: IntentDialog(stringLiteral: dialog))
     }
 }
+
+struct StopNinetyWakeAlarmIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Ferma Sveglia Ninety"
+    static let description = IntentDescription("Ferma la sveglia Ninety attiva su iPhone e Apple Watch.")
+    static let openAppWhenRun = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        await SmartAlarmManager.shared.cancelSessionNow()
+        return .result()
+    }
+}
