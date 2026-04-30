@@ -6,6 +6,9 @@ import WatchConnectivity
 
 final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = SleepSessionManager()
+    private enum WatchCommandKey {
+        static let sequence = "NinetyPhoneToWatchCommandSequence"
+    }
 
     // MARK: - Sleep Stage Classification
     // Model output: 0=Wake, 1=N1/N2(light), 2=N3(deep), 3=REM
@@ -292,10 +295,10 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
         guard let session = wcSession else { return }
 
-        let command: [String: Any] = [
-            "action": "startSession",
-            "targetDate": targetDate.timeIntervalSince1970
-        ]
+        let command = makeWatchCommand(
+            action: "startSession",
+            extra: ["targetDate": targetDate.timeIntervalSince1970]
+        )
 
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil) { error in
@@ -303,6 +306,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             }
             log("Direct session request sent to Watch.")
         } else {
+            cancelOutstandingWatchControlTransfers(on: session)
             session.transferUserInfo(command)
             log("Watch unreachable. Request queued (Will fire when Watch wakes).".localized(for: preferredLang))
         }
@@ -327,10 +331,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
         clearPersistedSessionState()
         guard let session = wcSession else { return }
-        let command = ["action": "stopSession"]
+        let command = makeWatchCommand(action: "stopSession")
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil, errorHandler: nil)
         } else {
+            cancelOutstandingWatchControlTransfers(on: session)
             session.transferUserInfo(command)
         }
     }
@@ -354,10 +359,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
         clearPersistedSessionState()
         guard let session = wcSession else { return }
-        let command = ["action": "pauseMonitoring"]
+        let command = makeWatchCommand(action: "pauseMonitoring")
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil, errorHandler: nil)
         } else {
+            cancelOutstandingWatchControlTransfers(on: session)
             session.transferUserInfo(command)
         }
     }
@@ -382,10 +388,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     func syncAlarmState(targetDate: Date?) {
         guard let session = wcSession else { return }
-        var command: [String: Any] = ["action": "syncAlarmState"]
+        var extra: [String: Any] = [:]
         if let targetDate {
-            command["targetDate"] = targetDate.timeIntervalSince1970
+            extra["targetDate"] = targetDate.timeIntervalSince1970
         }
+        let command = makeWatchCommand(action: "syncAlarmState", extra: extra)
         
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil, errorHandler: nil)
@@ -393,6 +400,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             do {
                 try session.updateApplicationContext(command)
             } catch {
+                cancelOutstandingWatchControlTransfers(on: session)
                 session.transferUserInfo(command)
             }
         }
@@ -1121,6 +1129,12 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
+        // The full analysis window now runs until the scheduled wake time.
+        // We no longer deliver an early "smart" wake before the final alarm.
+        guard Date() >= activeWakeTargetDate else {
+            return
+        }
+
         guard !dynamicAlarmTriggered else {
             return
         }
@@ -1544,11 +1558,37 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func scheduledMonitoringStartDate(for wakeTargetDate: Date) -> Date {
-        let requestedStart = wakeTargetDate.addingTimeInterval(-29 * 60)
+        let requestedStart = wakeTargetDate.addingTimeInterval(-SmartAlarmManager.monitoringLeadTime)
         if requestedStart <= Date() {
             return Date().addingTimeInterval(2)
         }
         return requestedStart
+    }
+
+    private func makeWatchCommand(action: String, extra: [String: Any] = [:]) -> [String: Any] {
+        var command = extra
+        command["action"] = action
+        command["commandSequence"] = nextWatchCommandSequence()
+        return command
+    }
+
+    private func nextWatchCommandSequence() -> Int {
+        let nextValue = UserDefaults.standard.integer(forKey: WatchCommandKey.sequence) + 1
+        UserDefaults.standard.set(nextValue, forKey: WatchCommandKey.sequence)
+        return nextValue
+    }
+
+    private func cancelOutstandingWatchControlTransfers(on session: WCSession) {
+        let controlActions: Set<String> = ["startSession", "stopSession", "pauseMonitoring", "syncAlarmState"]
+        for transfer in session.outstandingUserInfoTransfers {
+            guard
+                let action = transfer.userInfo["action"] as? String,
+                controlActions.contains(action)
+            else {
+                continue
+            }
+            transfer.cancel()
+        }
     }
 
     func log(_ message: String) {

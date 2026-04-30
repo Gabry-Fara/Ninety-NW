@@ -11,7 +11,7 @@ import AlarmKit
 @MainActor
 class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = SmartAlarmManager()
-    nonisolated static let monitoringLeadTime: TimeInterval = 29 * 60
+    nonisolated static let monitoringLeadTime: TimeInterval = 30 * 60
 
     struct ScheduledSleepSession {
         let wakeUpDate: Date
@@ -22,7 +22,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     @Published var monitoringCountdown: String = ""
     
     private var absoluteAlarmID: UUID?
-    private var monitoringTimer: Timer?   // fires when the 29-min tracking window opens
+    private var monitoringTimer: Timer?   // fires when the 30-minute tracking window opens
     private var countdownTimer: Timer?    // updates the countdown string every second
     private var layer2Task: Task<Void, Never>?
     private var monitoringStopTimer: Timer?
@@ -32,6 +32,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        Task { @MainActor in
+            await cleanupOrphanedSystemAlarmsIfNeeded()
+        }
     }
     
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -102,15 +105,10 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         layer2Task?.cancel()
         layer2Task = nil
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
 
-        let previousAlarmID = absoluteAlarmID
+        cancelAllSystemAlarms()
         absoluteAlarmID = nil
-
-        if let alarmID = previousAlarmID {
-            #if canImport(AlarmKit)
-            try? AlarmManager.shared.cancel(id: alarmID)
-            #endif
-        }
 
         SleepSessionManager.shared.syncAlarmState(targetDate: nil)
         SleepSessionManager.shared.pauseWatchMonitoring()
@@ -144,7 +142,7 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         scheduleMonitoringStop(at: targetDate)
 
         if monitoringStart <= now {
-            // We're already inside the 29-min window — start immediately
+            // We're already inside the 30-minute window — start immediately.
             self.alarmStatus = "Tracking window open on Apple Watch"
         } else {
             // The watch is armed immediately; the phone keeps a local countdown
@@ -203,70 +201,9 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     
     // Layer Two: The Dynamic Heuristic Trigger
     func triggerDynamicAlarm() {
-        self.alarmStatus = "🚨 DYNAMIC WAKE EVENT TRIGGERED VIA ALARMKIT!"
-        cancelMonitoringStopTimer()
-        SleepSessionManager.shared.pauseWatchMonitoring()
-        SleepSessionManager.shared.triggerWatchHapticWakeUp()
-        
-        // Clean up the Layer 1 failsafe alarm after Layer 2 has fired
-        if let oldID = absoluteAlarmID {
-            #if canImport(AlarmKit)
-            Task {
-                try? AlarmManager.shared.cancel(id: oldID)
-            }
-            #endif
-            absoluteAlarmID = nil
-        }
-        
-        #if canImport(AlarmKit)
-        Task {
-            do {
-                // Layer 2 (Dynamic Heuristic Trigger) — near-immediate fire
-                // DELAYED BY 60 SECONDS FOR GRADUAL WAKE UP
-                let targetTime = Date().addingTimeInterval(60) 
-                let configuration = AlarmManager.AlarmConfiguration(
-                    schedule: .fixed(targetTime),
-                    attributes: createDefaultAttributes()
-                )
-                let newAlarmID = UUID()
-                self.absoluteAlarmID = newAlarmID // Store it so it can be cancelled if Watch stops it
-                _ = try await AlarmManager.shared.schedule(id: newAlarmID, configuration: configuration)
-                self.alarmStatus = "✅ Livello 2 Executed! 🔥 Waking User in 60s!"
-            } catch {
-                self.alarmStatus = "Dynamic execution failed: \(error)"
-            }
-        }
-        #else
-        self.alarmStatus = "[Mock] Livello 2 Executed! 🔥 Waking User in 60s!"
-        
-        layer2Task = Task {
-            let content = UNMutableNotificationContent()
-            content.title = "NINETY: OPTIMAL WAKE TIME!"
-            content.body = "You are in a light sleep phase. Wake up now!"
-            content.sound = .defaultCritical
-            
-            let requestID = UUID().uuidString
-            // Add a 60-second delay for gradual wake up
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: false)
-            let request = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)
-            
-            do {
-                let _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-                try await UNUserNotificationCenter.current().add(request)
-            } catch {
-                print("Failed mock notification: \(error)")
-            }
-            
-            do {
-                try await Task.sleep(nanoseconds: 60_000_000_000)
-                if !Task.isCancelled {
-                    self.playMockAlarmSound()
-                }
-            } catch {
-                // Task was cancelled
-            }
-        }
-        #endif
+        // Smart analysis still runs, but wake delivery is now reserved for the
+        // single final alarm at the planned wake time.
+        self.alarmStatus = "Optimal wake window detected. Final alarm remains scheduled."
     }
 
     private func scheduleMonitoringStop(at targetDate: Date) {
@@ -307,6 +244,21 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         monitoringStopTimer?.invalidate()
         monitoringStopTimer = nil
         monitoringStopTargetDate = nil
+    }
+
+    private func cleanupOrphanedSystemAlarmsIfNeeded() async {
+        let scheduleViewModel = ScheduleViewModel(observesExternalChanges: false)
+        guard scheduleViewModel.nextUpcomingSession == nil else { return }
+        await clearScheduledSession(resetStatus: true)
+    }
+
+    private func cancelAllSystemAlarms() {
+        #if canImport(AlarmKit)
+        let trackedAlarmIDs = Set((try? AlarmManager.shared.alarms.map(\.id)) ?? [])
+        for alarmID in trackedAlarmIDs {
+            try? AlarmManager.shared.cancel(id: alarmID)
+        }
+        #endif
     }
     
     private func playMockAlarmSound() {
