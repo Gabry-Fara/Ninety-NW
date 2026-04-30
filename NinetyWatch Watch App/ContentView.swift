@@ -547,7 +547,23 @@ private struct TimeWheelField: View {
     @Binding var minute: Int
     let initialFocus: WatchTimeField
 
-    @FocusState private var focusedField: WatchTimeField?
+    @State private var focusedField: WatchTimeField
+    @State private var crownValue: Double = 0
+
+    init(hour: Binding<Int>, minute: Binding<Int>, initialFocus: WatchTimeField) {
+        _hour = hour
+        _minute = minute
+        self.initialFocus = initialFocus
+        _focusedField = State(initialValue: initialFocus)
+    }
+
+    private var selectedValue: Int {
+        focusedField == .hour ? hour : minute
+    }
+
+    private var selectedRange: ClosedRange<Double> {
+        focusedField == .hour ? 0...23 : 0...59
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -559,7 +575,6 @@ private struct TimeWheelField: View {
             .onTapGesture {
                 focusedField = .hour
             }
-            .focused($focusedField, equals: .hour)
             
             Text(":")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
@@ -574,7 +589,6 @@ private struct TimeWheelField: View {
             .onTapGesture {
                 focusedField = .minute
             }
-            .focused($focusedField, equals: .minute)
         }
         .frame(height: 100)
         .padding(.horizontal, 10)
@@ -589,7 +603,42 @@ private struct TimeWheelField: View {
         .clipShape(Capsule())
         .onAppear {
             focusedField = initialFocus
+            crownValue = Double(selectedValue)
         }
+        .onChange(of: focusedField) { _, _ in
+            crownValue = Double(selectedValue)
+        }
+        .onChange(of: hour) { _, newHour in
+            guard focusedField == .hour else { return }
+            crownValue = Double(newHour)
+        }
+        .onChange(of: minute) { _, newMinute in
+            guard focusedField == .minute else { return }
+            crownValue = Double(newMinute)
+        }
+        .onChange(of: crownValue) { _, newCrown in
+            let rounded = Int(round(newCrown))
+            switch focusedField {
+            case .hour:
+                if rounded != hour {
+                    hour = rounded
+                }
+            case .minute:
+                if rounded != minute {
+                    minute = rounded
+                }
+            }
+        }
+        .focusable(true)
+        .digitalCrownRotation(
+            $crownValue,
+            from: selectedRange.lowerBound,
+            through: selectedRange.upperBound,
+            by: 1,
+            sensitivity: .low,
+            isContinuous: true,
+            isHapticFeedbackEnabled: true
+        )
     }
 }
 
@@ -601,8 +650,6 @@ struct WatchCustomWheelPicker: View {
     
     @State private var viewPosition: Int?
     @State private var userDidScroll = false
-    @State private var crownValue: Double = 0
-    @Environment(\.colorScheme) private var colorScheme
     
     private let multiplier = 3
     private var count: Int { range.upperBound - range.lowerBound + 1 }
@@ -645,7 +692,6 @@ struct WatchCustomWheelPicker: View {
                 }
             }
             .safeAreaPadding(.vertical, (containerHeight - itemHeight) / 2)
-            .scrollDisabled(!isFocused)
             .scrollPosition(id: $viewPosition, anchor: .center)
             .scrollTargetBehavior(.viewAligned)
             .onScrollPhaseChange { _, newPhase in
@@ -657,7 +703,6 @@ struct WatchCustomWheelPicker: View {
                         let newValue = range.lowerBound + (pos % count)
                         if newValue != selectedValue {
                             selectedValue = newValue
-                            crownValue = Double(newValue)
                         }
                     }
                 }
@@ -667,7 +712,6 @@ struct WatchCustomWheelPicker: View {
                 let newValue = range.lowerBound + (new % count)
                 if userDidScroll && newValue != selectedValue {
                     selectedValue = newValue
-                    crownValue = Double(newValue)
                     WKInterfaceDevice.current().play(.click)
                 }
             }
@@ -682,28 +726,14 @@ struct WatchCustomWheelPicker: View {
                         viewPosition = currentPos + diff
                     }
                 }
-                if crownValue != Double(newSelected) {
-                    crownValue = Double(newSelected)
-                }
-            }
-            .onChange(of: crownValue) { _, newCrown in
-                let rounded = Int(round(newCrown))
-                if rounded != selectedValue {
-                    withAnimation(.snappy(duration: 0.15)) {
-                        selectedValue = rounded
-                    }
-                }
             }
             .onAppear {
                 let midIndexOrigin = (multiplier / 2) * count
                 let offset = selectedValue - range.lowerBound
                 viewPosition = midIndexOrigin + offset
-                crownValue = Double(selectedValue)
             }
         }
         .frame(height: containerHeight)
-        .focusable(isFocused)
-        .digitalCrownRotation($crownValue, from: Double(range.lowerBound), through: Double(range.upperBound), by: 1, sensitivity: .low, isContinuous: true, isHapticFeedbackEnabled: true)
     }
 }
 
