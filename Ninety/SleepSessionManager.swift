@@ -44,6 +44,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let motionMagMean: Double     // mean of motion counts in epoch
         let motionMagMax: Double      // max of motion counts in epoch
         let motionJerk: Double        // |current_motion - previous_motion|
+        let modelStage: String?
+        let isWatchTestInjected: Bool?
     }
 
     private enum AnalysisSessionState: String, Codable {
@@ -112,7 +114,6 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         var id: Date { timestamp }
 
         let timestamp: Date
-        let processedAt: Date?
         let heartRateMean: Double
         let heartRateStd: Double
         let heartRateRange: Double
@@ -174,17 +175,16 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     var latestEpochDiagnostics: EpochDiagnosticsSnapshot? {
         performOnProcessingQueueSync {
             guard let epoch = epochHistory.last else { return nil }
-            return EpochDiagnosticsSnapshot(
-                timestamp: epoch.timestamp,
-                processedAt: epoch.processedAt,
-                heartRateMean: epoch.heartRateMean,
-                heartRateStd: epoch.heartRateStd,
-                heartRateRange: epoch.heartRateRange,
-                motionMagMean: epoch.motionMagMean,
-                motionMagMax: epoch.motionMagMax,
-                motionJerk: epoch.motionJerk,
-                modelStage: smoothedPredictionHistory.last?.title ?? "-"
-            )
+                return EpochDiagnosticsSnapshot(
+                    timestamp: epoch.timestamp,
+                    heartRateMean: epoch.heartRateMean,
+                    heartRateStd: epoch.heartRateStd,
+                    heartRateRange: epoch.heartRateRange,
+                    motionMagMean: epoch.motionMagMean,
+                    motionMagMax: epoch.motionMagMax,
+                    motionJerk: epoch.motionJerk,
+                    modelStage: epoch.modelStage ?? smoothedPredictionHistory.last?.title ?? "-"
+                )
         }
     }
 
@@ -192,17 +192,17 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         performOnProcessingQueueSync {
             let offset = epochHistory.count - smoothedPredictionHistory.count
             return epochHistory.enumerated().reversed().map { index, epoch in
-                let stageText: String
+                var stageText: String
                 let predIndex = index - offset
                 if predIndex >= 0 && predIndex < smoothedPredictionHistory.count {
                     stageText = smoothedPredictionHistory[predIndex].title
                 } else {
                     stageText = "-"
                 }
+                stageText = epoch.modelStage ?? stageText
                 
                 return EpochDiagnosticsSnapshot(
                     timestamp: epoch.timestamp,
-                    processedAt: epoch.processedAt,
                     heartRateMean: epoch.heartRateMean,
                     heartRateStd: epoch.heartRateStd,
                     heartRateRange: epoch.heartRateRange,
@@ -234,6 +234,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     private var currentBackgroundTask: UIBackgroundTaskIdentifier = .invalid
     private var processedPayloadIDs: [UUID] = []
     private var processedPayloadIDSet: Set<UUID> = []
+    private var processedWatchEpochDiagnosticIDs: [UUID] = []
+    private var processedWatchEpochDiagnosticIDSet: Set<UUID> = []
     private var currentEpochPayloads: [SensorPayload] = []
     private var epochHistory: [EpochAggregate] = []
     private var rawPredictions: [SleepStage] = []
@@ -261,7 +263,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         processingQueue.setSpecific(key: processingQueueKey, value: processingQueueToken)
         setupWatchConnectivity()
         restorePersistedSessionIfValid()
-        loadModel()
+        updateModelStatus("Watch-side model active")
     }
 
     // MARK: - WatchConnectivity
@@ -484,6 +486,11 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             return
         }
 
+        if let action = payloadDictionary["action"] as? String, action == "watchEpochDiagnostic" {
+            handleWatchEpochDiagnostic(payloadDictionary)
+            return
+        }
+
         // 1. Weekly plan edit command from the native Watch UI
         if let action = payloadDictionary["action"] as? String, action == "setNextAlarm" {
             handleSetNextAlarmFromWatch(payloadDictionary, replyHandler: replyHandler)
@@ -549,11 +556,33 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                     }
                 }
 
-                self.consume(payload: payload)
+                self.recordRawWatchPayload(payload)
                 self.sendPayloadAcknowledgement(for: [payload.id], outcome: "Acked \(payload.id.uuidString.prefix(8))")
             }
         } catch {
             log("Decode Error: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleWatchEpochDiagnostic(_ payloadDictionary: [String: Any]) {
+        do {
+            let diagnostic: WatchEpochDiagnostic
+            if let diagnosticData = payloadDictionary["watchEpochData"] as? Data {
+                diagnostic = try JSONDecoder().decode(WatchEpochDiagnostic.self, from: diagnosticData)
+            } else {
+                let data = try JSONSerialization.data(withJSONObject: payloadDictionary, options: [])
+                diagnostic = try JSONDecoder().decode(WatchEpochDiagnostic.self, from: data)
+            }
+
+            processingQueue.async {
+                guard self.shouldProcessWatchEpochDiagnostic(withID: diagnostic.id) else {
+                    return
+                }
+
+                self.consume(watchEpochDiagnostic: diagnostic)
+            }
+        } catch {
+            log("Watch epoch decode error: \(error.localizedDescription)")
         }
     }
 
@@ -819,6 +848,84 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     // MARK: - Epoch Aggregation
 
+    private func recordRawWatchPayload(_ payload: SensorPayload) {
+        lastAcceptedPayloadAt = payload.timestamp
+        requestPersistedSessionSave()
+    }
+
+    private func consume(watchEpochDiagnostic diagnostic: WatchEpochDiagnostic) {
+        defer {
+            requestPersistedSessionSave()
+        }
+
+        let stage = diagnostic.smoothedStage.flatMap { SleepStage(rawValue: $0) }
+        let rawStage = diagnostic.rawStage.flatMap { SleepStage(rawValue: $0) }
+        let stageText = stage?.title ?? diagnostic.stageTitle
+        let rawStageText = rawStage?.title ?? diagnostic.stageTitle
+
+        let epoch = EpochAggregate(
+            timestamp: diagnostic.timestamp,
+            processedAt: diagnostic.processedAt,
+            heartRateMean: diagnostic.heartRateMean,
+            heartRateStd: diagnostic.heartRateStd,
+            heartRateRange: diagnostic.heartRateRange,
+            motionMagMean: diagnostic.motionMagMean,
+            motionMagMax: diagnostic.motionMagMax,
+            motionJerk: diagnostic.motionJerk,
+            modelStage: stageText,
+            isWatchTestInjected: diagnostic.isTestInjected
+        )
+
+        if let lastEpoch = epochHistory.last, diagnostic.timestamp.timeIntervalSince(lastEpoch.timestamp) > 300 {
+            epochHistory.removeAll()
+            rawPredictions.removeAll()
+            rawPredictionHistory.removeAll()
+            smoothedPredictionHistory.removeAll()
+            currentEpochPayloads.removeAll()
+            lastHRJumpEpochIndex = 0
+            log("Large Watch epoch gap. Resetting displayed history.")
+        }
+
+        currentEpochPayloads.removeAll()
+        epochHistory.append(epoch)
+
+        if let rawStage {
+            rawPredictions.append(rawStage)
+            if rawPredictions.count > smoothingWindowSize {
+                rawPredictions.removeFirst(rawPredictions.count - smoothingWindowSize)
+            }
+            rawPredictionHistory.append(rawStage)
+            if rawPredictionHistory.count > maxStoredPredictionHistory {
+                rawPredictionHistory.removeFirst(rawPredictionHistory.count - maxStoredPredictionHistory)
+            }
+        }
+
+        if let stage {
+            smoothedPredictionHistory.append(stage)
+            if smoothedPredictionHistory.count > maxStoredPredictionHistory {
+                smoothedPredictionHistory.removeFirst(smoothedPredictionHistory.count - maxStoredPredictionHistory)
+            }
+        }
+
+        updateEpochSummary(for: epoch)
+
+        let featureSummary = String(
+            format: "Watch epoch | HR %.1f bpm | Motion %.1f | Jerk %.2f",
+            epoch.heartRateMean,
+            epoch.motionMagMean,
+            epoch.motionJerk
+        )
+
+        DispatchQueue.main.async {
+            self.rawStageDisplay = rawStageText
+            self.officialStageDisplay = stageText
+            self.latestFeatureSummary = featureSummary
+            self.modelStatus = "Watch-side model active"
+        }
+
+        log("Watch epoch displayed. Stage: \(stageText)")
+    }
+
     private func consume(payload: SensorPayload) {
         defer {
             requestPersistedSessionSave()
@@ -889,7 +996,9 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             heartRateRange: hrRange,
             motionMagMean: motionMagMean,
             motionMagMax: motionMagMax,
-            motionJerk: motionJerk
+            motionJerk: motionJerk,
+            modelStage: nil,
+            isWatchTestInjected: false
         )
 
         currentEpochPayloads.removeAll()
@@ -1511,6 +1620,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             self.smoothedPredictionHistory.removeAll()
             self.processedPayloadIDSet.removeAll()
             self.processedPayloadIDs.removeAll()
+            self.processedWatchEpochDiagnosticIDSet.removeAll()
+            self.processedWatchEpochDiagnosticIDs.removeAll()
             self.activeWakeTargetDate = nil
             self.dynamicAlarmTriggered = false
             self.hasLoggedStaleDynamicSkip = false
@@ -1554,6 +1665,22 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             let removedIDs = processedPayloadIDs.prefix(overflowCount)
             processedPayloadIDs.removeFirst(overflowCount)
             removedIDs.forEach { processedPayloadIDSet.remove($0) }
+        }
+        return true
+    }
+
+    private func shouldProcessWatchEpochDiagnostic(withID id: UUID) -> Bool {
+        guard !processedWatchEpochDiagnosticIDSet.contains(id) else {
+            return false
+        }
+
+        processedWatchEpochDiagnosticIDs.append(id)
+        processedWatchEpochDiagnosticIDSet.insert(id)
+        if processedWatchEpochDiagnosticIDs.count > maxTrackedPayloadIDs {
+            let overflowCount = processedWatchEpochDiagnosticIDs.count - maxTrackedPayloadIDs
+            let removedIDs = processedWatchEpochDiagnosticIDs.prefix(overflowCount)
+            processedWatchEpochDiagnosticIDs.removeFirst(overflowCount)
+            removedIDs.forEach { processedWatchEpochDiagnosticIDSet.remove($0) }
         }
         return true
     }
@@ -1611,6 +1738,8 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
             self.smoothedPredictionHistory.removeAll()
             self.rawPredictions.removeAll()
             self.confirmationBuffer.removeAll()
+            self.processedWatchEpochDiagnosticIDSet.removeAll()
+            self.processedWatchEpochDiagnosticIDs.removeAll()
             self.requestPersistedSessionSave()
         }
     }
@@ -1827,7 +1956,9 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
                 heartRateRange: 0,
                 motionMagMean: 0,
                 motionMagMax: 0,
-                motionJerk: 0
+                motionJerk: 0,
+                modelStage: smoothed.title,
+                isWatchTestInjected: false
             )
             let snap = PredictionSnapshot(rawStage: rawStage, smoothedStage: smoothed, epoch: fakeEpoch)
             evaluateDynamicAlarmTrigger(for: snap)

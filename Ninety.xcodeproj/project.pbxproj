@@ -16,6 +16,7 @@
 		00B643152F7EC58900CC8B51 /* NinetyWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 00B6430B2F7EC58800CC8B51 /* NinetyWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		00B643212F7EC82E00CC8B51 /* AlarmKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643202F7EC82E00CC8B51 /* AlarmKit.framework */; };
 		00B643232F85305E00CC8B51 /* CoreMotion.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00B643222F85305E00CC8B51 /* CoreMotion.framework */; };
+		00B643242F85305E00CC8B51 /* NeuralWakeUP.mlmodel in Resources */ = {isa = PBXBuildFile; fileRef = E1A2B3C42F96800000112233 /* NeuralWakeUP.mlmodel */; };
 		5B7A310C2C3FDCCB00353790 /* ScheduleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A310B2C3FDCCB00353790 /* ScheduleViewModel.swift */; };
 		5B7A31132C401F9F00353790 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B7A31122C401F9F00353790 /* SettingsViewModel.swift */; };
 		5BB3ED6A2C3AD54600CD4274 /* NinetyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB3ED692C3AD54600CD4274 /* NinetyApp.swift */; };
@@ -33,7 +34,6 @@
 		C0D3B0040000000000000001 /* UpdateNinetyAlarmIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3F0040000000000000001 /* UpdateNinetyAlarmIntent.swift */; };
 		C0D3B0050000000000000001 /* CancelNinetyAlarmIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3F0050000000000000001 /* CancelNinetyAlarmIntent.swift */; };
 		C0D3B0060000000000000001 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = C0D3F0060000000000000001 /* AppShortcuts.strings */; };
-		E1A2B3C52F96800000112233 /* NeuralWakeUP.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C42F96800000112233 /* NeuralWakeUP.mlmodel */; };
 		E1A2B3C92F96820000112233 /* TestModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C82F96820000112233 /* TestModeView.swift */; };
 /* End PBXBuildFile section */
 
@@ -326,6 +326,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				00B643242F85305E00CC8B51 /* NeuralWakeUP.mlmodel in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -374,7 +375,6 @@
 				5BB3ED7C2C3ADCAB00CD4274 /* OnboardingView.swift in Sources */,
 				B1C2D3E42F90123400AABBCC /* GuidedTourView.swift in Sources */,
 				E1A2B3C92F96820000112233 /* TestModeView.swift in Sources */,
-				E1A2B3C52F96800000112233 /* NeuralWakeUP.mlmodel in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
