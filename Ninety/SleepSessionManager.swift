@@ -335,6 +335,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil, errorHandler: nil)
         } else {
+            try? session.updateApplicationContext(command)
             cancelOutstandingWatchControlTransfers(on: session)
             session.transferUserInfo(command)
         }
@@ -363,6 +364,7 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         if session.isReachable {
             session.sendMessage(command, replyHandler: nil, errorHandler: nil)
         } else {
+            try? session.updateApplicationContext(command)
             cancelOutstandingWatchControlTransfers(on: session)
             session.transferUserInfo(command)
         }
@@ -1126,12 +1128,6 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     private func evaluateDynamicAlarmTrigger(for prediction: PredictionSnapshot) {
         guard let activeWakeTargetDate else {
-            return
-        }
-
-        // The full analysis window now runs until the scheduled wake time.
-        // We no longer deliver an early "smart" wake before the final alarm.
-        guard Date() >= activeWakeTargetDate else {
             return
         }
 

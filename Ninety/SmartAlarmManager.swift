@@ -201,9 +201,60 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     
     // Layer Two: The Dynamic Heuristic Trigger
     func triggerDynamicAlarm() {
-        // Smart analysis still runs, but wake delivery is now reserved for the
-        // single final alarm at the planned wake time.
-        self.alarmStatus = "Optimal wake window detected. Final alarm remains scheduled."
+        self.alarmStatus = "Smart wake triggered. Waking user now."
+        cancelMonitoringStopTimer()
+        SleepSessionManager.shared.pauseWatchMonitoring()
+        SleepSessionManager.shared.triggerWatchHapticWakeUp()
+
+        cancelAllSystemAlarms()
+        absoluteAlarmID = nil
+
+        #if canImport(AlarmKit)
+        Task {
+            do {
+                let triggerDate = Date().addingTimeInterval(2)
+                let configuration = AlarmManager.AlarmConfiguration(
+                    schedule: .fixed(triggerDate),
+                    attributes: createDefaultAttributes()
+                )
+                let smartAlarmID = UUID()
+                self.absoluteAlarmID = smartAlarmID
+                _ = try await AlarmManager.shared.schedule(id: smartAlarmID, configuration: configuration)
+                self.alarmStatus = "Smart wake alarm scheduled."
+            } catch {
+                self.alarmStatus = "Smart wake failed: \(error)"
+            }
+        }
+        #else
+        self.alarmStatus = "[Sim] Smart wake triggered."
+
+        layer2Task = Task {
+            let content = UNMutableNotificationContent()
+            content.title = "NINETY: OPTIMAL WAKE TIME!"
+            content.body = "You are in a light sleep phase. Wake up now!"
+            content.sound = .defaultCritical
+
+            let requestID = UUID().uuidString
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            let request = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)
+
+            do {
+                _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+                try await UNUserNotificationCenter.current().add(request)
+            } catch {
+                print("Failed mock notification: \(error)")
+            }
+
+            do {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                if !Task.isCancelled {
+                    self.playMockAlarmSound()
+                }
+            } catch {
+                // Task was cancelled
+            }
+        }
+        #endif
     }
 
     private func scheduleMonitoringStop(at targetDate: Date) {
