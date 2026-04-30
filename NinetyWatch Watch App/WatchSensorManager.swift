@@ -4,6 +4,7 @@ import HealthKit
 import CoreMotion
 import WatchConnectivity
 import Combine
+import CoreML
 
 enum WatchConnectivityState {
     case synced
@@ -32,6 +33,13 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private let backlogReplayBatchSize = 24
     private let minimumBacklogFlushInterval: TimeInterval = 8
     private let runtimeExpiryAlarmTolerance: TimeInterval = 10
+    private let epochDuration: TimeInterval = 30
+    private let minimumEpochsForFeatures = 5
+    private let smoothingWindowSize = 5
+    private let confirmationRequired = 3
+    private let confirmationThreshold = 2
+    private let maximumDynamicPredictionAge: TimeInterval = 90
+    private let dynamicTriggerFailsafeBuffer: TimeInterval = 60
 
     private enum WatchPipelineState: String, Codable {
         case idle
@@ -57,6 +65,38 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 return "Failed"
             }
         }
+    }
+
+    private enum WatchSleepStage: Int, CaseIterable, Codable {
+        case wake = 0
+        case light = 1
+        case deep = 2
+        case rem = 3
+
+        var title: String {
+            switch self {
+            case .wake: return "Wake"
+            case .light: return "Light"
+            case .deep: return "Deep"
+            case .rem: return "REM"
+            }
+        }
+    }
+
+    private struct WatchEpochAggregate {
+        let timestamp: Date
+        let heartRateMean: Double
+        let heartRateStd: Double
+        let heartRateRange: Double
+        let motionMagMean: Double
+        let motionMagMax: Double
+        let motionJerk: Double
+    }
+
+    private struct WatchPredictionSnapshot {
+        let rawStage: WatchSleepStage
+        let smoothedStage: WatchSleepStage
+        let epoch: WatchEpochAggregate
     }
 
     private struct PendingPayloadEnvelope: Codable {
@@ -103,6 +143,15 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private var replayStatusText: String = "No backlog activity"
     private var isSendingNextAlarmCommand = false
     private var alarmDeadlineTimer: Timer?
+    private var watchStageModel: MLModel?
+    private var currentEpochPayloads: [SensorPayload] = []
+    private var epochHistory: [WatchEpochAggregate] = []
+    private var rawPredictions: [WatchSleepStage] = []
+    private var confirmationBuffer: [WatchSleepStage] = []
+    private var isConfirmingSmartWake = false
+    private var smartWakeTriggered = false
+    private var localAnalysisStartDate: Date?
+    private var lastHRJumpEpochIndex = 0
     
     private var hrQuery: HKAnchoredObjectQuery?
     private var hrSamplesBuffer: [Double] = []
@@ -123,6 +172,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         restorePendingNextAlarmCommand()
         setupWatchConnectivity()
         refreshNextAlarmDate()
+        loadWatchModel()
     }
 
     var hasPendingSchedule: Bool {
@@ -271,6 +321,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             }
         }
 
+        resetLocalAnalysis(startDate: date)
         self.runtimeSession = WKExtendedRuntimeSession()
         self.runtimeSession?.delegate = self
         self.runtimeSession?.start(at: date)
@@ -380,6 +431,9 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     private func startSensors() {
         guard !sensorsRunning else { return }
         guard !stopMonitoringIfAlarmDeadlineReached() else { return }
+        if localAnalysisStartDate == nil {
+            localAnalysisStartDate = Date()
+        }
         sensorsRunning = true
         #if targetEnvironment(simulator)
         startMockDataStream()
@@ -475,6 +529,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         motionCountBuffer = 0
         
         transmit(payload: payload)
+        processPayloadForLocalSmartWake(payload)
         
         if let alarmDate = nextAlarmDate, Date() >= alarmDate {
             DispatchQueue.main.async {
@@ -498,6 +553,330 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
             self.lastPayloadSent = "Captured at \(payload.timestamp.formatted(date: .omitted, time: .standard)), HR count: \(payload.hrSamples.count), pending: \(self.pendingPayloads.count)"
         }
     }
+
+    // MARK: - Watch-Local Smart Alarm Model
+
+    private func loadWatchModel() {
+        guard let modelURL = Bundle.main.url(forResource: "NeuralWakeUP", withExtension: "mlmodelc") else {
+            replayStatusText = "Watch ML missing"
+            return
+        }
+
+        do {
+            let configuration = MLModelConfiguration()
+            watchStageModel = try MLModel(contentsOf: modelURL, configuration: configuration)
+            replayStatusText = "Watch ML ready"
+        } catch {
+            replayStatusText = "Watch ML failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func resetLocalAnalysis(startDate: Date? = nil) {
+        currentEpochPayloads.removeAll()
+        epochHistory.removeAll()
+        rawPredictions.removeAll()
+        confirmationBuffer.removeAll()
+        isConfirmingSmartWake = false
+        smartWakeTriggered = false
+        lastHRJumpEpochIndex = 0
+        localAnalysisStartDate = startDate
+    }
+
+    private func processPayloadForLocalSmartWake(_ payload: SensorPayload) {
+        guard !smartWakeTriggered else { return }
+        guard let targetDate = currentAlarmTargetDate(), payload.timestamp < targetDate else { return }
+
+        if let lastTimestamp = currentEpochPayloads.last?.timestamp ?? epochHistory.last?.timestamp {
+            let gap = payload.timestamp.timeIntervalSince(lastTimestamp)
+            if gap > 300 {
+                resetLocalAnalysis(startDate: Date())
+            }
+        }
+
+        currentEpochPayloads.append(payload)
+        let epochStart = currentEpochPayloads.first?.timestamp ?? payload.timestamp
+        guard payload.timestamp.timeIntervalSince(epochStart) >= epochDuration else {
+            return
+        }
+
+        let hrValues = currentEpochPayloads.flatMap(\.hrSamples)
+        var hrMean = hrValues.isEmpty ? 0 : hrValues.reduce(0, +) / Double(hrValues.count)
+        var hrStd = standardDeviation(for: hrValues)
+        var hrRange = hrValues.isEmpty ? 0 : (hrValues.max()! - hrValues.min()!)
+
+        if hrMean < 30 {
+            if let previousEpoch = epochHistory.last {
+                hrMean = previousEpoch.heartRateMean
+                hrStd = previousEpoch.heartRateStd
+                hrRange = previousEpoch.heartRateRange
+            } else {
+                hrMean = 60
+                hrStd = 0
+                hrRange = 0
+            }
+        }
+
+        let motionValues = currentEpochPayloads.map(\.motionCount)
+        let motionMagMean = motionValues.reduce(0, +) / max(Double(motionValues.count), 1)
+        let motionMagMax = motionValues.max() ?? 0
+        let previousMotion = epochHistory.last?.motionMagMean ?? motionMagMean
+        let motionJerk = abs(motionMagMean - previousMotion)
+
+        let epoch = WatchEpochAggregate(
+            timestamp: payload.timestamp,
+            heartRateMean: hrMean,
+            heartRateStd: hrStd,
+            heartRateRange: hrRange,
+            motionMagMean: motionMagMean,
+            motionMagMax: motionMagMax,
+            motionJerk: motionJerk
+        )
+
+        currentEpochPayloads.removeAll()
+        epochHistory.append(epoch)
+
+        if epochHistory.count >= 2 {
+            let previousHR = epochHistory[epochHistory.count - 2].heartRateMean
+            if abs(epoch.heartRateMean - previousHR) > 5 {
+                lastHRJumpEpochIndex = epochHistory.count - 1
+            }
+        }
+
+        guard epochHistory.count >= minimumEpochsForFeatures else {
+            updatePipelineState(.recording, detail: "Watch ML warming \(epochHistory.count)/\(minimumEpochsForFeatures)")
+            return
+        }
+
+        guard let prediction = makeWatchPrediction(forEpochAt: epochHistory.count - 1) else {
+            return
+        }
+
+        updatePipelineState(.recording, detail: "Watch ML \(prediction.smoothedStage.title)")
+        evaluateLocalSmartWake(for: prediction, targetDate: targetDate)
+    }
+
+    private func makeWatchPrediction(forEpochAt index: Int) -> WatchPredictionSnapshot? {
+        guard let watchStageModel else {
+            replayStatusText = "Watch ML unavailable"
+            return nil
+        }
+
+        let features = computeWatchFeatures(forEpochAt: index)
+        let epoch = epochHistory[index]
+
+        do {
+            let input = features.mapValues { NSNumber(value: $0) }
+            let provider = try MLDictionaryFeatureProvider(dictionary: input)
+            let prediction = try watchStageModel.prediction(from: provider)
+
+            guard
+                let rawValue = prediction.featureValue(for: "target")?.int64Value,
+                let rawStage = WatchSleepStage(rawValue: Int(rawValue))
+            else {
+                replayStatusText = "Watch ML output missing"
+                return nil
+            }
+
+            rawPredictions.append(rawStage)
+            if rawPredictions.count > smoothingWindowSize {
+                rawPredictions.removeFirst(rawPredictions.count - smoothingWindowSize)
+            }
+
+            let smoothedStage = modeStage(from: rawPredictions) ?? rawStage
+            replayStatusText = "Watch ML raw \(rawStage.title), smooth \(smoothedStage.title)"
+            return WatchPredictionSnapshot(rawStage: rawStage, smoothedStage: smoothedStage, epoch: epoch)
+        } catch {
+            replayStatusText = "Watch ML prediction failed: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    private func evaluateLocalSmartWake(for prediction: WatchPredictionSnapshot, targetDate: Date) {
+        guard !smartWakeTriggered else { return }
+        guard localSmartWakeCanTrigger(for: prediction, targetDate: targetDate) else { return }
+
+        if prediction.smoothedStage == .light {
+            if !isConfirmingSmartWake {
+                isConfirmingSmartWake = true
+                confirmationBuffer.removeAll()
+            }
+
+            confirmationBuffer.append(prediction.smoothedStage)
+        } else if isConfirmingSmartWake {
+            confirmationBuffer.append(prediction.smoothedStage)
+        } else {
+            return
+        }
+
+        let progress = "\(confirmationBuffer.count)/\(confirmationRequired)"
+        updatePipelineState(.recording, detail: "Watch ML verify \(progress)")
+
+        guard confirmationBuffer.count >= confirmationRequired else { return }
+
+        let lightCount = confirmationBuffer.filter { $0 == .light }.count
+        if lightCount >= confirmationThreshold {
+            smartWakeTriggered = true
+            triggerLocalSmartWake(reason: "Smart Wake (Watch ML \(lightCount)/\(confirmationRequired))")
+        } else {
+            confirmationBuffer.removeAll()
+            isConfirmingSmartWake = false
+        }
+    }
+
+    private func localSmartWakeCanTrigger(for prediction: WatchPredictionSnapshot, targetDate: Date) -> Bool {
+        let now = Date()
+        guard now < targetDate else { return false }
+        guard now < targetDate.addingTimeInterval(-dynamicTriggerFailsafeBuffer) else {
+            confirmationBuffer.removeAll()
+            isConfirmingSmartWake = false
+            return false
+        }
+
+        let predictionAge = max(0, now.timeIntervalSince(prediction.epoch.timestamp))
+        guard predictionAge <= maximumDynamicPredictionAge else {
+            confirmationBuffer.removeAll()
+            isConfirmingSmartWake = false
+            return false
+        }
+
+        return true
+    }
+
+    private func triggerLocalSmartWake(reason: String) {
+        runtimeSession?.notifyUser(hapticType: .notification)
+        HapticWakeUpManager.shared.startGradualWakeUp()
+        sendStopAlarmMessage()
+        clearScheduledAlarmAndMonitoring(
+            detail: reason,
+            state: .completed,
+            keepHapticsRunning: true
+        )
+    }
+
+    private func currentAlarmTargetDate() -> Date? {
+        if let nextAlarmDate {
+            return nextAlarmDate
+        }
+
+        guard let interval = UserDefaults.standard.object(forKey: Self.actualAlarmTimeKey) as? TimeInterval else {
+            return nil
+        }
+
+        let storedDate = Date(timeIntervalSince1970: interval)
+        return storedDate > Date() ? storedDate : nil
+    }
+
+    private func createPaddedWindow(endIndex: Int, requiredCount: Int) -> [WatchEpochAggregate] {
+        let availableCount = endIndex + 1
+        var window = Array(epochHistory[max(0, endIndex - requiredCount + 1)...endIndex])
+
+        if availableCount < requiredCount, let earliestKnown = window.first {
+            let paddingCount = requiredCount - availableCount
+            window = Array(repeating: earliestKnown, count: paddingCount) + window
+        }
+
+        return window
+    }
+
+    private func computeWatchFeatures(forEpochAt index: Int) -> [String: Double] {
+        let epoch = epochHistory[index]
+
+        let epochs2m = createPaddedWindow(endIndex: index, requiredCount: 4)
+        let epochs5m = createPaddedWindow(endIndex: index, requiredCount: 10)
+        let epochs10m = createPaddedWindow(endIndex: index, requiredCount: 20)
+
+        let motionMags2m = epochs2m.map(\.motionMagMean)
+        let motionMags5m = epochs5m.map(\.motionMagMean)
+        let motionMags10m = epochs10m.map(\.motionMagMean)
+        let jerk5m = epochs5m.map(\.motionJerk)
+
+        let hrMeans5m = epochs5m.map(\.heartRateMean)
+        let hrMeans10m = epochs10m.map(\.heartRateMean)
+        let hrStds5m = epochs5m.map(\.heartRateStd)
+        let hrRanges5m = epochs5m.map(\.heartRateRange)
+
+        let motionEpochMagMean = epoch.motionMagMean
+        let motionEpochMagMax = epoch.motionMagMax
+
+        let motionHist2mMagMean = mean(of: motionMags2m)
+        let motionHist2mMagStd = standardDeviation(for: motionMags2m)
+        let motionHist5mMagMean = mean(of: motionMags5m)
+        let motionHist5mMagStd = standardDeviation(for: motionMags5m)
+        let motionHist5mMagMax = motionMags5m.max() ?? 0
+        let motionHist5mMagSum = motionMags5m.reduce(0, +)
+        let motionHist10mMagMean = mean(of: motionMags10m)
+        let motionHist10mMagStd = standardDeviation(for: motionMags10m)
+        let motionHist5mJerkStd = standardDeviation(for: jerk5m)
+
+        let motionEpochJerkMinusHist5mMean = epoch.motionJerk - mean(of: jerk5m)
+        let motionEpochMagMinusHist5mMean = motionEpochMagMean - motionHist5mMagMean
+        let motionEpochMagMinusHist2mMean = motionEpochMagMean - motionHist2mMagMean
+
+        let hrHist5mMean = mean(of: hrMeans5m)
+        let hrHist5mStd = standardDeviation(for: hrMeans5m)
+        let hrHist10mMean = mean(of: hrMeans10m)
+        let hrHist10mStd = standardDeviation(for: hrMeans10m)
+        let hrHist5mCV = hrHist5mMean > 0 ? hrHist5mStd / hrHist5mMean : 0
+        let hrHist10mCV = hrHist10mMean > 0 ? hrHist10mStd / hrHist10mMean : 0
+
+        let hrEpochRangeMinusHist5mRange = epoch.heartRateRange - mean(of: hrRanges5m)
+        let hrEpochStdMinusHist5mStd = epoch.heartRateStd - mean(of: hrStds5m)
+        let hrEpochMeanDivHist10mMean = hrHist10mMean > 0 ? epoch.heartRateMean / hrHist10mMean : 1
+
+        let startDate = localAnalysisStartDate ?? epochHistory.first?.timestamp ?? epoch.timestamp
+        let elapsedMinutes = epoch.timestamp.timeIntervalSince(startDate) / 60
+        let timeHoursFromStart = elapsedMinutes / 60
+        let minutesSinceJump = Double(index - lastHRJumpEpochIndex) * 0.5
+
+        return [
+            "motion_hist5m_mag_max_log1p": log1p(motionHist5mMagMax),
+            "motion_hist10m_mag_std_log1p": log1p(motionHist10mMagStd),
+            "motion_hist5m_jerk_std_log1p": log1p(motionHist5mJerkStd),
+            "motion_hist5m_mag_std_log1p": log1p(motionHist5mMagStd),
+            "hr_hist10m_cv_raw": hrHist10mCV,
+            "hr_hist5m_cv_raw": hrHist5mCV,
+            "hr_hist10m_std_raw": hrHist10mStd,
+            "hr_hist5m_std_raw": hrHist5mStd,
+            "minutes_since_last_hr_jump_log1p": log1p(minutesSinceJump),
+            "time_hours_from_start": timeHoursFromStart,
+            "elapsed_minutes_log1p": log1p(elapsedMinutes),
+            "motion_hist10m_mag_mean_log1p": log1p(motionHist10mMagMean),
+            "motion_epoch_jerk_minus_hist5m_mean": motionEpochJerkMinusHist5mMean,
+            "motion_hist5m_mag_mean_log1p": log1p(motionHist5mMagMean),
+            "motion_hist5m_mag_sum_log1p": log1p(motionHist5mMagSum),
+            "motion_epoch_mag_minus_hist5m_mean": motionEpochMagMinusHist5mMean,
+            "motion_hist2m_mag_std_log1p": log1p(motionHist2mMagStd),
+            "motion_hist2m_mag_mean_log1p": log1p(motionHist2mMagMean),
+            "hr_epoch_range_minus_hist5m_range": hrEpochRangeMinusHist5mRange,
+            "motion_epoch_mag_mean_log1p": log1p(motionEpochMagMean),
+            "hr_epoch_std_minus_hist5m_std": hrEpochStdMinusHist5mStd,
+            "hr_epoch_mean_div_hist10m_mean": hrEpochMeanDivHist10mMean,
+            "motion_epoch_mag_minus_hist2m_mean": motionEpochMagMinusHist2mMean,
+            "hr_hist10m_mean_raw": hrHist10mMean,
+            "motion_epoch_mag_max_log1p": log1p(motionEpochMagMax)
+        ]
+    }
+
+    private func modeStage(from values: [WatchSleepStage]) -> WatchSleepStage? {
+        guard !values.isEmpty else { return nil }
+
+        let counts = Dictionary(grouping: values, by: { $0 }).mapValues(\.count)
+        let maxCount = counts.values.max() ?? 0
+        let candidates = counts.compactMap { stage, count in
+            count == maxCount ? stage : nil
+        }
+
+        for stage in values.reversed() where candidates.contains(stage) {
+            return stage
+        }
+
+        return values.last
+    }
+
+    private func mean(of values: [Double]) -> Double {
+        guard !values.isEmpty else { return 0 }
+        return values.reduce(0, +) / Double(values.count)
+    }
     
     // MARK: - Mocking Data
     
@@ -514,6 +893,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
                 isMockData: true
             )
             self?.transmit(payload: mockPayload)
+            self?.processPayloadForLocalSmartWake(mockPayload)
         }
     }
 
@@ -818,6 +1198,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
     private func prepareForNewSession() {
         clearAlarmTracking()
+        resetLocalAnalysis()
         clearPendingPayloadQueue()
         replayStatusText = "No backlog activity"
         updatePipelineState(.idle)
@@ -839,6 +1220,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         invalidateRuntimeSessionIfNeeded()
         clearAlarmTracking()
         stopSensors()
+        resetLocalAnalysis()
         if !keepHapticsRunning {
             HapticWakeUpManager.shared.stop()
         }
