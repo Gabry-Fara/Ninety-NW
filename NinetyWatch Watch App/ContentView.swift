@@ -369,11 +369,13 @@ private struct WatchAlarmSetupView: View {
                             .padding(.bottom, 2)
 
                         Text(timeText(for: displayedAlarmDate))
-                            .font(.system(size: 48, weight: .light, design: .rounded))
+                            .font(.system(size: 44, weight: .light, design: .rounded))
                             .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
                             .foregroundStyle(.white)
                             .padding(.vertical, 10)
-                            .padding(.horizontal, 24)
+                            .padding(.horizontal, 20)
                             .background {
                                 Capsule()
                                     .fill(.white.opacity(0.1))
