@@ -277,6 +277,7 @@ private struct WatchAlarmSetupView: View {
     @State private var internalMinute = 0
     @State private var isApplyingSyncedAlarm = false
     @State private var initialField: WatchTimeField = .hour
+    @State private var idleCrownValue: Double = 0
     @Binding var isEditingTime: Bool
 
     var body: some View {
@@ -404,6 +405,34 @@ private struct WatchAlarmSetupView: View {
         }
         .onChange(of: sensorManager.nextAlarmDate) {
             applySyncedNextAlarm()
+        }
+        // Crown rotation: rotating from the main screen (not editing) opens the picker.
+        // Requires ≥3 low-sensitivity clicks to avoid accidental triggers.
+        .focusable(!isEditingTime)
+        .digitalCrownRotation(
+            $idleCrownValue,
+            from: -12,
+            through: 12,
+            by: 1,
+            sensitivity: .low,
+            isContinuous: false,
+            isHapticFeedbackEnabled: true
+        )
+        .onChange(of: idleCrownValue) { _, newValue in
+            guard !isEditingTime else {
+                idleCrownValue = 0
+                return
+            }
+            if abs(newValue) >= 3 {
+                initialField = .hour
+                withAnimation(.snappy(duration: 0.22)) {
+                    isEditingTime = true
+                }
+                idleCrownValue = 0
+            }
+        }
+        .onChange(of: isEditingTime) { _, editing in
+            if editing { idleCrownValue = 0 }
         }
     }
 
@@ -723,7 +752,10 @@ struct WatchCustomWheelPicker: View {
                         let half = count / 2
                         if diff > half { diff -= count }
                         else if diff < -half { diff += count }
-                        viewPosition = currentPos + diff
+                        // Animate the scroll so the number rolls into place instead of jumping
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+                            viewPosition = currentPos + diff
+                        }
                     }
                 }
             }
