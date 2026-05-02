@@ -723,6 +723,7 @@ struct WatchCustomWheelPicker: View {
             .safeAreaPadding(.vertical, (containerHeight - itemHeight) / 2)
             .scrollPosition(id: $viewPosition, anchor: .center)
             .scrollTargetBehavior(.viewAligned)
+            .scrollIndicators(.hidden)
             .onScrollPhaseChange { _, newPhase in
                 if newPhase == .interacting {
                     userDidScroll = true
