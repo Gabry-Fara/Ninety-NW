@@ -1,5 +1,4 @@
 import Combine
-import CoreML
 import Foundation
 import UIKit
 import WatchConnectivity
@@ -19,7 +18,6 @@ extension SleepSessionManager {
         resetSession()
         let monitoringStartDate = scheduledMonitoringStartDate(for: targetDate)
         activeWakeTargetDate = targetDate
-        dynamicAlarmTriggered = false
         sessionStartDate = monitoringStartDate
         lastAcceptedPayloadAt = nil
         setSessionState(.scheduled)
@@ -68,7 +66,6 @@ extension SleepSessionManager {
 
     func stopWatchSession() {
         activeWakeTargetDate = nil
-        dynamicAlarmTriggered = false
         sessionStartDate = nil
         lastAcceptedPayloadAt = nil
         setSessionState(.completed)
@@ -100,7 +97,6 @@ extension SleepSessionManager {
 
     func pauseWatchMonitoring() {
         activeWakeTargetDate = nil
-        dynamicAlarmTriggered = false
         sessionStartDate = nil
         lastAcceptedPayloadAt = nil
         setSessionState(.completed)
@@ -140,7 +136,6 @@ extension SleepSessionManager {
         } ?? "Smart wake triggered on Watch"
         log(detail)
         activeWakeTargetDate = nil
-        dynamicAlarmTriggered = true
         sessionStartDate = nil
         lastAcceptedPayloadAt = nil
         setSessionState(.completed)

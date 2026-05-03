@@ -1,30 +1,9 @@
 import Combine
-import CoreML
 import Foundation
 import UIKit
 import WatchConnectivity
 
 extension SleepSessionManager {
-    // MARK: - Model Loading
-
-    func loadModel() {
-        processingQueue.async {
-            guard let modelURL = Bundle.main.url(forResource: "NeuralWakeUP", withExtension: "mlmodelc") else {
-                self.updateModelStatus("NeuralWakeUP.mlmodelc missing from bundle".localized(for: self.preferredLang))
-                return
-            }
-
-            do {
-                let configuration = MLModelConfiguration()
-                let model = try MLModel(contentsOf: modelURL, configuration: configuration)
-                self.stageModel = model
-                self.updateModelStatus("Sleep stage model ready".localized(for: self.preferredLang))
-            } catch {
-                self.updateModelStatus("Model load failed: \(error.localizedDescription)".localized(for: self.preferredLang))
-            }
-        }
-    }
-
     // MARK: - Payload Handling
 
     func handleIncomingPayload(_ payloadDictionary: [String: Any], replyHandler: (([String: Any]) -> Void)? = nil) {
@@ -141,7 +120,7 @@ extension SleepSessionManager {
                     }
                 }
 
-                self.recordRawWatchPayload(payload)
+                self.recordWatchPayloadReceipt(payload)
                 self.sendPayloadAcknowledgement(for: [payload.id], outcome: "Acked \(payload.id.uuidString.prefix(8))")
             }
         } catch {

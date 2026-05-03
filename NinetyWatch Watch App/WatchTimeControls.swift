@@ -137,7 +137,6 @@ struct WatchCustomWheelPicker: View {
                                         axis: (x: 1, y: 0, z: 0),
                                         perspective: 0.5
                                     )
-                                    // Removed the offset that pushed items further away
                             }
                             .id(index)
                     }
@@ -180,9 +179,11 @@ struct WatchCustomWheelPicker: View {
                     if currentShownValue != newSelected {
                         var diff = newSelected - currentShownValue
                         let half = count / 2
-                        if diff > half { diff -= count }
-                        else if diff < -half { diff += count }
-                        // Animate the scroll so the number rolls into place instead of jumping
+                        if diff > half {
+                            diff -= count
+                        } else if diff < -half {
+                            diff += count
+                        }
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
                             viewPosition = currentPos + diff
                         }

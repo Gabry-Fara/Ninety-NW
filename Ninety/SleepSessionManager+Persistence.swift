@@ -1,5 +1,4 @@
 import Combine
-import CoreML
 import Foundation
 import UIKit
 import WatchConnectivity
@@ -97,14 +96,10 @@ extension SleepSessionManager {
                 savedAt: Date(),
                 lastAcceptedPayloadAt: lastAcceptedPayloadAt,
                 activeWakeTargetDate: activeWakeTargetDate,
-                dynamicAlarmTriggered: dynamicAlarmTriggered,
                 sessionStartDate: sessionStartDate,
                 sessionState: sessionState,
-                lastHRJumpEpochIndex: lastHRJumpEpochIndex,
                 processedPayloadIDs: processedPayloadIDs,
-                currentEpochPayloads: currentEpochPayloads,
                 epochHistory: epochHistory,
-                rawPredictionWindow: rawPredictions,
                 rawPredictionHistory: rawPredictionHistory,
                 smoothedPredictionHistory: smoothedPredictionHistory,
                 confirmationBuffer: confirmationBuffer,
@@ -168,16 +163,12 @@ extension SleepSessionManager {
     func applyRestoredSession(_ persisted: PersistedSessionState) {
         performOnProcessingQueueSync {
             activeWakeTargetDate = persisted.activeWakeTargetDate
-            dynamicAlarmTriggered = persisted.dynamicAlarmTriggered
             sessionStartDate = persisted.sessionStartDate
             sessionState = persisted.sessionState
             lastAcceptedPayloadAt = persisted.lastAcceptedPayloadAt
-            lastHRJumpEpochIndex = persisted.lastHRJumpEpochIndex
             processedPayloadIDs = Array(persisted.processedPayloadIDs.suffix(maxTrackedPayloadIDs))
             processedPayloadIDSet = Set(processedPayloadIDs)
-            currentEpochPayloads = persisted.currentEpochPayloads
             epochHistory = persisted.epochHistory
-            rawPredictions = Array(persisted.rawPredictionWindow.suffix(smoothingWindowSize))
             rawPredictionHistory = Array(persisted.rawPredictionHistory.suffix(maxStoredPredictionHistory))
             smoothedPredictionHistory = Array(persisted.smoothedPredictionHistory.suffix(maxStoredPredictionHistory))
             confirmationBuffer = persisted.confirmationBuffer
@@ -211,7 +202,6 @@ extension SleepSessionManager {
         }
 
         let lastDataDate = persisted.lastAcceptedPayloadAt ??
-            persisted.currentEpochPayloads.last?.timestamp ??
             persisted.epochHistory.last?.timestamp ??
             persisted.sessionStartDate ??
             persisted.savedAt
@@ -230,7 +220,6 @@ extension SleepSessionManager {
         activeWakeTargetDate != nil ||
             sessionStartDate != nil ||
             lastAcceptedPayloadAt != nil ||
-            !currentEpochPayloads.isEmpty ||
             !epochHistory.isEmpty
     }
 

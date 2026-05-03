@@ -1,5 +1,4 @@
 import Combine
-import CoreML
 import Foundation
 import UIKit
 import WatchConnectivity
@@ -82,14 +81,10 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let savedAt: Date
         let lastAcceptedPayloadAt: Date?
         let activeWakeTargetDate: Date?
-        let dynamicAlarmTriggered: Bool
         let sessionStartDate: Date?
         let sessionState: AnalysisSessionState
-        let lastHRJumpEpochIndex: Int
         let processedPayloadIDs: [UUID]
-        let currentEpochPayloads: [SensorPayload]
         let epochHistory: [EpochAggregate]
-        let rawPredictionWindow: [SleepStage]
         let rawPredictionHistory: [SleepStage]
         let smoothedPredictionHistory: [SleepStage]
         let confirmationBuffer: [SleepStage]
@@ -127,12 +122,6 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let modelStage: String
     }
 
-    struct PredictionSnapshot {
-        let rawStage: SleepStage
-        let smoothedStage: SleepStage
-        let epoch: EpochAggregate
-    }
-
     struct AlarmStopTombstone: Codable {
         let alarmInstanceID: UUID?
         let targetDate: Date?
@@ -144,17 +133,12 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     let maxTrackedPayloadIDs = 12_000
     let maxStoredPredictionHistory = 1_000
     let epochDuration: TimeInterval = 30
-    /// 10-minute window = 20 epochs of 30s each. We need at least this many for
-    /// the widest rolling window (hist10m) in the model's feature set.
-    let minimumEpochsForFeatures = 5
-    let smoothingWindowSize = 5
     let processingQueue = DispatchQueue(label: "Ninety.SleepSessionManager.processing")
     let persistenceQueue = DispatchQueue(label: "Ninety.SleepSessionManager.persistence")
     let processingQueueKey = DispatchSpecificKey<UInt8>()
     let processingQueueToken: UInt8 = 1
     let persistedSessionMaxAge: TimeInterval = 15 * 60
     let persistedScheduledSessionGrace: TimeInterval = 10 * 60
-    let maximumDynamicPredictionAge: TimeInterval = 90
 
     // MARK: - Published UI State
     @Published var lastPayloadReceived: String = "No data received"
@@ -175,8 +159,6 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     @Published var confirmationProgress: String = "Idle"
     @Published var sessionRecoveryStatus: String = "Session restarted"
     @Published var sessionStateDisplay: String = "Idle"
-    @Published var isTestModeRunning: Bool = false
-    @Published var testModeProgress: String = ""
 
     var isTrackingLive: Bool {
         sessionState == .recording || sessionState == .deliveringBacklog
@@ -246,26 +228,14 @@ final class SleepSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     var processedPayloadIDSet: Set<UUID> = []
     var processedWatchEpochDiagnosticIDs: [UUID] = []
     var processedWatchEpochDiagnosticIDSet: Set<UUID> = []
-    var currentEpochPayloads: [SensorPayload] = []
     var epochHistory: [EpochAggregate] = []
-    var rawPredictions: [SleepStage] = []
     var rawPredictionHistory: [SleepStage] = []
     var smoothedPredictionHistory: [SleepStage] = []
-    var stageModel: MLModel?
     var activeWakeTargetDate: Date?
-    var dynamicAlarmTriggered = false
-    var hasLoggedStaleDynamicSkip = false
     var sessionStartDate: Date?
     var lastAcceptedPayloadAt: Date?
     var lastWatchStatusTimestamp: TimeInterval = 0
     var sessionState: AnalysisSessionState = .idle
-    /// Tracks the last epoch where HR jumped significantly, for the
-    /// `minutes_since_last_hr_jump_log1p` feature.
-    var lastHRJumpEpochIndex: Int = 0
-    var testModeTimer: Timer?
-    var testModeRows: [[String: Double]] = []
-    var testModeLabels: [Int] = []
-    var testModeIndex: Int = 0
 
     override init() {
         super.init()
