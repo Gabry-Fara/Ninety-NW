@@ -2,7 +2,6 @@ import Foundation
 import Combine
 import UserNotifications
 import AVFoundation
-import AudioToolbox
 import AppIntents
 
 #if canImport(AlarmKit)
@@ -13,7 +12,6 @@ import AlarmKit
 class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = SmartAlarmManager()
     nonisolated static let monitoringLeadTime: TimeInterval = 30 * 60
-    nonisolated static let wakePreAlertDuration: TimeInterval = 60
 
     struct ScheduledSleepSession {
         let wakeUpDate: Date
@@ -30,23 +28,6 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         let stoppedAt: Date
         let createdAt: Date?
     }
-
-    private enum WakeAlarmStartReason {
-        case lightSleep
-        case deadlineFallback
-        case watchRequest
-
-        var statusText: String {
-            switch self {
-            case .lightSleep:
-                return "Alarm active: light sleep confirmed"
-            case .deadlineFallback:
-                return "Alarm active: final minute"
-            case .watchRequest:
-                return "Alarm active from Apple Watch"
-            }
-        }
-    }
     
     @Published var alarmStatus: String = "No alarms configured."
     @Published var monitoringCountdown: String = ""
@@ -55,9 +36,6 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     private var absoluteAlarmID: UUID?
     private var monitoringTimer: Timer?   // fires when the 30-minute tracking window opens
     private var countdownTimer: Timer?    // updates the countdown string every second
-    private var layer2Task: Task<Void, Never>?
-    private var alarmStartTimer: Timer?
-    private var alarmAlertTimer: Timer?
     private var wakeTargetDate: Date?
     private var alarmCreatedAt: Date?
     private let speechSynthesizer = AVSpeechSynthesizer()
@@ -103,12 +81,8 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
     struct NinetyAlarmMetadata: AlarmMetadata {}
     
     private func createWakeAlarmAttributes() -> AlarmAttributes<NinetyAlarmMetadata> {
-        let pauseButton = AlarmButton(text: "Pause", textColor: .blue, systemImageName: "pause.fill")
-        let resumeButton = AlarmButton(text: "Resume", textColor: .blue, systemImageName: "play.fill")
         let presentation = AlarmPresentation(
-            alert: .init(title: "Ninety Wake Up"),
-            countdown: .init(title: "Ninety Wake Up", pauseButton: pauseButton),
-            paused: .init(title: "Ninety Wake Up", resumeButton: resumeButton)
+            alert: .init(title: "Ninety Wake Up")
         )
         return AlarmAttributes(presentation: presentation, tintColor: .blue)
     }
@@ -171,17 +145,11 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         monitoringTimer = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
-        alarmStartTimer?.invalidate()
-        alarmStartTimer = nil
-        alarmAlertTimer?.invalidate()
-        alarmAlertTimer = nil
         wakeTargetDate = nil
         alarmCreatedAt = nil
         monitoringCountdown = ""
         isWakeAlarmActive = false
 
-        layer2Task?.cancel()
-        layer2Task = nil
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
 
@@ -237,8 +205,6 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         // Cancel any previous pending monitoring timer
         monitoringTimer?.invalidate()
         countdownTimer?.invalidate()
-        alarmStartTimer?.invalidate()
-        alarmAlertTimer?.invalidate()
         wakeTargetDate = targetDate
 
         SleepSessionManager.shared.startWatchSession(
@@ -284,188 +250,31 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         }
 
         self.alarmStatus = monitoringStart <= now
-            ? "🟢 Tracking window open | Alarm set: \(targetDate.formatted(date: .omitted, time: .shortened))"
-            : "⏳ Alarm set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
+            ? "🟢 Watch monitoring armed | AlarmKit fallback set: \(targetDate.formatted(date: .omitted, time: .shortened))"
+            : "⏳ AlarmKit fallback set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
 
         #if canImport(AlarmKit)
         do {
-            let countdownDuration = Alarm.CountdownDuration(
-                preAlert: Self.wakePreAlertDuration,
-                postAlert: nil
-            )
             let configuration = AlarmManager.AlarmConfiguration(
-                countdownDuration: countdownDuration,
                 schedule: .fixed(targetDate),
                 attributes: createWakeAlarmAttributes(),
                 stopIntent: StopNinetyWakeAlarmIntent()
             )
             _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
-            scheduleLocalWakeStart(at: targetDate)
-            if !isWakeAlarmActive {
-                self.alarmStatus = self.alarmStatus.contains("🟢")
-                    ? "🟢 Tracking window open | ✅ AlarmKit alarm set: \(targetDate.formatted(date: .omitted, time: .shortened))"
-                    : "⏳ ✅ AlarmKit alarm set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
-            }
+            self.alarmStatus = self.alarmStatus.contains("🟢")
+                ? "🟢 Watch monitoring armed | ✅ AlarmKit fallback set: \(targetDate.formatted(date: .omitted, time: .shortened))"
+                : "⏳ ✅ AlarmKit fallback set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
         } catch {
             self.alarmStatus = "System Alarm Schedule failed: \(error)"
         }
         #else
-        scheduleLocalWakeStart(at: targetDate)
-        if !isWakeAlarmActive {
-            self.alarmStatus = "[Sim] Alarm set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
-        }
+        self.alarmStatus = "[Sim] AlarmKit fallback set: \(targetDate.formatted(date: .omitted, time: .shortened)) | Open Watch once before sleep"
         #endif
-    }
-    
-    // Layer Two: The Dynamic Heuristic Trigger
-    func triggerDynamicAlarm() {
-        startWakeAlarm(reason: .lightSleep)
-    }
-
-    func startDeadlineWakeAlarm() {
-        startWakeAlarm(reason: .deadlineFallback)
-    }
-
-    func startWakeAlarmFromWatch(alarmID: UUID? = nil) {
-        if let alarmID {
-            absoluteAlarmID = alarmID
-        }
-        startWakeAlarm(reason: .watchRequest)
     }
 
     func currentAlarmInstanceID() -> UUID? {
         absoluteAlarmID
     }
-
-    private func startWakeAlarm(reason: WakeAlarmStartReason) {
-        guard !isWakeAlarmActive else { return }
-        isWakeAlarmActive = true
-        self.alarmStatus = reason.statusText
-        cancelLocalWakeStartTimer()
-        scheduleAlarmAlertStatus(at: Date().addingTimeInterval(Self.wakePreAlertDuration))
-        monitoringTimer?.invalidate()
-        monitoringTimer = nil
-        countdownTimer?.invalidate()
-        countdownTimer = nil
-        monitoringCountdown = ""
-        
-        SleepSessionManager.shared.triggerWatchHapticWakeUp()
-        SleepSessionManager.shared.finishMonitoringAfterAlarmFired()
-
-        #if canImport(AlarmKit)
-        guard let alarmID = currentAlarmID() else {
-            self.alarmStatus = "Alarm active, but AlarmKit alarm was not found"
-            return
-        }
-        absoluteAlarmID = alarmID
-
-        do {
-            if let alarm = currentSystemAlarm(for: alarmID), alarm.state == .alerting {
-                self.alarmStatus = "Alarm alerting"
-            } else if let alarm = currentSystemAlarm(for: alarmID), alarm.state == .countdown {
-                self.alarmStatus = "Alarm active: countdown"
-            } else {
-                try AlarmManager.shared.countdown(id: alarmID)
-                self.alarmStatus = "Alarm active: countdown"
-            }
-        } catch {
-            self.alarmStatus = "Alarm active; AlarmKit countdown unavailable: \(error)"
-        }
-        #else
-        self.alarmStatus = "[Sim] Alarm active: countdown"
-
-        layer2Task = Task {
-            let content = UNMutableNotificationContent()
-            content.title = "NINETY: OPTIMAL WAKE TIME!"
-            content.body = "You are in a light sleep phase. Wake up now!"
-            content.sound = .defaultCritical
-
-            let requestID = UUID().uuidString
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: Self.wakePreAlertDuration, repeats: false)
-            let request = UNNotificationRequest(identifier: requestID, content: content, trigger: trigger)
-
-            do {
-                _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-                try await UNUserNotificationCenter.current().add(request)
-            } catch {
-                print("Failed mock notification: \(error)")
-            }
-
-            do {
-                try await Task.sleep(nanoseconds: UInt64(Self.wakePreAlertDuration * 1_000_000_000))
-                if !Task.isCancelled {
-                    self.alarmStatus = "[Sim] Alarm alerting"
-                    self.playMockAlarmSound()
-                }
-            } catch {
-                // Task was cancelled
-            }
-        }
-        #endif
-    }
-
-    private func scheduleLocalWakeStart(at targetDate: Date) {
-        alarmStartTimer?.invalidate()
-        wakeTargetDate = targetDate
-
-        let wakeStartDate = targetDate.addingTimeInterval(-Self.wakePreAlertDuration)
-        let delay = wakeStartDate.timeIntervalSinceNow
-        guard delay > 0 else {
-            if targetDate > Date() {
-                startWakeAlarm(reason: .deadlineFallback)
-            }
-            return
-        }
-
-        alarmStartTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard
-                    let self,
-                    let scheduledTarget = self.wakeTargetDate,
-                    abs(scheduledTarget.timeIntervalSince(targetDate)) < 1
-                else {
-                    return
-                }
-
-                self.startWakeAlarm(reason: .deadlineFallback)
-            }
-        }
-    }
-
-    private func scheduleAlarmAlertStatus(at alertDate: Date) {
-        alarmAlertTimer?.invalidate()
-        let delay = alertDate.timeIntervalSinceNow
-        guard delay > 0 else {
-            alarmStatus = "Alarm alerting"
-            return
-        }
-
-        alarmAlertTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self, self.isWakeAlarmActive else { return }
-                self.alarmStatus = "Alarm alerting"
-            }
-        }
-    }
-
-    private func cancelLocalWakeStartTimer() {
-        alarmStartTimer?.invalidate()
-        alarmStartTimer = nil
-    }
-
-    #if canImport(AlarmKit)
-    private func currentAlarmID() -> UUID? {
-        if let absoluteAlarmID {
-            return absoluteAlarmID
-        }
-
-        return (try? AlarmManager.shared.alarms.first?.id) ?? nil
-    }
-
-    private func currentSystemAlarm(for alarmID: UUID) -> Alarm? {
-        (try? AlarmManager.shared.alarms.first { $0.id == alarmID }) ?? nil
-    }
-    #endif
 
     private func stopTombstone() -> AlarmStopTombstone? {
         guard let data = UserDefaults.standard.data(forKey: StorageKey.stopTombstone) else {
@@ -530,26 +339,6 @@ class SmartAlarmManager: NSObject, ObservableObject, UNUserNotificationCenterDel
         #if canImport(AlarmKit)
         try? AlarmManager.shared.cancel(id: alarmID)
         #endif
-    }
-    
-    private func playMockAlarmSound() {
-        // Mock a physical systemic alarm overriding the device speakers
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.duckOthers, .defaultToSpeaker])
-            try AVAudioSession.sharedInstance().setActive(true)
-            AudioServicesPlayAlertSound(SystemSoundID(1005))
-
-            // Vibrate loop fallback
-            let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
-            }
-            // Stop after 30 seconds for sanity
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
-                timer.invalidate()
-            }
-        } catch {
-            print("Failed to initialize physical alarm audio layer: \(error)")
-        }
     }
     
     // MARK: - Post-Alarm Feedback

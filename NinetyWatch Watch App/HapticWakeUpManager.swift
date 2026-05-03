@@ -3,11 +3,10 @@
 //
 // Requirement 3 — Gradual Haptic Wake-Up Sequence
 //
-// When the iPhone fires the dynamic alarm (Layer 2), it sends a
-// "hapticWakeUp" command to the Watch via WCSession. This manager
-// intercepts that signal and plays a progressive vibration sequence
-// using WKInterfaceDevice, ramping from gentle taps to urgent pulses
-// so the wake-up is smooth and doesn't cancel the sleep-cycle benefit.
+// The Watch owns the smart wake trigger. This manager plays a progressive
+// vibration sequence using WKInterfaceDevice, ramping from gentle taps to
+// urgent pulses so the wake-up is smooth and doesn't cancel the sleep-cycle
+// benefit.
 //
 // Haptic phases (Optimized Rhythmic Wake-Up):
 //   Phase 1 (0–15s)   → very light .click every 3s

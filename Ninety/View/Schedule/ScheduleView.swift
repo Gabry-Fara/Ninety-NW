@@ -7,13 +7,13 @@
 import SwiftUI
 
 struct ScheduleView: View {
-    private enum WatchSetupState: Int {
+    enum WatchSetupState: Int {
         case needsAction = 1
         case ready = 2
         case active = 3
     }
 
-    private struct WatchSetupSummary {
+    struct WatchSetupSummary {
         let state: WatchSetupState
         let title: String
         let message: String
@@ -22,36 +22,36 @@ struct ScheduleView: View {
         let tint: Color
     }
 
-    private var timeBlockOffset: CGFloat { showingWakeTimePicker ? -30 : -90 }
-    private let daySelectorOffset: CGFloat = 70
-    private let alarmButtonBottomPadding: CGFloat = 64
-    private let watchBannerSlotHeight: CGFloat = 190
+    var timeBlockOffset: CGFloat { showingWakeTimePicker ? -30 : -90 }
+    let daySelectorOffset: CGFloat = 70
+    let alarmButtonBottomPadding: CGFloat = 64
+    let watchBannerSlotHeight: CGFloat = 190
 
-    @EnvironmentObject private var viewModel: ScheduleViewModel
-    @Environment(\.colorScheme) private var colorScheme
-    @ObservedObject private var sleepManager = SleepSessionManager.shared
-    @State private var showingSettings = false
-    @State private var isSettingsNavigationPending = false
-    @State private var showingDiagnostics = false
-    @State private var showingWakeTimePicker = false
-    @Namespace private var glassNamespace
-    @State private var internalHour: Int = 0
-    @State private var internalMinute: Int = 0
-    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
-    @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
-    @AppStorage("showGuidedTour") private var showGuidedTour: Bool = false
-    @State private var showingWatchDetails = false
-    private let impactHaptic = UIImpactFeedbackGenerator(style: .medium)
-    private var accent: Color { .scheduleAccent(for: colorScheme) }
-    private var isSelectedDayActive: Bool { viewModel.isAlarmEnabledForSelectedDay }
-    private var effectiveScheduledSession: SmartAlarmManager.ScheduledSleepSession? {
+    @EnvironmentObject var viewModel: ScheduleViewModel
+    @Environment(\.colorScheme) var colorScheme
+    @ObservedObject var sleepManager = SleepSessionManager.shared
+    @State var showingSettings = false
+    @State var isSettingsNavigationPending = false
+    @State var showingDiagnostics = false
+    @State var showingWakeTimePicker = false
+    @Namespace var glassNamespace
+    @State var internalHour: Int = 0
+    @State var internalMinute: Int = 0
+    @AppStorage("appLanguage") var appLanguage: String = AppLanguage.english.rawValue
+    @AppStorage("hapticFeedbackEnabled") var hapticFeedbackEnabled: Bool = true
+    @AppStorage("showGuidedTour") var showGuidedTour: Bool = false
+    @State var showingWatchDetails = false
+    let impactHaptic = UIImpactFeedbackGenerator(style: .medium)
+    var accent: Color { .scheduleAccent(for: colorScheme) }
+    var isSelectedDayActive: Bool { viewModel.isAlarmEnabledForSelectedDay }
+    var effectiveScheduledSession: SmartAlarmManager.ScheduledSleepSession? {
         viewModel.lastScheduledSession ?? viewModel.nextUpcomingSession
     }
-    private var timePillTint: Color {
+    var timePillTint: Color {
         guard isSelectedDayActive else { return .clear }
         return accent.opacity(colorScheme == .light ? 0.30 : 0.34)
     }
-    private var timeCardBackground: LinearGradient {
+    var timeCardBackground: LinearGradient {
         LinearGradient(
             colors: colorScheme == .light
             ? [
@@ -66,7 +66,7 @@ struct ScheduleView: View {
             endPoint: .bottomTrailing
         )
     }
-    private var watchSetupSummary: WatchSetupSummary? {
+    var watchSetupSummary: WatchSetupSummary? {
         guard viewModel.isAlarmEnabled, let scheduledSession = effectiveScheduledSession else {
             return nil
         }
@@ -441,383 +441,5 @@ struct ScheduleView: View {
         }
     }
 
-    private var watchSetupBannerSlot: some View {
-        ZStack(alignment: .top) {
-            Color.clear
 
-            if let summary = watchSetupSummary {
-                watchSetupBanner(summary)
-                    .transition(.opacity)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: watchBannerSlotHeight, alignment: .top)
-    }
-
-    private func watchSetupBanner(_ summary: WatchSetupSummary) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(summary.tint.opacity(colorScheme == .light ? 0.16 : 0.24))
-                        .frame(width: 32, height: 32)
-
-                    Image(systemName: summary.symbol)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(summary.tint)
-                }
-
-                Text(summary.title)
-                    .font(.system(.subheadline, design: .rounded))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(2)
-                    .layoutPriority(1)
-
-                Spacer(minLength: 0)
-            }
-
-            Text(summary.message)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            watchSetupProgressRow(for: summary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
-        .frame(maxWidth: 340, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(alignment: .topLeading) {
-                    Circle()
-                        .fill(summary.tint.opacity(colorScheme == .light ? 0.14 : 0.18))
-                        .frame(width: 120, height: 120)
-                        .blur(radius: 28)
-                        .offset(x: -20, y: -50)
-                }
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(summary.tint.opacity(colorScheme == .light ? 0.22 : 0.30), lineWidth: 1)
-        }
-        .shadow(color: summary.tint.opacity(colorScheme == .light ? 0.10 : 0.15), radius: 20, y: 10)
-    }
-
-    private func watchSetupStatusPill(_ label: String, tint: Color) -> some View {
-        Text(label)
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(tint.opacity(colorScheme == .light ? 0.12 : 0.18))
-            )
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(tint.opacity(colorScheme == .light ? 0.18 : 0.26), lineWidth: 1)
-            }
-    }
-
-    private func watchSetupProgressRow(for summary: WatchSetupSummary) -> some View {
-        HStack(alignment: .top, spacing: 0) {
-            watchSetupProgressNode(
-                label: "Alarm saved".localized(for: appLanguage),
-                symbol: "checkmark",
-                style: .complete,
-                tint: accent
-            )
-            watchSetupConnector(isActive: summary.state.rawValue >= WatchSetupState.ready.rawValue, tint: summary.tint)
-            watchSetupProgressNode(
-                label: "Open Watch".localized(for: appLanguage),
-                symbol: summary.state == .needsAction ? "applewatch" : "checkmark",
-                style: summary.state == .needsAction ? .current : .complete,
-                tint: summary.state == .needsAction ? summary.tint : Color(red: 0.18, green: 0.70, blue: 0.48)
-            )
-            watchSetupConnector(isActive: summary.state == .active, tint: summary.tint)
-            watchSetupProgressNode(
-                label: "Tracking".localized(for: appLanguage),
-                symbol: summary.state == .active ? "waveform.path.ecg" : "moon.zzz",
-                style: summary.state == .active ? .complete : .upcoming,
-                tint: summary.tint
-            )
-        }
-    }
-
-    private enum WatchProgressStyle {
-        case complete
-        case current
-        case upcoming
-    }
-
-    private func watchSetupProgressNode(label: String, symbol: String, style: WatchProgressStyle, tint: Color) -> some View {
-        let circleFill: Color
-        let circleStroke: Color
-        let iconColor: Color
-
-        switch style {
-        case .complete:
-            circleFill = tint
-            circleStroke = tint.opacity(0.0)
-            iconColor = .white
-        case .current:
-            circleFill = tint.opacity(colorScheme == .light ? 0.14 : 0.20)
-            circleStroke = tint.opacity(colorScheme == .light ? 0.30 : 0.36)
-            iconColor = tint
-        case .upcoming:
-            circleFill = Color.white.opacity(colorScheme == .light ? 0.42 : 0.08)
-            circleStroke = Color.primary.opacity(colorScheme == .light ? 0.08 : 0.16)
-            iconColor = .secondary
-        }
-
-        return VStack(spacing: 6) {
-            ZStack {
-                Circle()
-                    .fill(circleFill)
-                    .frame(width: 24, height: 24)
-                Circle()
-                    .strokeBorder(circleStroke, lineWidth: 1)
-                    .frame(width: 24, height: 24)
-                Image(systemName: symbol)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(iconColor)
-            }
-
-            Text(label)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func watchSetupConnector(isActive: Bool, tint: Color) -> some View {
-        Capsule(style: .continuous)
-            .fill(isActive ? tint.opacity(0.55) : Color.primary.opacity(0.10))
-            .frame(width: 18, height: 2)
-            .padding(.top, 11)
-    }
-
-    private func syncInternalTime() {
-        internalHour = viewModel.selectedDayHour
-        internalMinute = viewModel.selectedDayMinute
-    }
-}
-
-private struct IdleTimeDisplay: View {
-    let hour: Int
-    let minute: Int
-    let isActive: Bool
-
-    private var hourText: String { String(format: "%02d", hour) }
-    private var minuteText: String { String(format: "%02d", minute) }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            timeUnit(hourText)
-
-            Text(":")
-                .font(.system(size: 58, weight: .regular, design: .rounded))
-                .foregroundStyle(.primary)
-                .opacity(isActive ? 0.72 : 0.28)
-                .offset(y: -3)
-
-            timeUnit(minuteText)
-        }
-        .frame(width: 286, height: 280)
-    }
-
-    @ViewBuilder
-    private func timeUnit(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 72, weight: .light, design: .rounded))
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .frame(width: 100, height: 96)
-            .foregroundStyle(.primary)
-            .opacity(isActive ? 1.0 : 0.4)
-    }
-}
-
-private struct DayOfWeekSelector: View {
-    let scheduledWeekdays: Set<Int>
-    let selectedWeekday: Int
-    let onSelect: (Int) -> Void
-    
-    @AppStorage("appLanguage") private var appLanguage: String = AppLanguage.english.rawValue
-    @Environment(\.colorScheme) private var colorScheme
-    
-    private var accent: Color { .scheduleAccent(for: colorScheme) }
-
-    private struct WeekdayInfo: Identifiable {
-        let id: Int // 1-indexed weekday (1=Sun, 2=Mon...)
-        let symbol: String
-    }
-
-    private var orderedWeekdays: [WeekdayInfo] {
-        var calendar = Calendar.current
-        calendar.locale = Locale(identifier: appLanguage)
-        let symbols = calendar.veryShortWeekdaySymbols
-        let firstWeekday = calendar.firstWeekday // Usually 1 (Sun) or 2 (Mon)
-        
-        return (0..<7).map { i in
-            let index = (firstWeekday - 1 + i) % 7
-            return WeekdayInfo(id: index + 1, symbol: symbols[index])
-        }
-    }
-    
-    var body: some View {
-        HStack(spacing: 10) {
-            ForEach(orderedWeekdays) { day in
-                let isScheduled = scheduledWeekdays.contains(day.id)
-                let isSelected = selectedWeekday == day.id
-
-                Button {
-                    onSelect(day.id)
-                } label: {
-                    Text(day.symbol)
-                        .font(.footnote.weight(.semibold))
-                        .frame(width: 34, height: 34)
-                        .foregroundStyle(isScheduled ? Color.white : Color.primary.opacity(0.9))
-                        .background {
-                            Circle()
-                                .fill(isScheduled ? accent.opacity(0.25) : Color.white.opacity(0.08))
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(isSelected ? Color.primary.opacity(0.4) : Color.clear, lineWidth: 1.5)
-                                )
-                                .glassEffect(.regular.tint(isScheduled ? accent : .clear), in: Circle())
-                                .scaleEffect(isSelected ? 1.1 : 1.0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
-                        }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .glassEffect(.regular, in: Capsule())
-    }
-}
-
-struct CustomWheelPicker: View {
-    @Binding var selectedValue: Int
-    let range: ClosedRange<Int>
-    let isMinutes: Bool
-    let isActive: Bool
-    let isPickerMode: Bool
-    
-    @State private var viewPosition: Int?
-    @State private var userDidScroll = false
-    @AppStorage("hapticFeedbackEnabled") private var hapticFeedbackEnabled: Bool = true
-    @Environment(\.colorScheme) private var colorScheme
-    private let selectionHaptic = UISelectionFeedbackGenerator()
-    
-    // Keep enough repeated rows to feel infinite without paying for an oversized subtree on open.
-    private let multiplier = 3
-    private var count: Int { range.upperBound - range.lowerBound + 1 }
-    private var focusTint: Color {
-        colorScheme == .light
-        ? Color.black.opacity(0.06)
-        : Color.white.opacity(0.08)
-    }
-
-    var body: some View {
-        let baseOpacity = isActive ? 1.0 : 0.4
-        let blurOpacity = isActive ? 0.3 : 0.1
-
-        ZStack {
-            ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 0) {
-                    ForEach(0..<(count * multiplier), id: \.self) { index in
-                        let value = range.lowerBound + (index % count)
-
-                        Text(String(format: "%02d", value))
-                            .font(.system(size: 72, weight: .light, design: .rounded))
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .frame(height: 96)
-                            .foregroundStyle(.primary)
-                            .scrollTransition(axis: .vertical) { content, phase in
-                                content
-                                    .opacity(phase.isIdentity ? baseOpacity : (isPickerMode ? blurOpacity : 0.0))
-                                    .scaleEffect(phase.isIdentity ? 1.0 : (isPickerMode ? 0.82 : 1.0))
-                                    .rotation3DEffect(
-                                        .degrees(Double(phase.value) * -20),
-                                        axis: (x: 1, y: 0, z: 0),
-                                        perspective: 0.5
-                                    )
-                                    .offset(y: phase.value * 12)
-                            }
-                            .id(index)
-                    }
-                }
-                .scrollTargetLayout()
-            }
-            .safeAreaPadding(.vertical, 66) // (Container 228 - Item 96) / 2
-            .scrollPosition(id: $viewPosition, anchor: .center)
-            .scrollTargetBehavior(.viewAligned)
-            .onScrollPhaseChange { _, newPhase in
-                if newPhase == .interacting {
-                    userDidScroll = true
-                    if hapticFeedbackEnabled { selectionHaptic.prepare() }
-                } else if newPhase == .idle {
-                    userDidScroll = false
-                    // Ensure the selection matches the final idle position
-                    if let pos = viewPosition {
-                        let newValue = range.lowerBound + (pos % count)
-                        if newValue != selectedValue {
-                            selectedValue = newValue
-                        }
-                    }
-                }
-            }
-            .onChange(of: viewPosition) { oldPos, newPos in
-                guard let new = newPos else { return }
-                let newValue = range.lowerBound + (new % count)
-                
-                if newValue != selectedValue {
-                    // Update value while scrolling for immediate feedback
-                    if userDidScroll {
-                        selectedValue = newValue
-                        if hapticFeedbackEnabled {
-                            selectionHaptic.selectionChanged()
-                            selectionHaptic.prepare()
-                        }
-                    }
-                }
-            }
-            .onChange(of: selectedValue) { _, newSelected in
-                if !userDidScroll, let currentPos = viewPosition {
-                    let currentShownValue = range.lowerBound + (currentPos % count)
-                    if currentShownValue != newSelected {
-                        var diff = newSelected - currentShownValue
-                        let half = count / 2
-                        if diff > half { diff -= count }
-                        else if diff < -half { diff += count }
-                        
-                        viewPosition = currentPos + diff
-                    }
-                }
-            }
-            .onAppear {
-                let midIndexOrigin = (multiplier / 2) * count
-                let offset = selectedValue - range.lowerBound
-                viewPosition = midIndexOrigin + offset
-            }
-        }
-    }
-}
-
-#Preview {
-    ScheduleView()
-        .environmentObject(ScheduleViewModel())
-        .environmentObject(TourFrameStore())
 }
