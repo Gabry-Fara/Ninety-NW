@@ -200,6 +200,142 @@ struct WatchCustomWheelPicker: View {
     }
 }
 
+struct CircularAlarmDial: View {
+    @Binding var hour: Int
+    @Binding var minute: Int
+
+    @State var crownValue: Double = 0
+    @FocusState var isDialFocused: Bool
+
+    var totalMinutes: Int {
+        max(0, min(719, hour * 60 + minute))
+    }
+
+    var displayHour: Int {
+        hour == 0 ? 12 : hour
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
+            let radius = side * 0.43
+            let handAngle = angle(for: totalMinutes)
+            let handlePoint = point(from: center, radius: radius, angle: handAngle)
+
+            ZStack {
+                Circle()
+                    .fill(.white.opacity(0.045))
+                    .overlay {
+                        Circle()
+                            .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+                    }
+
+                ForEach(0..<60, id: \.self) { tick in
+                    let isHour = tick % 5 == 0
+                    Capsule()
+                        .fill(isHour ? .white.opacity(0.7) : .white.opacity(0.22))
+                        .frame(width: isHour ? 2.2 : 1.2, height: isHour ? 8 : 4)
+                        .offset(y: -radius)
+                        .rotationEffect(.degrees(Double(tick) * 6))
+                }
+
+                ForEach(0..<12, id: \.self) { index in
+                    let label = index == 0 ? "12" : "\(index)"
+                    let labelPoint = point(from: center, radius: side * 0.34, angle: angle(for: index * 60))
+
+                    Text(label)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.82))
+                        .position(labelPoint)
+                }
+
+                Circle()
+                    .fill(.blue)
+                    .frame(width: 14, height: 14)
+                    .position(handlePoint)
+                    .shadow(color: .blue.opacity(0.55), radius: 6)
+
+                VStack(spacing: 0) {
+                    Text(String(format: "%02d:%02d", displayHour, minute))
+                        .font(.system(size: 27, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+
+                    Text("AM")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(.blue.opacity(0.92))
+                        .tracking(1.2)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background {
+                    Capsule()
+                        .fill(.black.opacity(0.58))
+                        .overlay {
+                            Capsule()
+                                .strokeBorder(.white.opacity(0.1), lineWidth: 0.8)
+                        }
+                }
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .focusable(true)
+        .focused($isDialFocused)
+        .digitalCrownRotation(
+            $crownValue,
+            from: 0,
+            through: 719,
+            by: 5,
+            sensitivity: .low,
+            isContinuous: true,
+            isHapticFeedbackEnabled: true
+        )
+        .onAppear {
+            crownValue = Double(totalMinutes)
+            isDialFocused = true
+        }
+        .onChange(of: hour) {
+            crownValue = Double(totalMinutes)
+        }
+        .onChange(of: minute) {
+            crownValue = Double(totalMinutes)
+        }
+        .onChange(of: crownValue) { _, newValue in
+            setTotalMinutes(Int(round(newValue)))
+        }
+    }
+
+    func setTotalMinutes(_ value: Int) {
+        let snapped = Int((Double(value) / 5.0).rounded() * 5.0)
+        let clamped = ((snapped % 720) + 720) % 720
+        let newHour = clamped / 60
+        let newMinute = clamped % 60
+
+        if hour != newHour {
+            hour = newHour
+        }
+        if minute != newMinute {
+            minute = newMinute
+        }
+    }
+
+    func angle(for minuteValue: Int) -> Angle {
+        .degrees((Double(minuteValue) / 720 * 360) - 90)
+    }
+
+    func point(from center: CGPoint, radius: CGFloat, angle: Angle) -> CGPoint {
+        let radians = angle.radians
+        return CGPoint(
+            x: center.x + cos(radians) * radius,
+            y: center.y + sin(radians) * radius
+        )
+    }
+}
+
 struct SoftControlBackground: View {
     let cornerRadius: CGFloat
     var horizontalEdgesOnly = false

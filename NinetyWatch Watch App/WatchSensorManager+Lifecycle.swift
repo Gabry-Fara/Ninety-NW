@@ -275,10 +275,11 @@ extension WatchSensorManager {
         UserDefaults.standard.removeObject(forKey: Self.pendingScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.readyScheduleKey)
         UserDefaults.standard.removeObject(forKey: Self.actualAlarmTimeKey)
+        cancelScheduledWakeNotification()
         if !preserveLocalAlarmRecord {
             clearLocalAlarmRecord()
         }
-        let shouldShowSyncedState = pendingNextAlarmCommand() == nil
+        let shouldShowSyncedState = !isPhoneSyncEnabled || pendingNextAlarmCommand() == nil
         if Thread.isMainThread {
             nextAlarmDate = nil
             if shouldShowSyncedState {
@@ -351,6 +352,7 @@ extension WatchSensorManager {
     }
 
     func sendWatchStatusUpdate(_ status: String) {
+        guard isPhoneSyncEnabled else { return }
         guard let session = wcSession, session.activationState == .activated else { return }
 
         var message: [String: Any] = [
@@ -378,15 +380,17 @@ extension WatchSensorManager {
     }
     func stopActiveAlarmFromWatch() {
         let tombstone = currentStopTombstone()
-        applyStopTombstone(tombstone, notifyPhone: true)
+        applyStopTombstone(tombstone, notifyPhone: isPhoneSyncEnabled)
     }
 
     func sendStopAlarmMessage() {
+        guard isPhoneSyncEnabled else { return }
         let tombstone = currentStopTombstone()
         sendStopAlarmCommand(PendingStopAlarmCommand(tombstone: tombstone))
     }
     
     func sendTriggerAlarmMessage() {
+        guard isPhoneSyncEnabled else { return }
         guard let session = wcSession, session.activationState == .activated else { return }
         var message: [String: Any] = ["action": "triggerAlarm"]
         if let record = localAlarmRecord() {

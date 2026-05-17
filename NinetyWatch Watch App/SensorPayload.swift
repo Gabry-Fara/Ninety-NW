@@ -11,7 +11,7 @@ struct SensorPayload: Codable {
 }
 
 /// A 30-second epoch already aggregated and classified on Apple Watch.
-struct WatchEpochDiagnostic: Codable {
+struct WatchEpochDiagnostic: Codable, Identifiable, Equatable {
     let id: UUID
     let timestamp: Date
     let processedAt: Date

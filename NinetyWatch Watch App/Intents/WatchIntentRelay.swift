@@ -9,6 +9,10 @@
 
 import WatchConnectivity
 
+enum WatchIntentRelayConfiguration {
+    static var isPhoneSyncEnabled: Bool { false }
+}
+
 /// Thread-safe relay that wraps `WCSession.sendMessage` in `async/await`.
 actor WatchIntentRelay {
 
@@ -17,6 +21,7 @@ actor WatchIntentRelay {
     // MARK: - Errors
 
     enum RelayError: Error, LocalizedError {
+        case phoneSyncDisabled
         case sessionNotAvailable
         case phoneNotReachable
         case invalidResponse
@@ -24,6 +29,8 @@ actor WatchIntentRelay {
 
         var errorDescription: String? {
             switch self {
+            case .phoneSyncDisabled:
+                return "Per ora Ninety lavora solo su Apple Watch."
             case .sessionNotAvailable:
                 return "WatchConnectivity non è disponibile."
             case .phoneNotReachable:
@@ -45,6 +52,10 @@ actor WatchIntentRelay {
     ///   - params: Additional key-value pairs to include in the message payload.
     /// - Returns: The dialog string composed by the iPhone-side handler.
     func relay(action: String, params: [String: Any] = [:]) async throws -> String {
+        guard WatchIntentRelayConfiguration.isPhoneSyncEnabled else {
+            throw RelayError.phoneSyncDisabled
+        }
+
         guard WCSession.isSupported() else {
             throw RelayError.sessionNotAvailable
         }

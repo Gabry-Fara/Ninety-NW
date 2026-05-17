@@ -96,6 +96,7 @@ extension WatchSensorManager {
     }
 
     func enqueuePendingPayload(_ payload: SensorPayload) {
+        guard isPhoneSyncEnabled else { return }
         guard !pendingPayloads.contains(where: { $0.payload.id == payload.id }) else { return }
 
         pendingPayloads.append(
@@ -117,6 +118,7 @@ extension WatchSensorManager {
     }
 
     func acknowledgePayloads(withIDs ids: [UUID]) {
+        guard isPhoneSyncEnabled else { return }
         guard !ids.isEmpty else { return }
 
         let acknowledgedIDs = Set(ids)
@@ -146,6 +148,7 @@ extension WatchSensorManager {
     }
 
     func flushPendingPayloadsIfNeeded(force: Bool = false) {
+        guard isPhoneSyncEnabled else { return }
         guard !pendingPayloads.isEmpty else { return }
         guard let session = wcSession, session.activationState == .activated else { return }
 
@@ -169,6 +172,7 @@ extension WatchSensorManager {
     }
 
     func sendPendingPayloads(at indices: [Int], reason: String) {
+        guard isPhoneSyncEnabled else { return }
         guard let session = wcSession, session.activationState == .activated else { return }
         guard !indices.isEmpty else { return }
 

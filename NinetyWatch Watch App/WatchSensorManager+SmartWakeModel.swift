@@ -33,6 +33,7 @@ extension WatchSensorManager {
         smartWakeTriggered = false
         lastHRJumpEpochIndex = 0
         localAnalysisStartDate = startDate
+        recentEpochDiagnostics.removeAll()
     }
 
     func processPayloadForLocalSmartWake(_ payload: SensorPayload) {
@@ -53,27 +54,61 @@ extension WatchSensorManager {
         }
 
         let hrValues = currentEpochPayloads.flatMap(\.hrSamples)
-        var hrMean = hrValues.isEmpty ? 0 : hrValues.reduce(0, +) / Double(hrValues.count)
-        var hrStd = standardDeviation(for: hrValues)
-        var hrRange = hrValues.isEmpty ? 0 : (hrValues.max()! - hrValues.min()!)
-
-        if hrMean < 30 {
-            if let previousEpoch = epochHistory.last {
-                hrMean = previousEpoch.heartRateMean
-                hrStd = previousEpoch.heartRateStd
-                hrRange = previousEpoch.heartRateRange
-            } else {
-                hrMean = 60
-                hrStd = 0
-                hrRange = 0
-            }
-        }
-
         let motionValues = currentEpochPayloads.map(\.motionCount)
         let motionMagMean = motionValues.reduce(0, +) / max(Double(motionValues.count), 1)
         let motionMagMax = motionValues.max() ?? 0
         let previousMotion = epochHistory.last?.motionMagMean ?? motionMagMean
         let motionJerk = abs(motionMagMean - previousMotion)
+
+        guard !hrValues.isEmpty else {
+            let diagnosticEpoch = WatchEpochAggregate(
+                timestamp: payload.timestamp,
+                heartRateMean: 0,
+                heartRateStd: 0,
+                heartRateRange: 0,
+                motionMagMean: motionMagMean,
+                motionMagMax: motionMagMax,
+                motionJerk: motionJerk
+            )
+
+            currentEpochPayloads.removeAll()
+            updatePipelineState(.failed, detail: "Watch ML error: missing HR")
+            sendWatchEpochDiagnostic(
+                for: diagnosticEpoch,
+                rawStage: nil,
+                smoothedStage: nil,
+                stageTitle: "Error: missing HR",
+                isTestInjected: false
+            )
+            return
+        }
+
+        let hrMean = hrValues.reduce(0, +) / Double(hrValues.count)
+        let hrStd = standardDeviation(for: hrValues)
+        let hrRange = (hrValues.max() ?? hrMean) - (hrValues.min() ?? hrMean)
+
+        guard hrMean >= 30 else {
+            let diagnosticEpoch = WatchEpochAggregate(
+                timestamp: payload.timestamp,
+                heartRateMean: hrMean,
+                heartRateStd: hrStd,
+                heartRateRange: hrRange,
+                motionMagMean: motionMagMean,
+                motionMagMax: motionMagMax,
+                motionJerk: motionJerk
+            )
+
+            currentEpochPayloads.removeAll()
+            updatePipelineState(.failed, detail: "Watch ML error: invalid HR \(Int(hrMean))")
+            sendWatchEpochDiagnostic(
+                for: diagnosticEpoch,
+                rawStage: nil,
+                smoothedStage: nil,
+                stageTitle: "Error: invalid HR",
+                isTestInjected: false
+            )
+            return
+        }
 
         let epoch = WatchEpochAggregate(
             timestamp: payload.timestamp,
@@ -209,8 +244,6 @@ extension WatchSensorManager {
         stageTitle: String,
         isTestInjected: Bool
     ) {
-        guard let session = wcSession, session.activationState == .activated else { return }
-
         let diagnostic = WatchEpochDiagnostic(
             id: UUID(),
             timestamp: epoch.timestamp,
@@ -227,6 +260,10 @@ extension WatchSensorManager {
             isTestInjected: isTestInjected
         )
 
+        recordLocalEpochDiagnostic(diagnostic)
+
+        guard isPhoneSyncEnabled else { return }
+        guard let session = wcSession, session.activationState == .activated else { return }
         guard let encoded = try? JSONEncoder().encode(diagnostic) else { return }
 
         let message: [String: Any] = [
@@ -237,6 +274,31 @@ extension WatchSensorManager {
         session.transferUserInfo(message)
         if session.isReachable {
             session.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        }
+    }
+
+    func recordLocalEpochDiagnostic(_ diagnostic: WatchEpochDiagnostic) {
+        let update = {
+            self.recentEpochDiagnostics.insert(diagnostic, at: 0)
+            if self.recentEpochDiagnostics.count > self.maxRecentEpochDiagnostics {
+                self.recentEpochDiagnostics.removeLast(self.recentEpochDiagnostics.count - self.maxRecentEpochDiagnostics)
+            }
+        }
+
+        if Thread.isMainThread {
+            update()
+        } else {
+            DispatchQueue.main.async(execute: update)
+        }
+    }
+
+    func clearRecentEpochDiagnostics() {
+        if Thread.isMainThread {
+            recentEpochDiagnostics.removeAll()
+        } else {
+            DispatchQueue.main.async {
+                self.recentEpochDiagnostics.removeAll()
+            }
         }
     }
 
@@ -273,6 +335,7 @@ extension WatchSensorManager {
     }
 
     func startWatchHapticWakePhase() {
+        deliverWakeNotificationNow(reason: "Sveglia")
         HapticWakeUpManager.shared.startGradualWakeUp()
     }
 

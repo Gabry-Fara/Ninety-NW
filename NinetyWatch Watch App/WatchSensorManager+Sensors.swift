@@ -125,9 +125,11 @@ extension WatchSensorManager {
             updatePipelineState(.recording, detail: "Recording")
         }
 
-        enqueuePendingPayload(payload)
-        if let lastIndex = pendingPayloads.indices.last {
-            sendPendingPayloads(at: [lastIndex], reason: "Live delivery")
+        if isPhoneSyncEnabled {
+            enqueuePendingPayload(payload)
+            if let lastIndex = pendingPayloads.indices.last {
+                sendPendingPayloads(at: [lastIndex], reason: "Live delivery")
+            }
         }
 
         DispatchQueue.main.async {

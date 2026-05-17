@@ -7,10 +7,13 @@
 
 import SwiftUI
 import WatchKit
+import UserNotifications
 
-final class WatchAppDelegate: NSObject, WKApplicationDelegate {
+final class WatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching() {
-        _ = WatchSensorManager.shared
+        UNUserNotificationCenter.current().delegate = self
+        WatchSensorManager.shared.configureWakeNotifications()
+        WatchSensorManager.shared.requestWakeNotificationAuthorization()
     }
 
     func applicationDidBecomeActive() {
@@ -42,6 +45,27 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate {
                 task.setTaskCompletedWithSnapshot(false)
             }
         }
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if response.notification.request.content.categoryIdentifier == WatchWakeNotificationConstants.wakeNotificationCategoryIdentifier {
+            Task { @MainActor in
+                WatchSensorManager.shared.startWatchHapticWakePhase()
+            }
+        }
+        completionHandler()
     }
 }
 

@@ -44,6 +44,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     let maximumDynamicPredictionAge: TimeInterval = 90
     let monitoringLeadTime: TimeInterval = 30 * 60
     let alarmFinalMinuteBuffer: TimeInterval = 60
+    let isPhoneSyncEnabled = false
 
     enum WatchPipelineState: String, Codable {
         case idle
@@ -211,6 +212,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     @Published var nextAlarmDate: Date? = nil
     @Published var weeklyAlarmSyncState: WatchWeeklyAlarmSyncState = .synced
     @Published var weeklyAlarmSyncDetail: String? = nil
+    @Published var recentEpochDiagnostics: [WatchEpochDiagnostic] = []
     
     var runtimeSession: WKExtendedRuntimeSession?
     var suppressNextRuntimeInvalidation = false
@@ -232,6 +234,7 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     var smartWakeTriggered = false
     var localAnalysisStartDate: Date?
     var lastHRJumpEpochIndex = 0
+    let maxRecentEpochDiagnostics = 120
     
     var hrQuery: HKAnchoredObjectQuery?
     var hrSamplesBuffer: [Double] = []
@@ -248,10 +251,15 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     
     override init() {
         super.init()
-        restorePendingPayloadQueue()
-        restorePendingNextAlarmCommand()
-        restorePendingStopAlarmCommand()
-        setupWatchConnectivity()
+        if isPhoneSyncEnabled {
+            restorePendingPayloadQueue()
+            restorePendingNextAlarmCommand()
+            restorePendingStopAlarmCommand()
+            setupWatchConnectivity()
+        } else {
+            connectionStatus = "Watch only"
+            replayStatusText = "Phone sync disabled"
+        }
         refreshNextAlarmDate()
         loadWatchModel()
     }
@@ -275,6 +283,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     var connectivityState: WatchConnectivityState {
+        guard isPhoneSyncEnabled else {
+            return .watchOnly
+        }
+
         guard let session = wcSession, WCSession.isSupported() else {
             return .watchOnly
         }
@@ -298,6 +310,10 @@ class WatchSensorManager: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     }
 
     var hasUnsyncedLocalAlarm: Bool {
+        guard isPhoneSyncEnabled else {
+            return false
+        }
+
         guard let record = localAlarmRecord(), record.stoppedAt == nil else {
             return false
         }

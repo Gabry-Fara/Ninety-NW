@@ -12,17 +12,17 @@ extension WatchSensorManager {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async {
             self.refreshConnectionStatus()
-            if activationState == .activated {
+            if self.isPhoneSyncEnabled, activationState == .activated {
                 self.requestAlarmSync()
+                self.flushPendingPayloadsIfNeeded(force: true)
             }
-            self.flushPendingPayloadsIfNeeded(force: true)
         }
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
         DispatchQueue.main.async {
             self.refreshConnectionStatus()
-            if session.isReachable {
+            if self.isPhoneSyncEnabled, session.isReachable {
                 self.requestAlarmSync()
             }
         }
@@ -41,6 +41,10 @@ extension WatchSensorManager {
     }
     
     func processIncomingCommand(_ payload: [String: Any]) {
+        guard isPhoneSyncEnabled else {
+            return
+        }
+
         if let action = payload["action"] as? String {
             if action == "ackPayloads" {
                 let idStrings = payload["ids"] as? [String] ?? []
